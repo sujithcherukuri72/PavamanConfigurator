@@ -4,7 +4,7 @@
         xmlns:views="using:PavamanDroneConfigurator.Views"
         x:Class="PavamanDroneConfigurator.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        
         Title="Pavaman Drone Configurator"
         Width="1400" Height="900"
         Background="#F5F5F5">
@@ -62,7 +62,13 @@
         <!-- Main Content Area -->
         <Grid Grid.Column="1" RowDefinitions="60,*">
             <!-- Header Bar with Green Gradient -->
-            <Border Grid.Row="0" Background="Linear gradient(to right, #4CAF50, #81C784)">
+            <Border Grid.Row="0">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#4CAF50" Offset="0"/>
+                        <GradientStop Color="#81C784" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
                 <TextBlock Text="PAVAMAN DRONE CONFIGURATOR" 
                           FontSize="20" FontWeight="Bold" Foreground="White"
                           VerticalAlignment="Center" Margin="24,0"/>
