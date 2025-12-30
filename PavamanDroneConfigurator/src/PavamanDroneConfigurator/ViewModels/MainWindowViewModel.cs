@@ -37,6 +37,17 @@ public class MainWindowViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _selectedSection, value);
     }
 
+    public bool IsConnectionSelected => SelectedSection == "Connection";
+    public bool IsSensorsSelected => SelectedSection == "Sensors";
+    public bool IsSafetySelected => SelectedSection == "Safety";
+    public bool IsFlightModesSelected => SelectedSection == "FlightModes";
+    public bool IsRcCalibrationSelected => SelectedSection == "RcCalibration";
+    public bool IsMotorEscSelected => SelectedSection == "MotorEsc";
+    public bool IsPowerSelected => SelectedSection == "Power";
+    public bool IsSprayingConfigSelected => SelectedSection == "SprayingConfig";
+    public bool IsPidTuningSelected => SelectedSection == "PidTuning";
+    public bool IsParametersSelected => SelectedSection == "Parameters";
+
     public ReactiveCommand<Unit, Unit> NavigateToConnectionCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToSensorsCommand { get; }
     public ReactiveCommand<Unit, Unit> NavigateToSafetyCommand { get; }
@@ -52,59 +63,83 @@ public class MainWindowViewModel : ViewModelBase
     {
         CurrentView = App.Services!.GetRequiredService<ConnectionViewModel>();
         SelectedSection = "Connection";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToSensors()
     {
         CurrentView = App.Services!.GetRequiredService<SensorsViewModel>();
         SelectedSection = "Sensors";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToSafety()
     {
         CurrentView = App.Services!.GetRequiredService<SafetyViewModel>();
         SelectedSection = "Safety";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToFlightModes()
     {
         CurrentView = App.Services!.GetRequiredService<FlightModesViewModel>();
         SelectedSection = "FlightModes";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToRcCalibration()
     {
         CurrentView = App.Services!.GetRequiredService<RcCalibrationViewModel>();
         SelectedSection = "RcCalibration";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToMotorEsc()
     {
         CurrentView = App.Services!.GetRequiredService<MotorEscViewModel>();
         SelectedSection = "MotorEsc";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToPower()
     {
         CurrentView = App.Services!.GetRequiredService<PowerViewModel>();
         SelectedSection = "Power";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToSprayingConfig()
     {
         CurrentView = App.Services!.GetRequiredService<SprayingConfigViewModel>();
         SelectedSection = "SprayingConfig";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToPidTuning()
     {
         CurrentView = App.Services!.GetRequiredService<PidTuningViewModel>();
         SelectedSection = "PidTuning";
+        RaiseNavigationPropertyChanged();
     }
 
     private void NavigateToParameters()
     {
         CurrentView = App.Services!.GetRequiredService<ParametersViewModel>();
         SelectedSection = "Parameters";
+        RaiseNavigationPropertyChanged();
+    }
+
+    private void RaiseNavigationPropertyChanged()
+    {
+        this.RaisePropertyChanged(nameof(IsConnectionSelected));
+        this.RaisePropertyChanged(nameof(IsSensorsSelected));
+        this.RaisePropertyChanged(nameof(IsSafetySelected));
+        this.RaisePropertyChanged(nameof(IsFlightModesSelected));
+        this.RaisePropertyChanged(nameof(IsRcCalibrationSelected));
+        this.RaisePropertyChanged(nameof(IsMotorEscSelected));
+        this.RaisePropertyChanged(nameof(IsPowerSelected));
+        this.RaisePropertyChanged(nameof(IsSprayingConfigSelected));
+        this.RaisePropertyChanged(nameof(IsPidTuningSelected));
+        this.RaisePropertyChanged(nameof(IsParametersSelected));
     }
 }
