@@ -34,6 +34,12 @@ public class ConnectionService : IConnectionService, IDisposable
     private const byte GroundControlSystemId = 255;
     private const byte GroundControlComponentId = 190;
     private const byte MavParamTypeReal32 = 9;
+    private const int MavlinkV1MinFrameLength = 8;
+    private const int MavlinkV2MinFrameHeaderLength = 12;
+    private const byte CrcExtraHeartbeat = 50;
+    private const byte CrcExtraParamRequestList = 122;
+    private const byte CrcExtraParamValue = 220;
+    private const byte CrcExtraParamSet = 168;
     private const int SerialPortWatcherIntervalMs = 1000;
     private const int MaxBufferBytes = 4096;
     private static readonly Regex ComPortRegex = new(@"\((COM\d+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -244,7 +250,7 @@ public class ConnectionService : IConnectionService, IDisposable
                 byte stx = _rxBuffer[0];
                 if (stx == 0xFE)
                 {
-                    if (_rxBuffer.Count < 8)
+                    if (_rxBuffer.Count < MavlinkV1MinFrameLength)
                     {
                         return;
                     }
@@ -262,7 +268,7 @@ public class ConnectionService : IConnectionService, IDisposable
                 }
                 else if (stx == 0xFD)
                 {
-                    if (_rxBuffer.Count < 12)
+                    if (_rxBuffer.Count < MavlinkV2MinFrameHeaderLength)
                     {
                         return;
                     }
@@ -815,7 +821,7 @@ public class ConnectionService : IConnectionService, IDisposable
         var targetComponent = _targetComponentId == 0 ? (byte)1 : _targetComponentId;
 
         var payload = new byte[23];
-        BitConverter.GetBytes(request.Value).CopyTo(payload, 0);
+        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), request.Value);
         payload[4] = targetSystem;
         payload[5] = targetComponent;
 
@@ -915,10 +921,10 @@ public class ConnectionService : IConnectionService, IDisposable
 
     private static byte GetCrcExtra(byte messageId) => messageId switch
     {
-        0 => 50,
-        21 => 122,
-        22 => 220,
-        23 => 168,
+        0 => CrcExtraHeartbeat,
+        21 => CrcExtraParamRequestList,
+        22 => CrcExtraParamValue,
+        23 => CrcExtraParamSet,
         _ => 0
     };
 

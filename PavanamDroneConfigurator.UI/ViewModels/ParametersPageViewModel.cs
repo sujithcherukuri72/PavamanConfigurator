@@ -58,8 +58,7 @@ public partial class ParametersPageViewModel : ViewModelBase
             {
                 // Clear parameters when disconnected
                 Parameters.Clear();
-                var wasDownloadInterrupted = _downloadInProgress && !_parameterService.IsParameterDownloadComplete;
-                StatusMessage = wasDownloadInterrupted
+                StatusMessage = _downloadInProgress && !_parameterService.IsParameterDownloadComplete
                     ? "Disconnected during parameter download - parameters unavailable"
                     : "Disconnected - Parameters cleared";
                 _downloadInProgress = false;
