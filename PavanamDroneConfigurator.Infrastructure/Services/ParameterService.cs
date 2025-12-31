@@ -128,6 +128,7 @@ public class ParameterService : IParameterService
             }
             else if (_expectedParamCount != paramCount)
             {
+                _logger.LogWarning("Parameter count changed from {Expected} to {Actual}", _expectedParamCount, paramCount);
                 _expectedParamCount = paramCount;
             }
 
@@ -138,7 +139,9 @@ public class ParameterService : IParameterService
 
             if (_parameterListCompletion != null && _expectedParamCount.HasValue)
             {
-                if (_parameters.Count >= _expectedParamCount.Value || paramIndex + 1 >= paramCount)
+                var lastIndex = paramCount == 0 ? (int?)null : paramCount - 1;
+                if (_parameters.Count >= _expectedParamCount.Value ||
+                    (lastIndex.HasValue && paramIndex >= lastIndex.Value))
                 {
                     listCompletion = _parameterListCompletion;
                     _parameterListCompletion = null;
