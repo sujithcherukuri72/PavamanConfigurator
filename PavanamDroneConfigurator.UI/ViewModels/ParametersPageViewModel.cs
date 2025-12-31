@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Core.Models;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
@@ -126,29 +127,31 @@ public partial class ParametersPageViewModel : ViewModelBase
 
     private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(async () =>
-        {
-            _downloadInProgress = _parameterService.IsParameterDownloadInProgress;
-            CanEditParameters = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
+        Dispatcher.UIThread.InvokeAsync(UpdateParameterDownloadStateAsync);
+    }
 
-            if (_parameterService.IsParameterDownloadInProgress)
-            {
-                var expected = _parameterService.ExpectedParameterCount.HasValue
-                    ? _parameterService.ExpectedParameterCount.Value.ToString()
-                    : "?";
-                StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
-            }
-            else if (_parameterService.IsParameterDownloadComplete && _connectionService.IsConnected && !_hasLoadedParameters)
-            {
-                await LoadParametersAsync();
-                StatusMessage = $"Parameters downloaded ({Parameters.Count})";
-                _hasLoadedParameters = true;
-            }
-            else if (!_connectionService.IsConnected)
-            {
-                Parameters.Clear();
-                StatusMessage = "Disconnected - Parameters cleared";
-            }
-        });
+    private async Task UpdateParameterDownloadStateAsync()
+    {
+        _downloadInProgress = _parameterService.IsParameterDownloadInProgress;
+        CanEditParameters = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
+
+        if (_parameterService.IsParameterDownloadInProgress)
+        {
+            var expected = _parameterService.ExpectedParameterCount.HasValue
+                ? _parameterService.ExpectedParameterCount.Value.ToString()
+                : "?";
+            StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
+        }
+        else if (_parameterService.IsParameterDownloadComplete && _connectionService.IsConnected && !_hasLoadedParameters)
+        {
+            await LoadParametersAsync();
+            StatusMessage = $"Parameters downloaded ({Parameters.Count})";
+            _hasLoadedParameters = true;
+        }
+        else if (!_connectionService.IsConnected)
+        {
+            Parameters.Clear();
+            StatusMessage = "Disconnected - Parameters cleared";
+        }
     }
 }
