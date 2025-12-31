@@ -13,7 +13,6 @@ public partial class ParametersPageViewModel : ViewModelBase
 {
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
-    private bool _downloadInProgress;
     private bool _hasLoadedParameters;
 
     [ObservableProperty]
@@ -48,7 +47,6 @@ public partial class ParametersPageViewModel : ViewModelBase
             if (connected)
             {
                 CanEditParameters = _parameterService.IsParameterDownloadComplete;
-                _downloadInProgress = _parameterService.IsParameterDownloadInProgress;
                 _hasLoadedParameters = false;
                 StatusMessage = _parameterService.IsParameterDownloadComplete
                     ? "Parameters ready"
@@ -58,7 +56,10 @@ public partial class ParametersPageViewModel : ViewModelBase
             {
                 // Clear parameters when disconnected
                 Parameters.Clear();
-                if (_downloadInProgress && !_parameterService.IsParameterDownloadComplete)
+                var downloadInterrupted = _parameterService.IsParameterDownloadInProgress ||
+                                          (!_parameterService.IsParameterDownloadComplete &&
+                                           _parameterService.ReceivedParameterCount > 0);
+                if (downloadInterrupted)
                 {
                     StatusMessage = "Disconnected during parameter download - parameters unavailable";
                 }
@@ -66,7 +67,6 @@ public partial class ParametersPageViewModel : ViewModelBase
                 {
                     StatusMessage = "Disconnected - Parameters cleared";
                 }
-                _downloadInProgress = false;
                 _hasLoadedParameters = false;
                 CanEditParameters = false;
             }
@@ -136,7 +136,6 @@ public partial class ParametersPageViewModel : ViewModelBase
 
     private async Task UpdateParameterDownloadStateAsync()
     {
-        _downloadInProgress = _parameterService.IsParameterDownloadInProgress;
         CanEditParameters = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
 
         if (_parameterService.IsParameterDownloadInProgress)

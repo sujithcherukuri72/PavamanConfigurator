@@ -178,14 +178,7 @@ public class ParameterService : IParameterService
         var completed = await Task.WhenAny(listCompletion.Task, timeoutTask);
         if (completed == listCompletion.Task)
         {
-            try
-            {
-                downloadTimeoutCts.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Safe to ignore if already disposed
-            }
+            downloadTimeoutCts.Cancel();
         }
         else
         {

@@ -34,6 +34,8 @@ public class ConnectionService : IConnectionService, IDisposable
     private const byte GroundControlSystemId = 255;
     private const byte GroundControlComponentId = 190;
     private const byte MavParamTypeReal32 = 9;
+    private const byte DefaultTargetSystemId = 1;
+    private const byte DefaultTargetComponentId = 1;
     private const int MavlinkV1MinFrameLength = 8;
     private const int MavlinkV2MinFrameHeaderLength = 12;
     private const byte CrcExtraHeartbeat = 50;
@@ -446,9 +448,8 @@ public class ConnectionService : IConnectionService, IDisposable
             }
 
             _parameterDownloadStarted = true;
+            _parameterDownloadTask = StartParameterDownloadAsync();
         }
-
-        _parameterDownloadTask = StartParameterDownloadAsync();
     }
 
     private async Task StartParameterDownloadAsync()
@@ -819,8 +820,8 @@ public class ConnectionService : IConnectionService, IDisposable
             return;
         }
 
-        var targetSystem = _targetSystemId == 0 ? (byte)1 : _targetSystemId;
-        var targetComponent = _targetComponentId == 0 ? (byte)1 : _targetComponentId;
+        var targetSystem = _targetSystemId == 0 ? DefaultTargetSystemId : _targetSystemId;
+        var targetComponent = _targetComponentId == 0 ? DefaultTargetComponentId : _targetComponentId;
         Span<byte> payload = stackalloc byte[2];
         payload[0] = targetSystem;
         payload[1] = targetComponent;
@@ -837,8 +838,8 @@ public class ConnectionService : IConnectionService, IDisposable
             return;
         }
 
-        var targetSystem = _targetSystemId == 0 ? (byte)1 : _targetSystemId;
-        var targetComponent = _targetComponentId == 0 ? (byte)1 : _targetComponentId;
+        var targetSystem = _targetSystemId == 0 ? DefaultTargetSystemId : _targetSystemId;
+        var targetComponent = _targetComponentId == 0 ? DefaultTargetComponentId : _targetComponentId;
 
         var payload = new byte[23];
         BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), request.Value);
