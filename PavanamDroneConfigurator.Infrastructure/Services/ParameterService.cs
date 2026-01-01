@@ -25,11 +25,14 @@ public class ParameterService : IParameterService
     private int _receivedParameterCount;
     private int _retryAttempts;
     private DateTime _lastParamValueReceived = DateTime.MinValue;
+    private bool _parameterDownloadCompletionRaised;
 
     public event EventHandler? ParameterListRequested;
     public event EventHandler<ParameterWriteRequest>? ParameterWriteRequested;
     public event EventHandler<ParameterReadRequest>? ParameterReadRequested;
     public event EventHandler<string>? ParameterUpdated;
+    public event EventHandler? ParameterDownloadStarted;
+    public event EventHandler<bool>? ParameterDownloadCompleted;
     public event EventHandler? ParameterDownloadProgressChanged;
 
     public ParameterService(ILogger<ParameterService> logger)
@@ -180,8 +183,11 @@ public class ParameterService : IParameterService
             _lastParamValueReceived = DateTime.UtcNow;
             _parameterDownloadCts = monitorCts;
             _parameterDownloadMonitorTask = MonitorParameterDownloadAsync(monitorCts.Token);
+            _parameterDownloadCompletionRaised = false;
             raiseProgressEvent = true;
         }
+
+        ParameterDownloadStarted?.Invoke(this, EventArgs.Empty);
 
         if (raiseProgressEvent)
         {
@@ -205,8 +211,10 @@ public class ParameterService : IParameterService
         else
         {
             _logger.LogWarning("Parameter list request timed out before completion");
+            bool raiseCompletedEvent = false;
             lock (_sync)
             {
+                var wasInProgress = _isParameterDownloadInProgress;
                 _receivedParamIndices.Clear();
                 _missingParamIndices.Clear();
                 _expectedParamCount = null;
@@ -216,8 +224,16 @@ public class ParameterService : IParameterService
                 _retryAttempts = 0;
                 _lastParamValueReceived = DateTime.MinValue;
                 _parameterListCompletion = null;
+                if (wasInProgress)
+                {
+                    raiseCompletedEvent = TryMarkDownloadCompleted();
+                }
             }
             StopParameterMonitoring();
+            if (raiseCompletedEvent)
+            {
+                ParameterDownloadCompleted?.Invoke(this, false);
+            }
             ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -228,6 +244,7 @@ public class ParameterService : IParameterService
         TaskCompletionSource<bool>? listCompletion = null;
         bool raiseProgress = false;
         bool stopMonitor = false;
+        bool raiseCompletedEvent = false;
         var parameterName = parameter.Name;
 
         lock (_sync)
@@ -280,6 +297,7 @@ public class ParameterService : IParameterService
                 _isParameterDownloadInProgress = false;
                 _isParameterDownloadComplete = true;
                 stopMonitor = true;
+                raiseCompletedEvent = TryMarkDownloadCompleted();
             }
             raiseProgress = true;
         }
@@ -290,11 +308,30 @@ public class ParameterService : IParameterService
         {
             StopParameterMonitoring();
         }
+        if (raiseCompletedEvent)
+        {
+            ParameterDownloadCompleted?.Invoke(this, true);
+        }
         ParameterUpdated?.Invoke(this, parameterName);
         if (raiseProgress)
         {
             ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    /// <summary>
+    /// Ensures the download completion notification is raised only once per download lifecycle.
+    /// Callers must hold <see cref="_sync"/> when invoking.
+    /// </summary>
+    private bool TryMarkDownloadCompleted()
+    {
+        if (_parameterDownloadCompletionRaised)
+        {
+            return false;
+        }
+
+        _parameterDownloadCompletionRaised = true;
+        return true;
     }
 
     private async Task MonitorParameterDownloadAsync(CancellationToken token)
@@ -310,6 +347,7 @@ public class ParameterService : IParameterService
                 bool raiseProgress = false;
                 bool stopMonitor = false;
                 bool skipProcessing = false;
+                bool raiseCompletedEvent = false;
 
                 lock (_sync)
                 {
@@ -351,6 +389,7 @@ public class ParameterService : IParameterService
                             _parameterListCompletion?.TrySetResult(true);
                             _parameterListCompletion = null;
                             stopMonitor = true;
+                            raiseCompletedEvent = TryMarkDownloadCompleted();
                         }
 
                         raiseProgress = completeDownload || missingIndices != null;
@@ -373,6 +412,11 @@ public class ParameterService : IParameterService
                 if (completeDownload && stopMonitor)
                 {
                     StopParameterMonitoring();
+                }
+
+                if (raiseCompletedEvent)
+                {
+                    ParameterDownloadCompleted?.Invoke(this, true);
                 }
 
                 if (raiseProgress)
@@ -409,9 +453,14 @@ public class ParameterService : IParameterService
         TaskCompletionSource<bool>? listCompletion;
         List<TaskCompletionSource<DroneParameter>> pendingWrites;
         bool raiseProgress = false;
+        bool raiseCompletedEvent = false;
 
         lock (_sync)
         {
+            if (_isParameterDownloadInProgress)
+            {
+                raiseCompletedEvent = TryMarkDownloadCompleted();
+            }
             listCompletion = _parameterListCompletion;
             _parameterListCompletion = null;
             pendingWrites = _pendingParamWrites.Values.ToList();
@@ -425,6 +474,7 @@ public class ParameterService : IParameterService
             _lastParamValueReceived = DateTime.MinValue;
             _isParameterDownloadInProgress = false;
             _isParameterDownloadComplete = false;
+            _parameterDownloadCompletionRaised = false;
             raiseProgress = true;
         }
 
@@ -433,6 +483,12 @@ public class ParameterService : IParameterService
         foreach (var pending in pendingWrites)
         {
             pending.TrySetCanceled();
+        }
+
+        // Reset can interrupt an in-progress download; notify listeners that the download has ended.
+        if (raiseCompletedEvent)
+        {
+            ParameterDownloadCompleted?.Invoke(this, false);
         }
 
         if (raiseProgress)

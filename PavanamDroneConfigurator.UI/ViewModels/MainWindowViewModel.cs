@@ -5,7 +5,7 @@ using PavanamDroneConfigurator.Core.Interfaces;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     [ObservableProperty]
     private ViewModelBase _currentPage;
@@ -60,33 +60,82 @@ public partial class MainWindowViewModel : ViewModelBase
         _parameterService = parameterService;
         _connectionService = connectionService;
 
-        _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
+        _parameterService.ParameterDownloadStarted += OnParameterDownloadStarted;
+        _parameterService.ParameterDownloadCompleted += OnParameterDownloadCompleted;
+        _parameterService.ParameterUpdated += OnParameterUpdated;
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
-        UpdateParameterDownloadState();
+        InitializeFromServices();
 
         _currentPage = connectionPage;
     }
 
-    private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
+    private void OnParameterDownloadStarted(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(UpdateParameterDownloadState);
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsParameterDownloadInProgress = true;
+            IsParameterDownloadComplete = false;
+            UpdateProgress();
+            UpdateAccessPermissions();
+        });
+    }
+
+    private void OnParameterDownloadCompleted(object? sender, bool completedSuccessfully)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsParameterDownloadInProgress = false;
+            IsParameterDownloadComplete = completedSuccessfully;
+            UpdateProgress();
+            UpdateAccessPermissions();
+        });
+    }
+
+    private void OnParameterUpdated(object? sender, string parameterName)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsParameterDownloadInProgress)
+            {
+                UpdateProgress();
+            }
+        });
     }
 
     private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        Dispatcher.UIThread.Post(UpdateParameterDownloadState);
+        Dispatcher.UIThread.Post(UpdateAccessPermissions);
     }
 
-    private void UpdateParameterDownloadState()
+    private void InitializeFromServices()
     {
         IsParameterDownloadInProgress = _parameterService.IsParameterDownloadInProgress;
         IsParameterDownloadComplete = _parameterService.IsParameterDownloadComplete;
+        UpdateProgress();
+        UpdateAccessPermissions();
+    }
+
+    private void UpdateProgress()
+    {
         ParameterDownloadReceived = _parameterService.ReceivedParameterCount;
         ParameterDownloadExpected = _parameterService.ExpectedParameterCount;
         var expectedText = ParameterDownloadExpected.HasValue ? ParameterDownloadExpected.Value.ToString() : "?";
         ParameterDownloadStatusText = $"{ParameterDownloadReceived}/{expectedText}";
-        var parametersReady = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
-        CanAccessParameters = parametersReady;
-        CanAccessAirframe = parametersReady;
+    }
+
+    private void UpdateAccessPermissions()
+    {
+        var connected = _connectionService.IsConnected;
+        var parametersReady = _parameterService.IsParameterDownloadComplete;
+        CanAccessParameters = connected && parametersReady;
+        CanAccessAirframe = connected && parametersReady;
+    }
+
+    public void Dispose()
+    {
+        _parameterService.ParameterDownloadStarted -= OnParameterDownloadStarted;
+        _parameterService.ParameterDownloadCompleted -= OnParameterDownloadCompleted;
+        _parameterService.ParameterUpdated -= OnParameterUpdated;
+        _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
     }
 }

@@ -12,6 +12,8 @@ public interface IParameterService
     event EventHandler<ParameterWriteRequest>? ParameterWriteRequested;
     event EventHandler<ParameterReadRequest>? ParameterReadRequested;
     event EventHandler<string>? ParameterUpdated;
+    event EventHandler? ParameterDownloadStarted;
+    event EventHandler<bool>? ParameterDownloadCompleted;
     bool IsParameterDownloadInProgress { get; }
     bool IsParameterDownloadComplete { get; }
     int ReceivedParameterCount { get; }
