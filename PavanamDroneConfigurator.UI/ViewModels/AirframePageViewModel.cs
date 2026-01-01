@@ -118,17 +118,14 @@ public partial class AirframePageViewModel : ViewModelBase
             StatusMessage = $"Applying {SelectedAirframe.Name}...";
 
             var frameClassResult = await _parameterService.SetParameterAsync("FRAME_CLASS", SelectedAirframe.FrameClass);
-            if (!frameClassResult)
+            var frameTypeResult = false;
+            if (frameClassResult)
             {
-                StatusMessage = $"Failed to apply {SelectedAirframe.Name}.";
-                _showingApplyResult = true;
-                return;
-            }
-
-            var frameTypeResult = true;
-            if (SelectedAirframe.FrameType.HasValue)
-            {
-                frameTypeResult = await _parameterService.SetParameterAsync("FRAME_TYPE", SelectedAirframe.FrameType.Value);
+                frameTypeResult = true;
+                if (SelectedAirframe.FrameType.HasValue)
+                {
+                    frameTypeResult = await _parameterService.SetParameterAsync("FRAME_TYPE", SelectedAirframe.FrameType.Value);
+                }
             }
 
             if (frameClassResult && frameTypeResult)
@@ -284,7 +281,7 @@ public partial class AirframePageViewModel : ViewModelBase
 
     private static AirframeOption? FindMatchingAirframe(IEnumerable<AirframeOption> candidates, int? frameTypeValue)
     {
-        var filtered = candidates as IList<AirframeOption> ?? candidates.ToList();
+        var filtered = candidates.ToList();
         if (filtered.Count == 0)
         {
             return null;
@@ -302,7 +299,7 @@ public partial class AirframePageViewModel : ViewModelBase
         var hasFrameTypeValues = filtered.Any(a => a.FrameType.HasValue);
         if (!frameTypeValue.HasValue && !hasFrameTypeValues)
         {
-            return filtered[0];
+            return filtered.First();
         }
 
         if (filtered.Count == 1)
