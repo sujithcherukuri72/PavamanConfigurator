@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PavanamDroneConfigurator.Core.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -239,26 +240,18 @@ public partial class AirframePageViewModel : ViewModelBase
 
             var frameClassValue = (int)frameClassParam.Value;
             var frameTypeValue = frameTypeParam != null ? (int?)frameTypeParam.Value : null;
-            var candidates = Airframes.Where(a => a.FrameClass == frameClassValue).ToList();
+            var candidates = Airframes.Where(a => a.FrameClass == frameClassValue);
 
-            AirframeOption? match = null;
-            if (candidates.Count == 1 && !candidates[0].FrameType.HasValue)
-            {
-                match = candidates[0];
-            }
-            else if (frameTypeValue.HasValue)
-            {
-                match = candidates.FirstOrDefault(a =>
-                    a.FrameType.HasValue && a.FrameType.Value == frameTypeValue.Value);
-            }
-            else if (candidates.All(a => !a.FrameType.HasValue) && candidates.Count > 0)
-            {
-                match = candidates.First();
-            }
+            var match = FindMatchingAirframe(candidates, frameClassValue, frameTypeValue);
 
             if (match != null)
             {
-                if (!ReferenceEquals(SelectedAirframe, match))
+                var selectionMatches = SelectedAirframe != null &&
+                                       SelectedAirframe.FrameClass == match.FrameClass &&
+                                       SelectedAirframe.FrameType == match.FrameType &&
+                                       SelectedAirframe.Name == match.Name;
+
+                if (!selectionMatches)
                 {
                     _isSyncingSelectionFromParams = true;
                     SelectedAirframe = match;
@@ -287,5 +280,36 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
             }
         });
+    }
+
+    private static AirframeOption? FindMatchingAirframe(IEnumerable<AirframeOption> candidates, int frameClassValue, int? frameTypeValue)
+    {
+        var filtered = candidates.Where(a => a.FrameClass == frameClassValue).ToList();
+        if (filtered.Count == 0)
+        {
+            return null;
+        }
+
+        if (frameTypeValue.HasValue)
+        {
+            var typedMatch = filtered.FirstOrDefault(a =>
+                a.FrameType.HasValue && a.FrameType.Value == frameTypeValue.Value);
+            if (typedMatch != null)
+            {
+                return typedMatch;
+            }
+        }
+
+        if (!frameTypeValue.HasValue && filtered.All(a => !a.FrameType.HasValue))
+        {
+            return filtered.First();
+        }
+
+        if (filtered.Count == 1 && !filtered[0].FrameType.HasValue)
+        {
+            return filtered[0];
+        }
+
+        return null;
     }
 }
