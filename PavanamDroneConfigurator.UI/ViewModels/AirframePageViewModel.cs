@@ -113,7 +113,7 @@ public partial class AirframePageViewModel : ViewModelBase
         _connectionService = connectionService;
 
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
-        _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
+        _parameterService.ParameterUpdated += OnParameterUpdated;
 
         UpdateAvailability();
     }
@@ -254,16 +254,20 @@ public partial class AirframePageViewModel : ViewModelBase
         Dispatcher.UIThread.Post(UpdateAvailability);
     }
 
-    private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
+    private void OnParameterUpdated(object? sender, string parameterName)
     {
-        Dispatcher.UIThread.Post(UpdateAvailability);
+        if (!IsFrameParameter(parameterName))
+        {
+            return;
+        }
+
+        _ = SyncFromParametersAsync(forceStatusUpdate: true);
     }
 
     private void UpdateAvailability()
     {
         var connected = _connectionService.IsConnected;
-        var parametersReady = _parameterService.IsParameterDownloadComplete;
-        IsPageEnabled = connected && parametersReady;
+        IsPageEnabled = connected;
 
         if (!connected)
         {
@@ -271,30 +275,11 @@ public partial class AirframePageViewModel : ViewModelBase
             return;
         }
 
-        if (!parametersReady)
-        {
-            var expected = _parameterService.ExpectedParameterCount.HasValue
-                ? _parameterService.ExpectedParameterCount.Value.ToString()
-                : "?";
-            StatusMessage = _parameterService.IsParameterDownloadInProgress
-                ? $"Waiting for parameters... {_parameterService.ReceivedParameterCount}/{expected}"
-                : "Parameter download not complete.";
-            return;
-        }
-
-        if (!IsApplying)
-        {
-            _ = SyncFromParametersAsync(forceStatusUpdate: false);
-        }
+        _ = SyncFromParametersAsync(forceStatusUpdate: true);
     }
 
     private async Task SyncFromParametersAsync(bool forceStatusUpdate)
     {
-        if (!_connectionService.IsConnected || !_parameterService.IsParameterDownloadComplete || IsApplying)
-        {
-            return;
-        }
-
         var frameClassParam = await _parameterService.GetParameterAsync("FRAME_CLASS");
         var frameTypeParam = await _parameterService.GetParameterAsync("FRAME_TYPE");
 
@@ -314,7 +299,7 @@ public partial class AirframePageViewModel : ViewModelBase
                 ? FrameTypes.FirstOrDefault(t => t.Value == frameTypeValue.Value)
                 : null;
 
-            if (forceStatusUpdate || !IsApplying)
+            if (forceStatusUpdate)
             {
                 if (frameClassValue.HasValue)
                 {
@@ -323,7 +308,7 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
                 else
                 {
-                    StatusMessage = "FRAME_CLASS not available in cache.";
+                    StatusMessage = "Waiting for parameters...";
                 }
             }
 
@@ -331,6 +316,12 @@ public partial class AirframePageViewModel : ViewModelBase
             OnPropertyChanged(nameof(CanUpdate));
             OnPropertyChanged(nameof(IsFrameTypeEnabled));
         });
+    }
+
+    private static bool IsFrameParameter(string parameterName)
+    {
+        return parameterName.Equals("FRAME_CLASS", StringComparison.OrdinalIgnoreCase) ||
+               parameterName.Equals("FRAME_TYPE", StringComparison.OrdinalIgnoreCase);
     }
 
     private void BuildFrameTypeOptions(int? currentTypeValue)
