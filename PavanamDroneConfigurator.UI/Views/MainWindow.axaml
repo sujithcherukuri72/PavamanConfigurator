@@ -15,6 +15,7 @@
         <Border Grid.Column="0" Background="#2C3E50" Padding="10">
             <StackPanel Spacing="5">
                 <Button Content="Connection" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ConnectionPage}" CommandParameter="{Binding ConnectionPage}" Click="NavButton_Click" />
+                <Button Content="Airframe" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).AirframePage}" CommandParameter="{Binding AirframePage}" Click="NavButton_Click" IsEnabled="{Binding CanAccessAirframe}" />
                 <Button Content="Parameters" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ParametersPage}" CommandParameter="{Binding ParametersPage}" Click="NavButton_Click" IsEnabled="{Binding CanAccessParameters}" />
                 <Button Content="Calibration" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).CalibrationPage}" CommandParameter="{Binding CalibrationPage}" Click="NavButton_Click" />
                 <Button Content="Safety" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).SafetyPage}" CommandParameter="{Binding SafetyPage}" Click="NavButton_Click" />
@@ -30,6 +31,9 @@
                 </DataTemplate>
                 <DataTemplate DataType="vm:ParametersPageViewModel">
                     <views:ParametersPage />
+                </DataTemplate>
+                <DataTemplate DataType="vm:AirframePageViewModel">
+                    <views:AirframePage />
                 </DataTemplate>
                 <DataTemplate DataType="vm:CalibrationPageViewModel">
                     <views:CalibrationPage />
