@@ -120,7 +120,11 @@ public partial class AirframePageViewModel : ViewModelBase
 
             var frameClassResult = await _parameterService.SetParameterAsync("FRAME_CLASS", SelectedAirframe.FrameClass);
             var frameTypeResult = !SelectedAirframe.FrameType.HasValue;
-            if (frameClassResult && SelectedAirframe.FrameType.HasValue)
+            if (!frameClassResult)
+            {
+                frameTypeResult = false;
+            }
+            else if (SelectedAirframe.FrameType.HasValue)
             {
                 frameTypeResult = await _parameterService.SetParameterAsync("FRAME_TYPE", SelectedAirframe.FrameType.Value);
             }
@@ -225,14 +229,12 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
                 if (SelectedAirframe != null)
                 {
-                    _isSyncingSelectionFromParams = true;
-                    SelectedAirframe = null;
-                    _isSyncingSelectionFromParams = false;
+                    SetSelectedAirframeFromSync(null);
                 }
                 return;
             }
 
-            if (!int.TryParse(frameClassParam.Value.ToString(CultureInfo.InvariantCulture), out var frameClassValue))
+            if (!TryParseParameterValue(frameClassParam.Value, out var frameClassValue))
             {
                 if (!IsApplying)
                 {
@@ -240,9 +242,7 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
                 if (SelectedAirframe != null)
                 {
-                    _isSyncingSelectionFromParams = true;
-                    SelectedAirframe = null;
-                    _isSyncingSelectionFromParams = false;
+                    SetSelectedAirframeFromSync(null);
                 }
                 return;
             }
@@ -250,7 +250,7 @@ public partial class AirframePageViewModel : ViewModelBase
             int? frameTypeValue = null;
             if (frameTypeParam != null)
             {
-                if (int.TryParse(frameTypeParam.Value.ToString(CultureInfo.InvariantCulture), out var parsedFrameType))
+                if (TryParseParameterValue(frameTypeParam.Value, out var parsedFrameType))
                 {
                     frameTypeValue = parsedFrameType;
                 }
@@ -262,9 +262,7 @@ public partial class AirframePageViewModel : ViewModelBase
                     }
                     if (SelectedAirframe != null)
                     {
-                        _isSyncingSelectionFromParams = true;
-                        SelectedAirframe = null;
-                        _isSyncingSelectionFromParams = false;
+                        SetSelectedAirframeFromSync(null);
                     }
                     return;
                 }
@@ -283,9 +281,7 @@ public partial class AirframePageViewModel : ViewModelBase
 
                 if (!selectionMatches)
                 {
-                    _isSyncingSelectionFromParams = true;
-                    SelectedAirframe = match;
-                    _isSyncingSelectionFromParams = false;
+                    SetSelectedAirframeFromSync(match);
                 }
 
                 if (!IsApplying)
@@ -297,9 +293,7 @@ public partial class AirframePageViewModel : ViewModelBase
             {
                 if (SelectedAirframe != null)
                 {
-                    _isSyncingSelectionFromParams = true;
-                    SelectedAirframe = null;
-                    _isSyncingSelectionFromParams = false;
+                    SetSelectedAirframeFromSync(null);
                 }
 
                 if (!IsApplying)
@@ -310,6 +304,18 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
             }
         });
+    }
+
+    private void SetSelectedAirframeFromSync(AirframeOption? airframe)
+    {
+        _isSyncingSelectionFromParams = true;
+        SelectedAirframe = airframe;
+        _isSyncingSelectionFromParams = false;
+    }
+
+    private static bool TryParseParameterValue(float value, out int parsed)
+    {
+        return int.TryParse(value.ToString(CultureInfo.InvariantCulture), out parsed);
     }
 
     private static AirframeOption? FindMatchingAirframe(IEnumerable<AirframeOption> candidates, int? frameTypeValue)
