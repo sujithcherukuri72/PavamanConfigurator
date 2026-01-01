@@ -167,7 +167,6 @@ public class ParameterService : IParameterService
 
         TaskCompletionSource<bool>? listCompletion;
         bool raiseProgressEvent;
-        bool raiseStartedEvent = false;
         StopParameterMonitoring();
         var monitorCts = new CancellationTokenSource();
         lock (_sync)
@@ -186,13 +185,9 @@ public class ParameterService : IParameterService
             _parameterDownloadMonitorTask = MonitorParameterDownloadAsync(monitorCts.Token);
             _parameterDownloadCompletionRaised = false;
             raiseProgressEvent = true;
-            raiseStartedEvent = true;
         }
 
-        if (raiseStartedEvent)
-        {
-            ParameterDownloadStarted?.Invoke(this, EventArgs.Empty);
-        }
+        ParameterDownloadStarted?.Invoke(this, EventArgs.Empty);
 
         if (raiseProgressEvent)
         {
@@ -486,6 +481,7 @@ public class ParameterService : IParameterService
             pending.TrySetCanceled();
         }
 
+        // Reset can interrupt an in-progress download; surface completion so listeners can close progress UI.
         if (raiseCompletedEvent)
         {
             ParameterDownloadCompleted?.Invoke(this, EventArgs.Empty);
