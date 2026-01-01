@@ -44,6 +44,7 @@ public partial class App : Application
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<ConnectionPageViewModel>();
+        services.AddTransient<AirframePageViewModel>();
         services.AddTransient<ParametersPageViewModel>();
         services.AddTransient<CalibrationPageViewModel>();
         services.AddTransient<SafetyPageViewModel>();

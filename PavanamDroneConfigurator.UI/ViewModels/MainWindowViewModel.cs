@@ -28,7 +28,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canAccessParameters;
 
+    [ObservableProperty]
+    private bool _canAccessAirframe;
+
     public ConnectionPageViewModel ConnectionPage { get; }
+    public AirframePageViewModel AirframePage { get; }
     public ParametersPageViewModel ParametersPage { get; }
     public CalibrationPageViewModel CalibrationPage { get; }
     public SafetyPageViewModel SafetyPage { get; }
@@ -39,6 +43,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel(
         ConnectionPageViewModel connectionPage,
+        AirframePageViewModel airframePage,
         ParametersPageViewModel parametersPage,
         CalibrationPageViewModel calibrationPage,
         SafetyPageViewModel safetyPage,
@@ -47,6 +52,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IConnectionService connectionService)
     {
         ConnectionPage = connectionPage;
+        AirframePage = airframePage;
         ParametersPage = parametersPage;
         CalibrationPage = calibrationPage;
         SafetyPage = safetyPage;
@@ -79,6 +85,8 @@ public partial class MainWindowViewModel : ViewModelBase
         ParameterDownloadExpected = _parameterService.ExpectedParameterCount;
         var expectedText = ParameterDownloadExpected.HasValue ? ParameterDownloadExpected.Value.ToString() : "?";
         ParameterDownloadStatusText = $"{ParameterDownloadReceived}/{expectedText}";
-        CanAccessParameters = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
+        var parametersReady = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
+        CanAccessParameters = parametersReady;
+        CanAccessAirframe = parametersReady;
     }
 }
