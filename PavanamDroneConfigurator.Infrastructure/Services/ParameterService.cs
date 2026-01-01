@@ -219,6 +219,7 @@ public class ParameterService : IParameterService
             bool raiseCompletedEvent = false;
             lock (_sync)
             {
+                var wasInProgress = _isParameterDownloadInProgress;
                 _receivedParamIndices.Clear();
                 _missingParamIndices.Clear();
                 _expectedParamCount = null;
@@ -228,7 +229,10 @@ public class ParameterService : IParameterService
                 _retryAttempts = 0;
                 _lastParamValueReceived = DateTime.MinValue;
                 _parameterListCompletion = null;
-                raiseCompletedEvent = TryMarkDownloadCompleted();
+                if (wasInProgress)
+                {
+                    raiseCompletedEvent = TryMarkDownloadCompleted();
+                }
             }
             StopParameterMonitoring();
             if (raiseCompletedEvent)
@@ -454,7 +458,7 @@ public class ParameterService : IParameterService
 
         lock (_sync)
         {
-            raiseCompletedEvent = _isParameterDownloadInProgress || _isParameterDownloadComplete;
+            raiseCompletedEvent = _isParameterDownloadInProgress;
             listCompletion = _parameterListCompletion;
             _parameterListCompletion = null;
             pendingWrites = _pendingParamWrites.Values.ToList();
