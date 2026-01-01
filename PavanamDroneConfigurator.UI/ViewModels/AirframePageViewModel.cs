@@ -5,6 +5,7 @@ using PavanamDroneConfigurator.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -118,14 +119,10 @@ public partial class AirframePageViewModel : ViewModelBase
             StatusMessage = $"Applying {SelectedAirframe.Name}...";
 
             var frameClassResult = await _parameterService.SetParameterAsync("FRAME_CLASS", SelectedAirframe.FrameClass);
-            var frameTypeResult = false;
-            if (frameClassResult)
+            var frameTypeResult = !SelectedAirframe.FrameType.HasValue;
+            if (frameClassResult && SelectedAirframe.FrameType.HasValue)
             {
-                frameTypeResult = true;
-                if (SelectedAirframe.FrameType.HasValue)
-                {
-                    frameTypeResult = await _parameterService.SetParameterAsync("FRAME_TYPE", SelectedAirframe.FrameType.Value);
-                }
+                frameTypeResult = await _parameterService.SetParameterAsync("FRAME_TYPE", SelectedAirframe.FrameType.Value);
             }
 
             if (frameClassResult && frameTypeResult)
@@ -235,8 +232,44 @@ public partial class AirframePageViewModel : ViewModelBase
                 return;
             }
 
-            var frameClassValue = (int)frameClassParam.Value;
-            var frameTypeValue = frameTypeParam != null ? (int?)frameTypeParam.Value : null;
+            if (!int.TryParse(frameClassParam.Value.ToString(CultureInfo.InvariantCulture), out var frameClassValue))
+            {
+                if (!IsApplying)
+                {
+                    StatusMessage = "FRAME_CLASS parameter is not numeric.";
+                }
+                if (SelectedAirframe != null)
+                {
+                    _isSyncingSelectionFromParams = true;
+                    SelectedAirframe = null;
+                    _isSyncingSelectionFromParams = false;
+                }
+                return;
+            }
+
+            int? frameTypeValue = null;
+            if (frameTypeParam != null)
+            {
+                if (int.TryParse(frameTypeParam.Value.ToString(CultureInfo.InvariantCulture), out var parsedFrameType))
+                {
+                    frameTypeValue = parsedFrameType;
+                }
+                else
+                {
+                    if (!IsApplying)
+                    {
+                        StatusMessage = "FRAME_TYPE parameter is not numeric.";
+                    }
+                    if (SelectedAirframe != null)
+                    {
+                        _isSyncingSelectionFromParams = true;
+                        SelectedAirframe = null;
+                        _isSyncingSelectionFromParams = false;
+                    }
+                    return;
+                }
+            }
+
             var candidates = Airframes.Where(a => a.FrameClass == frameClassValue);
 
             var match = FindMatchingAirframe(candidates, frameTypeValue);
