@@ -125,8 +125,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void UpdateAccessPermissions()
     {
-        var parametersReady = IsParameterDownloadComplete;
         var connected = _connectionService.IsConnected;
+        var parametersReady = _parameterService.IsParameterDownloadComplete || IsParameterDownloadComplete;
         CanAccessParameters = connected && parametersReady;
         CanAccessAirframe = connected && parametersReady;
     }

@@ -458,7 +458,10 @@ public class ParameterService : IParameterService
 
         lock (_sync)
         {
-            raiseCompletedEvent = _isParameterDownloadInProgress;
+            if (_isParameterDownloadInProgress)
+            {
+                raiseCompletedEvent = TryMarkDownloadCompleted();
+            }
             listCompletion = _parameterListCompletion;
             _parameterListCompletion = null;
             pendingWrites = _pendingParamWrites.Values.ToList();
