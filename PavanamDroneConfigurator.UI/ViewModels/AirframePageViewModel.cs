@@ -309,24 +309,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.InvokeAsync(async () =>
-        {
-            await UpdatePageEnabledAsync();
-
-            if (!_connectionService.IsConnected)
-            {
-                return;
-            }
-
-            if (_parameterService.IsParameterDownloadInProgress)
-            {
-                StatusMessage = BuildParameterDownloadStatus();
-            }
-            else if (_parameterService.IsParameterDownloadComplete)
-            {
-                ScheduleSyncFromParameters(forceStatusUpdate: true);
-            }
-        });
+        Dispatcher.UIThread.Post(() => _ = UpdateAvailabilityAsync());
     }
 
     private async Task SyncFromParametersAsync(bool forceStatusUpdate, CancellationToken cancellationToken = default)
@@ -470,8 +453,8 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void ApplyPageEnabled(bool hasCachedFrameClass)
     {
-        IsPageEnabled = _connectionService.IsConnected &&
-                        (_parameterService.IsParameterDownloadComplete || hasCachedFrameClass);
+        var hasRequiredParameters = _parameterService.IsParameterDownloadComplete || hasCachedFrameClass;
+        IsPageEnabled = _connectionService.IsConnected && hasRequiredParameters;
     }
 
     private static bool IsFrameParameter(string parameterName)
