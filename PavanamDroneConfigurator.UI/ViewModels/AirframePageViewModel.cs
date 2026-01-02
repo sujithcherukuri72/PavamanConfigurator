@@ -315,7 +315,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
                 StatusMessage = BuildParameterDownloadStatus();
             }
 
-            if (_parameterService.IsParameterDownloadComplete)
+            else if (_parameterService.IsParameterDownloadComplete)
             {
                 ScheduleSyncFromParameters(forceStatusUpdate: true);
             }
@@ -450,7 +450,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         var expectedText = _parameterService.ExpectedParameterCount.HasValue
             ? _parameterService.ExpectedParameterCount.Value.ToString()
             : "?";
-        return $"Downloading parameters… ({_parameterService.ReceivedParameterCount} / {expectedText})";
+        return $"Downloading parameters... ({_parameterService.ReceivedParameterCount} / {expectedText})";
     }
 
     private static bool IsFrameParameter(string parameterName)
