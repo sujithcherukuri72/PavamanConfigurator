@@ -1,5 +1,6 @@
 using PavanamDroneConfigurator.Core.Models;
 using System.Collections.Generic;
+using System.IO;
 
 namespace PavanamDroneConfigurator.Core.Interfaces;
 
@@ -11,4 +12,6 @@ public interface IConnectionService
     event EventHandler<bool>? ConnectionStateChanged;
     IEnumerable<string> GetAvailableSerialPorts();
     event EventHandler<IEnumerable<string>>? AvailableSerialPortsChanged;
+    void RegisterParameterService(IParameterService parameterService);
+    Stream? GetTransportStream();
 }

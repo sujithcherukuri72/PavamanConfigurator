@@ -56,7 +56,6 @@ public partial class ParametersPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Error handling connection state: {ex.Message}";
-            // In production, this should be logged via ILogger
         }
     }
 
@@ -69,14 +68,21 @@ public partial class ParametersPageViewModel : ViewModelBase
             return;
         }
 
-        StatusMessage = "Loading parameters...";
-        var parameters = await _parameterService.GetAllParametersAsync();
-        Parameters.Clear();
-        foreach (var p in parameters)
+        try
         {
-            Parameters.Add(p);
+            StatusMessage = "Loading parameters...";
+            var parameters = await _parameterService.GetAllParametersAsync();
+            Parameters.Clear();
+            foreach (var p in parameters)
+            {
+                Parameters.Add(p);
+            }
+            StatusMessage = $"Loaded {Parameters.Count} parameters";
         }
-        StatusMessage = $"Loaded {Parameters.Count} parameters";
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading parameters: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -88,9 +94,16 @@ public partial class ParametersPageViewModel : ViewModelBase
             return;
         }
 
-        StatusMessage = "Refreshing parameters...";
-        await _parameterService.RefreshParametersAsync();
-        await LoadParametersAsync();
+        try
+        {
+            StatusMessage = "Refreshing parameters...";
+            await _parameterService.RefreshParametersAsync();
+            await LoadParametersAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error refreshing parameters: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -102,10 +115,40 @@ public partial class ParametersPageViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedParameter != null)
+        if (SelectedParameter == null)
         {
-            await _parameterService.SetParameterAsync(SelectedParameter.Name, SelectedParameter.Value);
-            StatusMessage = $"Saved {SelectedParameter.Name} = {SelectedParameter.Value}";
+            StatusMessage = "No parameter selected.";
+            return;
         }
+
+        try
+        {
+            StatusMessage = $"Saving {SelectedParameter.Name} = {SelectedParameter.Value}...";
+            
+            var success = await _parameterService.SetParameterAsync(SelectedParameter.Name, SelectedParameter.Value);
+            
+            if (success)
+            {
+                StatusMessage = $"? Successfully saved {SelectedParameter.Name} = {SelectedParameter.Value}";
+            }
+            else
+            {
+                StatusMessage = $"? Failed to save {SelectedParameter.Name}. Timeout or not acknowledged.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"? Error saving parameter: {ex.Message}";
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // Unsubscribe from events to prevent memory leaks
+            _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+        }
+        base.Dispose(disposing);
     }
 }

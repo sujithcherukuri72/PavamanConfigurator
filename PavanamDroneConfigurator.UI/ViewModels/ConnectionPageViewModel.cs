@@ -15,7 +15,6 @@ public partial class ConnectionPageViewModel : ViewModelBase
 {
     private readonly IConnectionService _connectionService;
     private readonly ITelemetryService _telemetryService;
-    private readonly IParameterService _parameterService;
 
     [ObservableProperty]
     private ObservableCollection<string> _availableSerialPorts = new();
@@ -52,12 +51,10 @@ public partial class ConnectionPageViewModel : ViewModelBase
 
     public ConnectionPageViewModel(
         IConnectionService connectionService, 
-        ITelemetryService telemetryService,
-        IParameterService parameterService)
+        ITelemetryService telemetryService)
     {
         _connectionService = connectionService;
         _telemetryService = telemetryService;
-        _parameterService = parameterService;
 
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
         _connectionService.AvailableSerialPortsChanged += OnAvailableSerialPortsChanged;
@@ -92,7 +89,7 @@ public partial class ConnectionPageViewModel : ViewModelBase
         });
     }
 
-    private async void OnConnectionStateChanged(object? sender, bool connected)
+    private void OnConnectionStateChanged(object? sender, bool connected)
     {
         try
         {
@@ -104,11 +101,6 @@ public partial class ConnectionPageViewModel : ViewModelBase
             {
                 // Start telemetry when connected
                 _telemetryService.Start();
-                
-                // Load parameters when connected
-                StatusMessage = "Connected - Loading parameters...";
-                await _parameterService.RefreshParametersAsync();
-                StatusMessage = "Connected - Parameters loaded";
             }
             else
             {
@@ -122,7 +114,6 @@ public partial class ConnectionPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Error during connection state change: {ex.Message}";
-            // In production, this should be logged via ILogger
         }
     }
 

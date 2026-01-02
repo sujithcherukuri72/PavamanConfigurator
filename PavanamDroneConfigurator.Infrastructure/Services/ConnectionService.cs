@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +16,7 @@ namespace PavanamDroneConfigurator.Infrastructure.Services;
 public class ConnectionService : IConnectionService, IDisposable
 {
     private readonly ILogger<ConnectionService> _logger;
+    private IParameterService? _parameterService;
     private SerialPort? _serialPort;
     private TcpClient? _tcpClient;
     private bool _isConnected;
@@ -46,6 +48,11 @@ public class ConnectionService : IConnectionService, IDisposable
         _logger = logger;
         _availablePorts = SerialPort.GetPortNames().OrderBy(p => p).ToArray();
         StartSerialPortWatcher();
+    }
+
+    public void RegisterParameterService(IParameterService parameterService)
+    {
+        _parameterService = parameterService;
     }
 
     public async Task<bool> ConnectAsync(ConnectionSettings settings)
@@ -241,9 +248,21 @@ public class ConnectionService : IConnectionService, IDisposable
                     byte componentId = _rxBuffer[4];
                     byte messageId = _rxBuffer[5];
 
+                    // Extract payload
+                    byte[] payload = new byte[payloadLen];
+                    for (int i = 0; i < payloadLen; i++)
+                    {
+                        payload[i] = _rxBuffer[6 + i];
+                    }
+
+                    // Process different message types
                     if (messageId == 0)
                     {
                         OnHeartbeatReceived(systemId, componentId);
+                    }
+                    else if (messageId == 22) // PARAM_VALUE
+                    {
+                        ProcessParameterValue(payload);
                     }
 
                     _rxBuffer.RemoveRange(0, frameLength);
@@ -270,9 +289,21 @@ public class ConnectionService : IConnectionService, IDisposable
                     byte componentId = _rxBuffer[6];
                     int messageId = _rxBuffer[7] | (_rxBuffer[8] << 8) | (_rxBuffer[9] << 16);
 
+                    // Extract payload
+                    byte[] payload = new byte[payloadLen];
+                    for (int i = 0; i < payloadLen; i++)
+                    {
+                        payload[i] = _rxBuffer[10 + i];
+                    }
+
+                    // Process different message types
                     if (messageId == 0)
                     {
                         OnHeartbeatReceived(systemId, componentId);
+                    }
+                    else if (messageId == 22) // PARAM_VALUE
+                    {
+                        ProcessParameterValue(payload);
                     }
 
                     _rxBuffer.RemoveRange(0, frameLength);
@@ -282,6 +313,45 @@ public class ConnectionService : IConnectionService, IDisposable
                     _rxBuffer.RemoveAt(0);
                 }
             }
+        }
+    }
+
+    private void ProcessParameterValue(byte[] payload)
+    {
+        try
+        {
+            if (payload.Length < 25) // PARAM_VALUE payload is 25 bytes
+            {
+                _logger.LogWarning("Invalid PARAM_VALUE payload length: {Length}", payload.Length);
+                return;
+            }
+
+            // Parse PARAM_VALUE message
+            // MAVLink 1.0 PARAM_VALUE structure:
+            // - param_value: float (bytes 0-3)
+            // - param_count: uint16_t (bytes 4-5)
+            // - param_index: uint16_t (bytes 6-7)
+            // - param_id: char[16] (bytes 8-23)
+            // - param_type: uint8_t (byte 24)
+            
+            float value = BitConverter.ToSingle(payload, 0);
+            ushort count = BitConverter.ToUInt16(payload, 4);
+            ushort index = BitConverter.ToUInt16(payload, 6);
+            
+            // Extract parameter name (null-terminated)
+            byte[] paramIdBytes = new byte[16];
+            Array.Copy(payload, 8, paramIdBytes, 0, 16);
+            string paramId = Encoding.ASCII.GetString(paramIdBytes).TrimEnd('\0');
+
+            _logger.LogInformation("Received PARAM_VALUE: {Name} = {Value} (index {Index}/{Count})", 
+                paramId, value, index + 1, count);
+
+            // Forward to ParameterService
+            _parameterService?.OnParameterValueReceived(paramId, value, index, count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing PARAM_VALUE message");
         }
     }
 
@@ -309,7 +379,7 @@ public class ConnectionService : IConnectionService, IDisposable
 
     private void OnHeartbeatReceived(byte systemId, byte componentId)
     {
-        // Ignore invalid or GCS-originated heartbeats (Day-2 requirement: systemId > 0 and componentId must not be the GCS)
+        // Ignore invalid or GCS-originated heartbeats
         if (systemId == 0 || componentId == GroundControlComponentId)
         {
             return;
@@ -513,6 +583,13 @@ public class ConnectionService : IConnectionService, IDisposable
             _logger.LogWarning("Active serial port {Port} disappeared. Disconnecting.", _activeSerialPortName);
             await DisconnectAsync().ConfigureAwait(false);
         }
+    }
+
+    public Stream? GetTransportStream()
+    {
+        return _activeConnectionType == ConnectionType.Tcp
+            ? _tcpClient?.GetStream()
+            : _serialPort?.BaseStream;
     }
 
     public void Dispose()
