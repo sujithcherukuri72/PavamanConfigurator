@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,7 +101,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
         if (IsPageEnabled)
         {
-            _ = SyncAllFromCacheAsync();
+            RunSafe(SyncAllFromCacheAsync);
         }
     }
 
@@ -112,7 +113,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             if (IsPageEnabled)
             {
                 StatusMessage = "Safety parameters loaded.";
-                _ = SyncAllFromCacheAsync();
+                RunSafe(SyncAllFromCacheAsync);
             }
             else
             {
@@ -129,7 +130,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             {
                 IsPageEnabled = true;
                 StatusMessage = "Safety parameters loaded.";
-                _ = SyncAllFromCacheAsync();
+                RunSafe(SyncAllFromCacheAsync);
             }
             else if (_parameterService.IsParameterDownloadInProgress)
             {
@@ -146,27 +147,27 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
         {
             if (parameterName.Equals(ArmingParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncArmingChecksAsync();
+                RunSafe(SyncArmingChecksAsync);
             }
             else if (parameterName.Equals(BattLowParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncBattLowAsync();
+                RunSafe(SyncBattLowAsync);
             }
             else if (parameterName.Equals(BattCriticalParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncBattCriticalAsync();
+                RunSafe(SyncBattCriticalAsync);
             }
             else if (parameterName.Equals(RcFailsafeParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncRcFailsafeAsync();
+                RunSafe(SyncRcFailsafeAsync);
             }
             else if (parameterName.Equals(FenceEnableParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncFenceEnabledAsync();
+                RunSafe(SyncFenceEnabledAsync);
             }
             else if (parameterName.Equals(FenceActionParam, StringComparison.OrdinalIgnoreCase))
             {
-                _ = SyncFenceActionAsync();
+                RunSafe(SyncFenceActionAsync);
             }
         });
     }
@@ -427,8 +428,16 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
                 if (!actionSuccess)
                 {
                     StatusMessage = "Fence action update failed; reverting fence enable.";
-                    await WriteParameterAsync(FenceEnableParam, previousEnable ?? 0f);
+                    var rollback = await WriteParameterAsync(FenceEnableParam, previousEnable ?? 0f);
+                    if (!rollback)
+                    {
+                        StatusMessage = "Fence action update failed and fence enable rollback did not confirm.";
+                    }
                     await SyncFenceEnabledAsync();
+                }
+                else
+                {
+                    StatusMessage = "Fence action updated.";
                 }
             }
         });
@@ -468,18 +477,35 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
         }
     }
 
-    partial void OnAccelerometerCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
-    partial void OnCompassCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
-    partial void OnGpsCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
-    partial void OnBarometerCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
-    partial void OnRcCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
-    partial void OnInsCheckChanged(bool value) => _ = UpdateArmingCheckAsync();
+    partial void OnAccelerometerCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
+    partial void OnCompassCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
+    partial void OnGpsCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
+    partial void OnBarometerCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
+    partial void OnRcCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
+    partial void OnInsCheckChanged(bool value) => RunSafe(UpdateArmingCheckAsync);
 
-    partial void OnSelectedBattLowActionChanged(SafetyOption? value) => _ = ApplyBattLowAsync(value);
-    partial void OnSelectedBattCriticalActionChanged(SafetyOption? value) => _ = ApplyBattCriticalAsync(value);
-    partial void OnSelectedRcFailsafeActionChanged(SafetyOption? value) => _ = ApplyRcFailsafeAsync(value);
-    partial void OnSelectedFenceActionChanged(SafetyOption? value) => _ = ApplyFenceActionAsync(value);
-    partial void OnFenceEnabledChanged(bool value) => _ = ApplyFenceEnabledAsync(value);
+    partial void OnSelectedBattLowActionChanged(SafetyOption? value) => RunSafe(() => ApplyBattLowAsync(value));
+    partial void OnSelectedBattCriticalActionChanged(SafetyOption? value) => RunSafe(() => ApplyBattCriticalAsync(value));
+    partial void OnSelectedRcFailsafeActionChanged(SafetyOption? value) => RunSafe(() => ApplyRcFailsafeAsync(value));
+    partial void OnSelectedFenceActionChanged(SafetyOption? value) => RunSafe(() => ApplyFenceActionAsync(value));
+    partial void OnFenceEnabledChanged(bool value) => RunSafe(() => ApplyFenceEnabledAsync(value));
+
+    private void RunSafe(Func<Task> asyncAction)
+    {
+        async void Wrapper()
+        {
+            try
+            {
+                await asyncAction();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        Wrapper();
+    }
 
     public void Dispose()
     {
