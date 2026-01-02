@@ -1,9 +1,9 @@
+using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Core.Models;
-using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
