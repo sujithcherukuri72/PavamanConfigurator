@@ -293,6 +293,10 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         {
             ScheduleSyncFromParameters(forceStatusUpdate: true);
         }
+        else if (TryGetCachedFrameParameters(out _, out _))
+        {
+            ScheduleSyncFromParameters(forceStatusUpdate: true);
+        }
         else
         {
             StatusMessage = "Waiting for parameters...";
@@ -440,8 +444,16 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void UpdatePageEnabled()
     {
+        var hasCachedFrameClass = SelectedFrameClass != null;
+        if (!hasCachedFrameClass)
+        {
+            var cachedFrameClassTask = _parameterService.GetParameterAsync("FRAME_CLASS");
+            var cachedFrameClass = cachedFrameClassTask.ConfigureAwait(false).GetAwaiter().GetResult();
+            hasCachedFrameClass = TryParseParameterValue(cachedFrameClass).HasValue;
+        }
+
         IsPageEnabled = _connectionService.IsConnected &&
-                        (_parameterService.IsParameterDownloadComplete || SelectedFrameClass != null);
+                        (_parameterService.IsParameterDownloadComplete || hasCachedFrameClass);
     }
 
     private string BuildParameterDownloadStatus()
@@ -450,6 +462,18 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
             ? _parameterService.ExpectedParameterCount.Value.ToString()
             : "?";
         return $"Downloading parameters... ({_parameterService.ReceivedParameterCount} / {expectedText})";
+    }
+
+    private bool TryGetCachedFrameParameters(out int? frameClass, out int? frameType)
+    {
+        var cachedFrameClass = _parameterService.GetParameterAsync("FRAME_CLASS")
+            .ConfigureAwait(false).GetAwaiter().GetResult();
+        var cachedFrameType = _parameterService.GetParameterAsync("FRAME_TYPE")
+            .ConfigureAwait(false).GetAwaiter().GetResult();
+
+        frameClass = TryParseParameterValue(cachedFrameClass);
+        frameType = TryParseParameterValue(cachedFrameType);
+        return frameClass.HasValue || frameType.HasValue;
     }
 
     private static bool IsFrameParameter(string parameterName)
