@@ -492,7 +492,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
     private void RunSafe(Func<Task> asyncAction)
     {
-        async void Wrapper()
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
             try
             {
@@ -501,10 +501,9 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             catch (Exception ex)
             {
                 Debug.WriteLine(ex);
+                StatusMessage = "Safety action failed. Check logs.";
             }
-        }
-
-        Wrapper();
+        });
     }
 
     public void Dispose()
