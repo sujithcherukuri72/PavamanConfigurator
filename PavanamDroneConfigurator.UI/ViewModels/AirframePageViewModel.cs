@@ -6,6 +6,7 @@ using PavanamDroneConfigurator.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -462,8 +463,9 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
     {
         task.ContinueWith(t =>
         {
-            var message = t.Exception?.GetBaseException().Message ?? "Unknown error";
-            Dispatcher.UIThread.InvokeAsync(() => StatusMessage = $"Unable to sync frame parameters: {message}");
+            var baseException = t.Exception?.GetBaseException();
+            Debug.WriteLine($"Airframe sync error: {baseException}");
+            Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Unable to sync frame parameters. Please try again.");
         }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
