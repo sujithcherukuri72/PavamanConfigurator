@@ -122,7 +122,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         _parameterService.ParameterUpdated += OnParameterUpdated;
         _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
 
-        _ = UpdateAvailabilityAsync();
+        SafeFireAndForget(UpdateAvailabilityAsync());
     }
 
     partial void OnSelectedFrameClassChanged(FrameClassOption? value)
@@ -259,7 +259,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        Dispatcher.UIThread.Post(() => _ = UpdateAvailabilityAsync());
+        Dispatcher.UIThread.Post(() => SafeFireAndForget(UpdateAvailabilityAsync()));
     }
 
     private void OnParameterUpdated(object? sender, string parameterName)
@@ -269,6 +269,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        // Only force a status update when a download is not underway to avoid overriding live progress text.
         var forceStatusUpdate = !_parameterService.IsParameterDownloadInProgress;
         ScheduleSyncFromParameters(forceStatusUpdate);
     }
@@ -309,7 +310,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(() => _ = UpdateAvailabilityAsync());
+        Dispatcher.UIThread.Post(() => SafeFireAndForget(UpdateAvailabilityAsync()));
     }
 
     private async Task SyncFromParametersAsync(bool forceStatusUpdate, CancellationToken cancellationToken = default)
@@ -455,6 +456,15 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
     {
         var hasRequiredParameters = _parameterService.IsParameterDownloadComplete || hasCachedFrameClass;
         IsPageEnabled = _connectionService.IsConnected && hasRequiredParameters;
+    }
+
+    private void SafeFireAndForget(Task task)
+    {
+        task.ContinueWith(t =>
+        {
+            var message = t.Exception?.GetBaseException().Message ?? "Unknown error";
+            Dispatcher.UIThread.InvokeAsync(() => StatusMessage = $"Unable to sync frame parameters: {message}");
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private static bool IsFrameParameter(string parameterName)
