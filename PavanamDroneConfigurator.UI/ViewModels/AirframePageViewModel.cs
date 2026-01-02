@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
@@ -35,16 +36,21 @@ public class FrameTypeOption
     }
 }
 
-public partial class AirframePageViewModel : ViewModelBase
+public partial class AirframePageViewModel : ViewModelBase, IDisposable
 {
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
     private bool _isSyncingFromParameters;
     private int? _lastFrameTypeValue;
+    private readonly SemaphoreSlim _syncLock = new(1, 1);
+    private Task _scheduledSync = Task.CompletedTask;
+    private readonly object _scheduledSyncGate = new();
+    private bool _disposed;
     // Small tolerance used when interpreting cached float parameters as integral values.
     // MAVLink param values are floats; float.Epsilon is too small once values grow, so a 1e-4 window
     // guards against minor transport rounding while still treating parameters as integers.
     private const float ParameterEqualityTolerance = 0.0001f;
+    private static readonly TimeSpan SyncTimeout = TimeSpan.FromSeconds(5);
 
     private static readonly IReadOnlyList<FrameClassOption> FrameClassCatalog = new List<FrameClassOption>
     {
@@ -113,7 +119,7 @@ public partial class AirframePageViewModel : ViewModelBase
         _connectionService = connectionService;
 
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
-        _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
+        _parameterService.ParameterUpdated += OnParameterUpdated;
 
         UpdateAvailability();
     }
@@ -244,7 +250,8 @@ public partial class AirframePageViewModel : ViewModelBase
             if (HasAttemptedWrites(frameClassAttempted, frameTypeAttempted) &&
                 HasFailedWrites(frameClassResult, frameTypeAttempted, frameTypeResult))
             {
-                await SyncFromParametersAsync(forceStatusUpdate: true);
+                using var syncCts = new CancellationTokenSource(SyncTimeout);
+                await SyncFromParametersAsync(forceStatusUpdate: true, cancellationToken: syncCts.Token);
             }
         }
     }
@@ -254,16 +261,20 @@ public partial class AirframePageViewModel : ViewModelBase
         Dispatcher.UIThread.Post(UpdateAvailability);
     }
 
-    private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
+    private void OnParameterUpdated(object? sender, string parameterName)
     {
-        Dispatcher.UIThread.Post(UpdateAvailability);
+        if (!IsFrameParameter(parameterName))
+        {
+            return;
+        }
+
+        ScheduleSyncFromParameters(forceStatusUpdate: true);
     }
 
     private void UpdateAvailability()
     {
         var connected = _connectionService.IsConnected;
-        var parametersReady = _parameterService.IsParameterDownloadComplete;
-        IsPageEnabled = connected && parametersReady;
+        IsPageEnabled = connected;
 
         if (!connected)
         {
@@ -271,35 +282,36 @@ public partial class AirframePageViewModel : ViewModelBase
             return;
         }
 
-        if (!parametersReady)
-        {
-            var expected = _parameterService.ExpectedParameterCount.HasValue
-                ? _parameterService.ExpectedParameterCount.Value.ToString()
-                : "?";
-            StatusMessage = _parameterService.IsParameterDownloadInProgress
-                ? $"Waiting for parameters... {_parameterService.ReceivedParameterCount}/{expected}"
-                : "Parameter download not complete.";
-            return;
-        }
-
-        if (!IsApplying)
-        {
-            _ = SyncFromParametersAsync(forceStatusUpdate: false);
-        }
+        ScheduleSyncFromParameters(forceStatusUpdate: true);
     }
 
-    private async Task SyncFromParametersAsync(bool forceStatusUpdate)
+    private async Task SyncFromParametersAsync(bool forceStatusUpdate, CancellationToken cancellationToken = default)
     {
-        if (!_connectionService.IsConnected || !_parameterService.IsParameterDownloadComplete || IsApplying)
+        try
         {
+            await _syncLock.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            await ResetSyncingStateAsync();
             return;
         }
 
-        var frameClassParam = await _parameterService.GetParameterAsync("FRAME_CLASS");
-        var frameTypeParam = await _parameterService.GetParameterAsync("FRAME_TYPE");
+        try
+        {
+            if (!_connectionService.IsConnected)
+            {
+                return;
+            }
 
-        var frameClassValue = TryParseParameterValue(frameClassParam);
-        var frameTypeValue = TryParseParameterValue(frameTypeParam);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var frameClassParam = await _parameterService.GetParameterAsync("FRAME_CLASS");
+            cancellationToken.ThrowIfCancellationRequested();
+            var frameTypeParam = await _parameterService.GetParameterAsync("FRAME_TYPE");
+
+            var frameClassValue = TryParseParameterValue(frameClassParam);
+            var frameTypeValue = TryParseParameterValue(frameTypeParam);
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -314,7 +326,7 @@ public partial class AirframePageViewModel : ViewModelBase
                 ? FrameTypes.FirstOrDefault(t => t.Value == frameTypeValue.Value)
                 : null;
 
-            if (forceStatusUpdate || !IsApplying)
+            if (forceStatusUpdate)
             {
                 if (frameClassValue.HasValue)
                 {
@@ -323,14 +335,79 @@ public partial class AirframePageViewModel : ViewModelBase
                 }
                 else
                 {
-                    StatusMessage = "FRAME_CLASS not available in cache.";
+                    StatusMessage = "Waiting for parameters...";
                 }
             }
 
             _isSyncingFromParameters = false;
             OnPropertyChanged(nameof(CanUpdate));
             OnPropertyChanged(nameof(IsFrameTypeEnabled));
-        });
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            await ResetSyncingStateAsync();
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _isSyncingFromParameters = false;
+                StatusMessage = $"Unable to sync frame parameters: {ex.Message}";
+            });
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
+    }
+
+    private void ScheduleSyncFromParameters(bool forceStatusUpdate)
+    {
+        var syncTask = SyncFromParametersAsync(forceStatusUpdate);
+        lock (_scheduledSyncGate)
+        {
+            _scheduledSync = syncTask;
+        }
+
+        syncTask.ContinueWith(t =>
+        {
+            if (t.IsFaulted && t.Exception != null)
+            {
+                var message = t.Exception.GetBaseException().Message;
+                Dispatcher.UIThread.InvokeAsync(() => StatusMessage = $"Unable to sync frame parameters: {message}");
+            }
+        }, TaskScheduler.Default);
+    }
+
+    private Task ResetSyncingStateAsync()
+    {
+        return Dispatcher.UIThread.InvokeAsync(() => _isSyncingFromParameters = false);
+    }
+
+    private static bool IsFrameParameter(string parameterName)
+    {
+        return parameterName.Equals("FRAME_CLASS", StringComparison.OrdinalIgnoreCase) ||
+               parameterName.Equals("FRAME_TYPE", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+        _parameterService.ParameterUpdated -= OnParameterUpdated;
+        Task syncTask;
+        lock (_scheduledSyncGate)
+        {
+            syncTask = _scheduledSync ?? Task.CompletedTask;
+        }
+
+        syncTask.ContinueWith(_ => _syncLock.Dispose(), TaskScheduler.Default);
     }
 
     private void BuildFrameTypeOptions(int? currentTypeValue)
