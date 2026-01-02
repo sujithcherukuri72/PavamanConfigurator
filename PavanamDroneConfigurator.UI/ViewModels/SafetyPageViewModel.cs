@@ -66,7 +66,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty] private bool _isPageEnabled;
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusMessage = "Downloading parameters…";
+    [ObservableProperty] private string _statusMessage = "Downloading parameters...";
 
     [ObservableProperty] private bool _accelerometerCheck;
     [ObservableProperty] private bool _compassCheck;
@@ -97,7 +97,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
     private void InitializeState()
     {
         IsPageEnabled = _parameterService.IsParameterDownloadComplete && _connectionService.IsConnected;
-        StatusMessage = IsPageEnabled ? "Safety parameters loaded." : "Downloading parameters…";
+        StatusMessage = IsPageEnabled ? "Safety parameters loaded." : "Downloading parameters...";
 
         if (IsPageEnabled)
         {
@@ -117,7 +117,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             }
             else
             {
-                StatusMessage = connected ? "Downloading parameters…" : "Disconnected - parameters unavailable";
+                StatusMessage = connected ? "Downloading parameters..." : "Disconnected - parameters unavailable";
             }
         });
     }
@@ -135,7 +135,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             else if (_parameterService.IsParameterDownloadInProgress)
             {
                 var expected = _parameterService.ExpectedParameterCount?.ToString() ?? "?";
-                StatusMessage = $"Downloading parameters… {_parameterService.ReceivedParameterCount}/{expected}";
+                StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
                 IsPageEnabled = false;
             }
         });
@@ -431,7 +431,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
                     var rollback = await WriteParameterAsync(FenceEnableParam, previousEnable ?? 0f);
                     if (!rollback)
                     {
-                        StatusMessage = "Fence action update failed and fence enable rollback did not confirm.";
+                        StatusMessage = "Fence action update failed and fence enable rollback failed.";
                     }
                     await SyncFenceEnabledAsync();
                 }
