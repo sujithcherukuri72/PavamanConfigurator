@@ -123,7 +123,7 @@ public class ParameterService : IParameterService
             
             // Wait for the parameter to be updated (indicated by receiving PARAM_VALUE)
             var startTime = DateTime.UtcNow;
-            var timeout = TimeSpan.FromMilliseconds(3000); // Increased to 3 seconds
+            var timeout = TimeSpan.FromMilliseconds(5000); // Increased to 5 seconds for EEPROM write
             bool receivedUpdate = false;
             
             while ((DateTime.UtcNow - startTime) < timeout)
@@ -140,7 +140,7 @@ public class ParameterService : IParameterService
                     if (Math.Abs(param.Value - value) < 0.001f)
                     {
                         receivedUpdate = true;
-                        _logger.LogInformation("? Successfully set parameter {Name} = {Value} (confirmed via PARAM_VALUE)", 
+                        _logger.LogInformation("✓ Successfully set parameter {Name} = {Value} (confirmed via PARAM_VALUE)", 
                             name, value);
                         break;
                     }
@@ -155,19 +155,84 @@ public class ParameterService : IParameterService
             
             if (!receivedUpdate)
             {
-                _logger.LogWarning("?? Timeout waiting for parameter {Name} to be set to {Value}. " +
-                    "Parameter may have been set but confirmation not received.", name, value);
+                _logger.LogWarning("⚠️ Timeout waiting for parameter {Name} to be set to {Value}. " +
+                    "Attempting verification by re-reading parameter...", name, value);
                 
-                // Check one more time after timeout
-                if (_parameters.TryGetValue(name, out var finalParam))
+                // Force a fresh read from the drone to verify the parameter was actually written
+                // Remove from cache first to ensure we get a fresh value
+                _parameters.TryRemove(name, out _);
+                
+                // Request the parameter from the drone
+                await RequestParameterReadAsync(name);
+                
+                // Wait for the response with a shorter timeout
+                var verifyStartTime = DateTime.UtcNow;
+                var verifyTimeout = TimeSpan.FromMilliseconds(3000);
+                bool verified = false;
+                
+                while ((DateTime.UtcNow - verifyStartTime) < verifyTimeout)
                 {
-                    _logger.LogWarning("Final cached value for {Name}: {FinalValue}", name, finalParam.Value);
+                    await Task.Delay(100);
+                    
+                    if (_parameters.TryGetValue(name, out var verifyParam))
+                    {
+                        if (Math.Abs(verifyParam.Value - value) < 0.001f)
+                        {
+                            verified = true;
+                            _logger.LogInformation("✓ Parameter {Name} = {Value} verified by re-reading from drone", 
+                                name, value);
+                            break;
+                        }
+                        else
+                        {
+                            _logger.LogError("❌ Parameter {Name} verification failed: expected {Expected}, got {Actual}", 
+                                name, value, verifyParam.Value);
+                            return false;
+                        }
+                    }
                 }
                 
-                return false;
+                if (!verified)
+                {
+                    _logger.LogError("❌ Failed to verify parameter {Name} = {Value} after re-reading", name, value);
+                    return false;
+                }
             }
             
-            return true;
+            // Final verification: Re-read the parameter one more time to ensure it was persisted
+            _logger.LogDebug("Performing final verification of parameter {Name}", name);
+            _parameters.TryRemove(name, out _);
+            await Task.Delay(200); // Small delay to ensure EEPROM write completed
+            
+            await RequestParameterReadAsync(name);
+            
+            var finalStartTime = DateTime.UtcNow;
+            var finalTimeout = TimeSpan.FromMilliseconds(3000);
+            bool finalVerified = false;
+            
+            while ((DateTime.UtcNow - finalStartTime) < finalTimeout)
+            {
+                await Task.Delay(100);
+                
+                if (_parameters.TryGetValue(name, out var finalParam))
+                {
+                    if (Math.Abs(finalParam.Value - value) < 0.001f)
+                    {
+                        finalVerified = true;
+                        _logger.LogInformation("✓✓ Parameter {Name} = {Value} CONFIRMED persisted on drone", 
+                            name, value);
+                        break;
+                    }
+                    else
+                    {
+                        _logger.LogError("❌ Final verification failed for {Name}: expected {Expected}, got {Actual}", 
+                            name, value, finalParam.Value);
+                        return false;
+                    }
+                }
+            }
+            
+            return finalVerified;
         }
         catch (Exception ex)
         {
