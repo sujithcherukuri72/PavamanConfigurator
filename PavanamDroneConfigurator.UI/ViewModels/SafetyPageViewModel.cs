@@ -11,7 +11,7 @@ using System.Collections.Generic;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
-public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
+public sealed partial class SafetyPageViewModel : ViewModelBase
 {
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -521,15 +521,19 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
         });
     }
 
-    public new void Dispose()
+    protected override void Dispose(bool disposing)
     {
         if (_disposed) return;
         _disposed = true;
 
-        _parameterService.ParameterDownloadProgressChanged -= OnParameterDownloadProgressChanged;
-        _parameterService.ParameterUpdated -= OnParameterUpdated;
-        _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
-        _writeLock.Dispose();
+        if (disposing)
+        {
+            _parameterService.ParameterDownloadProgressChanged -= OnParameterDownloadProgressChanged;
+            _parameterService.ParameterUpdated -= OnParameterUpdated;
+            _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+            _writeLock.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }
 

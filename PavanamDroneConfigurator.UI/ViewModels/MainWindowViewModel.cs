@@ -5,7 +5,7 @@ using PavanamDroneConfigurator.Core.Interfaces;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
-public partial class MainWindowViewModel : ViewModelBase, IDisposable
+public partial class MainWindowViewModel : ViewModelBase
 {
     [ObservableProperty]
     private ViewModelBase _currentPage;
@@ -131,11 +131,15 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         CanAccessAirframe = connected && parametersReady;
     }
 
-    public new void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _parameterService.ParameterDownloadStarted -= OnParameterDownloadStarted;
-        _parameterService.ParameterDownloadCompleted -= OnParameterDownloadCompleted;
-        _parameterService.ParameterUpdated -= OnParameterUpdated;
-        _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+        if (disposing)
+        {
+            _parameterService.ParameterDownloadStarted -= OnParameterDownloadStarted;
+            _parameterService.ParameterDownloadCompleted -= OnParameterDownloadCompleted;
+            _parameterService.ParameterUpdated -= OnParameterUpdated;
+            _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+        }
+        base.Dispose(disposing);
     }
 }

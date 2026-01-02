@@ -384,9 +384,10 @@ public class ParameterService : IParameterService
                     {
                         var now = DateTime.UtcNow;
                         var timeSinceLastParam = now - _lastParamValueReceived;
-                        var hasExpectedCount = _expectedParamCount.HasValue;
+                        var expectedCount = _expectedParamCount;
+                        var hasExpectedCount = expectedCount.HasValue;
 
-                        if (hasExpectedCount && _receivedParameterCount >= _expectedParamCount.Value)
+                        if (hasExpectedCount && _receivedParameterCount >= expectedCount!.Value)
                         {
                             completeDownload = true;
                         }
