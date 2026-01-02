@@ -122,7 +122,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         _parameterService.ParameterUpdated += OnParameterUpdated;
         _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
 
-        UpdateAvailability();
+        _ = UpdateAvailabilityAsync();
     }
 
     partial void OnSelectedFrameClassChanged(FrameClassOption? value)
@@ -259,7 +259,7 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
 
     private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        Dispatcher.UIThread.Post(UpdateAvailability);
+        Dispatcher.UIThread.Post(() => _ = UpdateAvailabilityAsync());
     }
 
     private void OnParameterUpdated(object? sender, string parameterName)
@@ -273,9 +273,9 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         ScheduleSyncFromParameters(forceStatusUpdate);
     }
 
-    private void UpdateAvailability()
+    private async Task UpdateAvailabilityAsync()
     {
-        UpdatePageEnabled();
+        await UpdatePageEnabledAsync();
 
         if (!_connectionService.IsConnected)
         {
@@ -293,21 +293,25 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         {
             ScheduleSyncFromParameters(forceStatusUpdate: true);
         }
-        else if (TryGetCachedFrameParameters(out _, out _))
-        {
-            ScheduleSyncFromParameters(forceStatusUpdate: true);
-        }
         else
         {
-            StatusMessage = "Waiting for parameters...";
+            var (frameClass, frameType) = await GetCachedFrameParametersAsync();
+            if (frameClass.HasValue || frameType.HasValue)
+            {
+                ScheduleSyncFromParameters(forceStatusUpdate: true);
+            }
+            else
+            {
+                StatusMessage = "Waiting for parameters...";
+            }
         }
     }
 
     private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(async () =>
         {
-            UpdatePageEnabled();
+            await UpdatePageEnabledAsync();
 
             if (!_connectionService.IsConnected)
             {
@@ -366,7 +370,8 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
                     ? FrameTypes.FirstOrDefault(t => t.Value == frameTypeValue.Value)
                     : null;
 
-                UpdatePageEnabled();
+                IsPageEnabled = _connectionService.IsConnected &&
+                                (_parameterService.IsParameterDownloadComplete || frameClassValue.HasValue);
 
                 if (forceStatusUpdate)
                 {
@@ -442,15 +447,10 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         return Dispatcher.UIThread.InvokeAsync(() => _isSyncingFromParameters = false);
     }
 
-    private void UpdatePageEnabled()
+    private async Task UpdatePageEnabledAsync()
     {
-        var hasCachedFrameClass = SelectedFrameClass != null;
-        if (!hasCachedFrameClass)
-        {
-            var cachedFrameClassTask = _parameterService.GetParameterAsync("FRAME_CLASS");
-            var cachedFrameClass = cachedFrameClassTask.ConfigureAwait(false).GetAwaiter().GetResult();
-            hasCachedFrameClass = TryParseParameterValue(cachedFrameClass).HasValue;
-        }
+        var frameClassParam = await _parameterService.GetParameterAsync("FRAME_CLASS");
+        var hasCachedFrameClass = TryParseParameterValue(frameClassParam).HasValue;
 
         IsPageEnabled = _connectionService.IsConnected &&
                         (_parameterService.IsParameterDownloadComplete || hasCachedFrameClass);
@@ -464,16 +464,12 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
         return $"Downloading parameters... ({_parameterService.ReceivedParameterCount} / {expectedText})";
     }
 
-    private bool TryGetCachedFrameParameters(out int? frameClass, out int? frameType)
+    private async Task<(int? frameClass, int? frameType)> GetCachedFrameParametersAsync()
     {
-        var cachedFrameClass = _parameterService.GetParameterAsync("FRAME_CLASS")
-            .ConfigureAwait(false).GetAwaiter().GetResult();
-        var cachedFrameType = _parameterService.GetParameterAsync("FRAME_TYPE")
-            .ConfigureAwait(false).GetAwaiter().GetResult();
+        var cachedFrameClass = await _parameterService.GetParameterAsync("FRAME_CLASS");
+        var cachedFrameType = await _parameterService.GetParameterAsync("FRAME_TYPE");
 
-        frameClass = TryParseParameterValue(cachedFrameClass);
-        frameType = TryParseParameterValue(cachedFrameType);
-        return frameClass.HasValue || frameType.HasValue;
+        return (TryParseParameterValue(cachedFrameClass), TryParseParameterValue(cachedFrameType));
     }
 
     private static bool IsFrameParameter(string parameterName)
