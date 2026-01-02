@@ -294,7 +294,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
     private bool CanWrite() => _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
 
-    private async Task<bool> WriteParameterAsync(string name, int value)
+    private async Task<bool> WriteParameterAsync(string name, float value)
     {
         if (!CanWrite())
         {
@@ -410,7 +410,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
         await ExecuteWriteAsync(async () =>
         {
-            var success = await WriteParameterAsync(FenceEnableParam, enabled ? 1 : 0);
+            var success = await WriteParameterAsync(FenceEnableParam, enabled ? 1f : 0f);
             if (!success)
             {
                 StatusMessage = "Failed to update fence enable.";
@@ -427,12 +427,8 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
                 if (!actionSuccess)
                 {
                     StatusMessage = "Fence action update failed; reverting fence enable.";
-                    await WriteParameterAsync(FenceEnableParam, previousEnable ?? 0);
+                    await WriteParameterAsync(FenceEnableParam, previousEnable ?? 0f);
                     await SyncFenceEnabledAsync();
-                }
-                else
-                {
-                    _fenceActionCached = SelectedFenceAction.Value;
                 }
             }
         });
