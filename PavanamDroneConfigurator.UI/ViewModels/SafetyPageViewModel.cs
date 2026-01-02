@@ -188,13 +188,13 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
         if (param == null) return;
 
         var mask = (int)Math.Round(param.Value);
-        var accel = (mask & ArmingAccelerometerBit) != 0;
-        var compass = (mask & ArmingCompassBit) != 0;
-        var gps = (mask & ArmingGpsBit) != 0;
-        var barometer = (mask & ArmingBarometerBit) != 0;
-        var rc = (mask & ArmingRcBit) != 0;
-        var ins = (mask & ArmingInsBit) != 0;
-        var all = (mask & ArmingAllBit) == ArmingAllBit || (accel && compass && gps && barometer && rc && ins);
+        var accel = HasBit(mask, ArmingAccelerometerBit);
+        var compass = HasBit(mask, ArmingCompassBit);
+        var gps = HasBit(mask, ArmingGpsBit);
+        var barometer = HasBit(mask, ArmingBarometerBit);
+        var rc = HasBit(mask, ArmingRcBit);
+        var ins = HasBit(mask, ArmingInsBit);
+        var all = AreAllArmingChecksEnabled(accel, compass, gps, barometer, rc, ins, mask);
 
         _isSyncing = true;
         try
@@ -336,17 +336,6 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
 
     private int BuildArmingMask()
     {
-        if (AccelerometerCheck && CompassCheck && GpsCheck && BarometerCheck && RcCheck && InsCheck)
-        {
-            return ArmingAllBit
-                   | ArmingAccelerometerBit
-                   | ArmingCompassBit
-                   | ArmingGpsBit
-                   | ArmingBarometerBit
-                   | ArmingRcBit
-                   | ArmingInsBit;
-        }
-
         var mask = 0;
         if (AccelerometerCheck) mask |= ArmingAccelerometerBit;
         if (CompassCheck) mask |= ArmingCompassBit;
@@ -355,8 +344,18 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
         if (RcCheck) mask |= ArmingRcBit;
         if (InsCheck) mask |= ArmingInsBit;
 
+        if (AreAllArmingChecksEnabled(AccelerometerCheck, CompassCheck, GpsCheck, BarometerCheck, RcCheck, InsCheck, 0))
+        {
+            mask |= ArmingAllBit;
+        }
+
         return mask;
     }
+
+    private static bool HasBit(int mask, int bit) => (mask & bit) != 0;
+
+    private static bool AreAllArmingChecksEnabled(bool accel, bool compass, bool gps, bool barometer, bool rc, bool ins, int mask) =>
+        (mask & ArmingAllBit) == ArmingAllBit || (accel && compass && gps && barometer && rc && ins);
 
     private async Task ApplyBattLowAsync(SafetyOption? option)
     {
@@ -445,6 +444,10 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
                     {
                         StatusMessage = "Fence action update failed and fence enable rollback failed.";
                     }
+                    else
+                    {
+                        _fenceEnableCached = previousEnable;
+                    }
                     await SyncFenceEnabledAsync();
                 }
                 else
@@ -513,7 +516,7 @@ public sealed partial class SafetyPageViewModel : ViewModelBase, IDisposable
             catch (Exception ex)
             {
                 Debug.WriteLine(ex);
-                StatusMessage = "Safety action failed. Check logs.";
+                StatusMessage = "Safety operation failed; the requested change may not be applied. See logs for details.";
             }
         });
     }
