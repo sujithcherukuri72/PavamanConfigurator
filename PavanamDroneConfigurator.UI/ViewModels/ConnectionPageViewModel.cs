@@ -96,6 +96,22 @@ public partial class ConnectionPageViewModel : ViewModelBase
 
             if (connected)
             {
+                // Trigger parameter download when connection is established
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _parameterService.RefreshParametersAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            StatusMessage = $"Parameter download failed: {ex.Message}";
+                        });
+                    }
+                });
+                
                 _downloadInProgress = true;
                 StatusMessage = "Connected - Downloading parameters...";
             }

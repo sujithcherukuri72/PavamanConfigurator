@@ -28,9 +28,6 @@ public class ParameterService : IParameterService
     private DateTime _lastParamValueReceived = DateTime.MinValue;
     private bool _parameterDownloadCompletionRaised;
 
-    public event EventHandler? ParameterListRequested;
-    public event EventHandler<ParameterWriteRequest>? ParameterWriteRequested;
-    public event EventHandler<ParameterReadRequest>? ParameterReadRequested;
     public event EventHandler<string>? ParameterUpdated;
     public event EventHandler? ParameterDownloadStarted;
     public event EventHandler<bool>? ParameterDownloadCompleted;
@@ -41,8 +38,23 @@ public class ParameterService : IParameterService
         _logger = logger;
         _connectionService = connectionService;
         
-        // Register this service with ConnectionService to receive parameter messages
-        _connectionService.RegisterParameterService(this);
+        // Subscribe to ConnectionService events to receive MAVLink messages
+        _connectionService.ParamValueReceived += OnParamValueReceived;
+        _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
+    }
+
+    private void OnParamValueReceived(object? sender, MavlinkParamValueEventArgs e)
+    {
+        HandleParamValue(e.Parameter, e.ParamIndex, e.ParamCount);
+    }
+
+    private void OnConnectionStateChanged(object? sender, bool connected)
+    {
+        if (!connected)
+        {
+            // Reset parameter state when disconnected
+            Reset();
+        }
     }
 
     public Task<List<DroneParameter>> GetAllParametersAsync()
@@ -116,19 +128,14 @@ public class ParameterService : IParameterService
             return false;
         }
 
-        if (ParameterWriteRequested == null)
-        {
-            _logger.LogWarning("No MAVLink transport subscribed to parameter writes; cannot send PARAM_SET for {Name}", name);
-            return false;
-        }
-
         var confirmationSource = new TaskCompletionSource<DroneParameter>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_sync)
         {
             _pendingParamWrites[name] = confirmationSource;
         }
 
-        ParameterWriteRequested?.Invoke(this, new ParameterWriteRequest(name, value));
+        // Call ConnectionService to send PARAM_SET
+        _connectionService.SendParamSet(new ParameterWriteRequest(name, value));
 
         var completed = await Task.WhenAny(confirmationSource.Task, Task.Delay(_operationTimeout));
         if (completed != confirmationSource.Task)
@@ -155,9 +162,9 @@ public class ParameterService : IParameterService
     {
         _logger.LogInformation("Requesting full parameter list via MAVLink PARAM_REQUEST_LIST");
 
-        if (ParameterListRequested == null)
+        if (!_connectionService.IsConnected)
         {
-            _logger.LogWarning("No MAVLink transport subscribed to parameter list requests; skipping refresh");
+            _logger.LogWarning("Cannot refresh parameters: not connected");
             lock (_sync)
             {
                 _receivedParamIndices.Clear();
@@ -203,7 +210,8 @@ public class ParameterService : IParameterService
             ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        ParameterListRequested?.Invoke(this, EventArgs.Empty);
+        // Call ConnectionService to send PARAM_REQUEST_LIST
+        _connectionService.SendParamRequestList();
 
         if (listCompletion == null)
         {
@@ -268,7 +276,7 @@ public class ParameterService : IParameterService
         ParameterUpdated?.Invoke(this, name);
     }
 
-    public void HandleParamValue(DroneParameter parameter, ushort paramIndex, ushort paramCount)
+    private void HandleParamValue(DroneParameter parameter, ushort paramIndex, ushort paramCount)
     {
         TaskCompletionSource<DroneParameter>? pendingWrite = null;
         TaskCompletionSource<bool>? listCompletion = null;
@@ -431,7 +439,8 @@ public class ParameterService : IParameterService
                 {
                     foreach (var missingIndex in missingIndices)
                     {
-                        ParameterReadRequested?.Invoke(this, new ParameterReadRequest(missingIndex));
+                        // Call ConnectionService to send PARAM_REQUEST_READ
+                        _connectionService.SendParamRequestRead(missingIndex);
                     }
                 }
 

@@ -21,7 +21,6 @@ namespace PavanamDroneConfigurator.Infrastructure.Services;
 public class ConnectionService : IConnectionService, IDisposable
 {
     private readonly ILogger<ConnectionService> _logger;
-    private readonly IParameterService _parameterService;
     private readonly object _sendLock = new();
     private SerialPort? _serialPort;
     private TcpClient? _tcpClient;
@@ -60,29 +59,21 @@ public class ConnectionService : IConnectionService, IDisposable
     private byte _targetSystemId;
     private byte _targetComponentId;
     private byte _packetSequence;
-    private bool _parameterDownloadStarted;
-    private Task? _parameterDownloadTask;
-    private readonly object _parameterDownloadLock = new();
 
     public bool IsConnected => _isConnected;
 
     public event EventHandler<bool>? ConnectionStateChanged;
     public event EventHandler<IEnumerable<SerialPortInfo>>? AvailableSerialPortsChanged;
+    
+    // MAVLink message events for ParameterService to subscribe to
+    public event EventHandler<MavlinkParamValueEventArgs>? ParamValueReceived;
+    public event EventHandler? HeartbeatReceived;
 
-    public ConnectionService(ILogger<ConnectionService> logger, IParameterService parameterService)
+    public ConnectionService(ILogger<ConnectionService> logger)
     {
         _logger = logger;
-        _parameterService = parameterService;
-        _parameterService.ParameterListRequested += OnParameterListRequested;
-        _parameterService.ParameterWriteRequested += OnParameterWriteRequested;
-        _parameterService.ParameterReadRequested += OnParameterReadRequested;
         _availablePorts = EnumerateSerialPorts();
         StartSerialPortWatcher();
-    }
-
-    public void RegisterParameterService(IParameterService parameterService)
-    {
-        // Registration is handled in constructor - this method exists to satisfy interface contract
     }
 
     public async Task<bool> ConnectAsync(ConnectionSettings settings)
@@ -90,7 +81,6 @@ public class ConnectionService : IConnectionService, IDisposable
         try
         {
             await DisconnectAsync();
-            ResetParameterTracking();
             _logger.LogInformation("Connecting via {Type}...", settings.Type);
 
             bool transportOpened = settings.Type == ConnectionType.Tcp
@@ -309,45 +299,6 @@ public class ConnectionService : IConnectionService, IDisposable
         }
     }
 
-    private void ProcessParameterValue(byte[] payload)
-    {
-        try
-        {
-            if (payload.Length < 25) // PARAM_VALUE payload is 25 bytes
-            {
-                _logger.LogWarning("Invalid PARAM_VALUE payload length: {Length}", payload.Length);
-                return;
-            }
-
-            // Parse PARAM_VALUE message
-            // MAVLink 1.0 PARAM_VALUE structure:
-            // - param_value: float (bytes 0-3)
-            // - param_count: uint16_t (bytes 4-5)
-            // - param_index: uint16_t (bytes 6-7)
-            // - param_id: char[16] (bytes 8-23)
-            // - param_type: uint8_t (byte 24)
-            
-            float value = BitConverter.ToSingle(payload, 0);
-            ushort count = BitConverter.ToUInt16(payload, 4);
-            ushort index = BitConverter.ToUInt16(payload, 6);
-            
-            // Extract parameter name (null-terminated)
-            byte[] paramIdBytes = new byte[16];
-            Array.Copy(payload, 8, paramIdBytes, 0, 16);
-            string paramId = Encoding.ASCII.GetString(paramIdBytes).TrimEnd('\0');
-
-            _logger.LogInformation("Received PARAM_VALUE: {Name} = {Value} (index {Index}/{Count})", 
-                paramId, value, index + 1, count);
-
-            // Forward to ParameterService
-            _parameterService?.OnParameterValueReceived(paramId, value, index, count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing PARAM_VALUE message");
-        }
-    }
-
     private void HandleMavlinkFrame(ReadOnlySpan<byte> frame)
     {
         if (frame.IsEmpty)
@@ -428,6 +379,31 @@ public class ConnectionService : IConnectionService, IDisposable
         }
     }
 
+    private void OnHeartbeatReceived(byte systemId, byte componentId)
+    {
+        // Ignore invalid or GCS-originated heartbeats
+        if (systemId == 0 || componentId == GroundControlComponentId)
+        {
+            return;
+        }
+
+        _targetSystemId = systemId;
+        _targetComponentId = componentId;
+        _lastHeartbeat = DateTime.UtcNow;
+        _firstHeartbeatTcs?.TrySetResult(true);
+
+        if (!_isConnected)
+        {
+            _isConnected = true;
+            StartHeartbeatMonitoring();
+            ConnectionStateChanged?.Invoke(this, true);
+            _logger.LogInformation("Heartbeat received from sysid {SystemId}, compid {ComponentId}. Connection established.", systemId, componentId);
+        }
+        
+        // Raise event for subscribers (like UI to trigger parameter download)
+        HeartbeatReceived?.Invoke(this, EventArgs.Empty);
+    }
+
     private void HandleParamValuePayload(ReadOnlySpan<byte> payload)
     {
         const int paramCountOffset = 4;
@@ -459,81 +435,8 @@ public class ConnectionService : IConnectionService, IDisposable
             Value = value
         };
 
-        _parameterService.HandleParamValue(parameter, paramIndex, paramCount);
-    }
-
-    private int FindStartIndex()
-    {
-        for (int i = 0; i < _rxBuffer.Count; i++)
-        {
-            if (_rxBuffer[i] == 0xFE || _rxBuffer[i] == 0xFD)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private void AppendDataInternal(ReadOnlySpan<byte> data)
-    {
-        _rxBuffer.EnsureCapacity(_rxBuffer.Count + data.Length);
-        for (int i = 0; i < data.Length; i++)
-        {
-            _rxBuffer.Add(data[i]);
-        }
-    }
-
-    private void StartParameterDownloadIfNeeded()
-    {
-        lock (_parameterDownloadLock)
-        {
-            if (_parameterDownloadStarted)
-            {
-                return;
-            }
-
-            _parameterDownloadStarted = true;
-            _parameterDownloadTask = StartParameterDownloadAsync();
-        }
-    }
-
-    private async Task StartParameterDownloadAsync()
-    {
-        try
-        {
-            await _parameterService.RefreshParametersAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start parameter download");
-        }
-    }
-
-    private void OnHeartbeatReceived(byte systemId, byte componentId)
-    {
-        // Ignore invalid or GCS-originated heartbeats
-        if (systemId == 0 || componentId == GroundControlComponentId)
-        {
-            return;
-        }
-
-        _targetSystemId = systemId;
-        _targetComponentId = componentId;
-        _lastHeartbeat = DateTime.UtcNow;
-        _firstHeartbeatTcs?.TrySetResult(true);
-
-        if (!_isConnected)
-        {
-            _isConnected = true;
-            StartHeartbeatMonitoring();
-            StartParameterDownloadIfNeeded();
-            ConnectionStateChanged?.Invoke(this, true);
-            _logger.LogInformation("Heartbeat received from sysid {SystemId}, compid {ComponentId}. Connection established.", systemId, componentId);
-            return;
-        }
-
-        StartParameterDownloadIfNeeded();
+        // Raise event for ParameterService to handle
+        ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(parameter, paramIndex, paramCount));
     }
 
     private void StartHeartbeatMonitoring()
@@ -643,7 +546,6 @@ public class ConnectionService : IConnectionService, IDisposable
             _activeConnectionType = null;
             _activeSerialPortName = null;
             _rxBuffer.Clear();
-            _parameterService.Reset();
             ResetParameterTracking();
 
             bool wasConnected = _isConnected;
@@ -855,22 +757,29 @@ public class ConnectionService : IConnectionService, IDisposable
         return true;
     }
 
-    private void OnParameterListRequested(object? sender, EventArgs e)
+    private void AppendDataInternal(ReadOnlySpan<byte> data)
     {
-        SendParamRequestList();
+        _rxBuffer.EnsureCapacity(_rxBuffer.Count + data.Length);
+        for (int i = 0; i < data.Length; i++)
+        {
+            _rxBuffer.Add(data[i]);
+        }
     }
 
-    private void OnParameterWriteRequested(object? sender, ParameterWriteRequest request)
+    private int FindStartIndex()
     {
-        SendParamSet(request);
+        for (int i = 0; i < _rxBuffer.Count; i++)
+        {
+            if (_rxBuffer[i] == 0xFE || _rxBuffer[i] == 0xFD)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
-    private void OnParameterReadRequested(object? sender, ParameterReadRequest request)
-    {
-        SendParamRequestRead(request.Index);
-    }
-
-    private void SendParamRequestList()
+    public void SendParamRequestList()
     {
         if (!TryGetActiveStream(out var stream))
         {
@@ -888,7 +797,7 @@ public class ConnectionService : IConnectionService, IDisposable
         SendFrame(stream, frame);
     }
 
-    private void SendParamRequestRead(ushort paramIndex)
+    public void SendParamRequestRead(ushort paramIndex)
     {
         if (!TryGetActiveStream(out var stream))
         {
@@ -909,7 +818,7 @@ public class ConnectionService : IConnectionService, IDisposable
         SendFrame(stream, frame);
     }
 
-    private void SendParamSet(ParameterWriteRequest request)
+    public void SendParamSet(ParameterWriteRequest request)
     {
         if (!TryGetActiveStream(out var stream))
         {
@@ -1031,11 +940,9 @@ public class ConnectionService : IConnectionService, IDisposable
 
     private void ResetParameterTracking()
     {
-        _parameterDownloadStarted = false;
         _targetSystemId = 0;
         _targetComponentId = 0;
         _packetSequence = 0;
-        _parameterDownloadTask = null;
     }
 
     public void Dispose()

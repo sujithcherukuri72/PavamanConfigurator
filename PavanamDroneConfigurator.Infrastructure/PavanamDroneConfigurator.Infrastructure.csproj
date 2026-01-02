@@ -8,16 +8,22 @@
 
   <ItemGroup>
     <!-- System packages -->
+    <PackageReference Include="Asv.Mavlink" Version="3.8.1" />
     <PackageReference Include="System.IO.Ports" Version="9.0.9" />
     <PackageReference Include="System.Management" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PavanamDroneConfigurator.Core\PavanamDroneConfigurator.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="MAVLink\" />
   </ItemGroup>
 
 </Project>
