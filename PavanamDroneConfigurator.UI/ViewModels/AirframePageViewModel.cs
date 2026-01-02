@@ -321,6 +321,10 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
             {
                 StatusMessage = BuildParameterDownloadStatus();
             }
+            else
+            {
+                StatusMessage = "Waiting for parameters...";
+            }
         });
     }
 
@@ -476,7 +480,14 @@ public partial class AirframePageViewModel : ViewModelBase, IDisposable
             var baseException = t.Exception?.GetBaseException();
             var exceptionText = baseException?.ToString() ?? "Unknown error";
             Debug.WriteLine($"Airframe sync error: {exceptionText}");
-            Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Unable to sync frame parameters. Check connection and parameter download, then retry.");
+            try
+            {
+                _ = Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Unable to sync frame parameters. Check connection and parameter download, then retry.");
+            }
+            catch (Exception dispatchException)
+            {
+                Debug.WriteLine($"Airframe sync error dispatch failed: {dispatchException}");
+            }
         }, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
