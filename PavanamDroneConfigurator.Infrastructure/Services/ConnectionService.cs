@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using PavanamDroneConfigurator.Core.Enums;
 using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Core.Models;
+using PavanamDroneConfigurator.Infrastructure.MAVLink;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using InTheHand.Net.Sockets;
 
 namespace PavanamDroneConfigurator.Infrastructure.Services;
 
@@ -24,6 +26,7 @@ public class ConnectionService : IConnectionService, IDisposable
     private readonly object _sendLock = new();
     private SerialPort? _serialPort;
     private TcpClient? _tcpClient;
+    private BluetoothMavConnection? _bluetoothConnection;
     private bool _isConnected;
     private System.Timers.Timer? _heartbeatTimer;
     private CancellationTokenSource? _serialPortWatcherCts;
@@ -83,9 +86,13 @@ public class ConnectionService : IConnectionService, IDisposable
             await DisconnectAsync();
             _logger.LogInformation("Connecting via {Type}...", settings.Type);
 
-            bool transportOpened = settings.Type == ConnectionType.Tcp
-                ? await ConnectTcpAsync(settings)
-                : await ConnectSerialAsync(settings);
+            bool transportOpened = settings.Type switch
+            {
+                ConnectionType.Tcp => await ConnectTcpAsync(settings),
+                ConnectionType.Serial => await ConnectSerialAsync(settings),
+                ConnectionType.Bluetooth => await ConnectBluetoothAsync(settings),
+                _ => throw new ArgumentException($"Unsupported connection type: {settings.Type}")
+            };
 
             if (!transportOpened)
             {
@@ -93,16 +100,34 @@ public class ConnectionService : IConnectionService, IDisposable
             }
 
             _activeConnectionType = settings.Type;
-            _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            StartReceiveLoop(settings.Type);
-
-            var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
-            var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
-            if (!heartbeatReceived)
+            
+            // For non-Bluetooth connections, start receive loop
+            if (settings.Type != ConnectionType.Bluetooth)
             {
-                _logger.LogWarning("No heartbeat received within timeout. Disconnecting.");
-                await DisconnectAsync();
-                return false;
+                _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                StartReceiveLoop(settings.Type);
+
+                var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
+                var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
+                if (!heartbeatReceived)
+                {
+                    _logger.LogWarning("No heartbeat received within timeout. Disconnecting.");
+                    await DisconnectAsync();
+                    return false;
+                }
+            }
+            else
+            {
+                // Bluetooth connection handles heartbeat internally
+                _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
+                var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
+                if (!heartbeatReceived)
+                {
+                    _logger.LogWarning("No heartbeat received within timeout. Disconnecting.");
+                    await DisconnectAsync();
+                    return false;
+                }
             }
 
             return true;
@@ -166,6 +191,46 @@ public class ConnectionService : IConnectionService, IDisposable
             _serialPort = null;
             _activeSerialPortName = null;
             return Task.FromResult(false);
+        }
+    }
+
+    private async Task<bool> ConnectBluetoothAsync(ConnectionSettings settings)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(settings.BluetoothDeviceAddress) && string.IsNullOrEmpty(settings.BluetoothDeviceName))
+            {
+                _logger.LogError("Bluetooth device address or name is required");
+                return false;
+            }
+
+            _bluetoothConnection = new BluetoothMavConnection(_logger);
+            
+            // Subscribe to Bluetooth events
+            _bluetoothConnection.HeartbeatReceived += OnBluetoothHeartbeat;
+            _bluetoothConnection.ParamValueReceived += OnBluetoothParamValue;
+            _bluetoothConnection.ConnectionStateChanged += OnBluetoothConnectionStateChanged;
+
+            // Connect by address or name
+            bool connected;
+            if (!string.IsNullOrEmpty(settings.BluetoothDeviceAddress))
+            {
+                connected = await _bluetoothConnection.ConnectAsync(settings.BluetoothDeviceAddress);
+            }
+            else
+            {
+                connected = await _bluetoothConnection.ConnectByNameAsync(settings.BluetoothDeviceName!);
+            }
+
+            _logger.LogInformation("Bluetooth connection established");
+            return connected;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to establish Bluetooth connection");
+            _bluetoothConnection?.Dispose();
+            _bluetoothConnection = null;
+            return false;
         }
     }
 
@@ -540,6 +605,24 @@ public class ConnectionService : IConnectionService, IDisposable
                 _tcpClient = null;
             }
 
+            if (_bluetoothConnection != null)
+            {
+                try
+                {
+                    _bluetoothConnection.HeartbeatReceived -= OnBluetoothHeartbeat;
+                    _bluetoothConnection.ParamValueReceived -= OnBluetoothParamValue;
+                    _bluetoothConnection.ConnectionStateChanged -= OnBluetoothConnectionStateChanged;
+                    await _bluetoothConnection.CloseAsync();
+                    _bluetoothConnection.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while closing Bluetooth connection");
+                }
+
+                _bluetoothConnection = null;
+            }
+
             _receiveCts?.Dispose();
             _receiveCts = null;
             _receiveTask = null;
@@ -564,6 +647,53 @@ public class ConnectionService : IConnectionService, IDisposable
     }
 
     public IEnumerable<SerialPortInfo> GetAvailableSerialPorts() => _availablePorts;
+
+    public async Task<IEnumerable<Core.Models.BluetoothDeviceInfo>> GetAvailableBluetoothDevicesAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Discovering Bluetooth devices...");
+            
+            var client = new BluetoothClient();
+            var devices = await Task.Run(() => client.DiscoverDevices().ToList());
+
+            return devices.Select(d => new Core.Models.BluetoothDeviceInfo
+            {
+                DeviceAddress = d.DeviceAddress.ToString(),
+                DeviceName = d.DeviceName,
+                IsConnected = d.Connected,
+                IsPaired = d.Authenticated
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to discover Bluetooth devices");
+            return Array.Empty<Core.Models.BluetoothDeviceInfo>();
+        }
+    }
+
+    private void OnBluetoothHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
+    {
+        OnHeartbeatReceived(e.SystemId, e.ComponentId);
+    }
+
+    private void OnBluetoothParamValue(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
+    {
+        var parameter = new DroneParameter
+        {
+            Name = e.Name,
+            Value = e.Value
+        };
+        ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(parameter, e.Index, e.Count));
+    }
+
+    private void OnBluetoothConnectionStateChanged(object? sender, bool connected)
+    {
+        if (!connected)
+        {
+            _ = DisconnectAsync();
+        }
+    }
 
     private void StartSerialPortWatcher()
     {
@@ -781,6 +911,12 @@ public class ConnectionService : IConnectionService, IDisposable
 
     public void SendParamRequestList()
     {
+        if (_activeConnectionType == ConnectionType.Bluetooth)
+        {
+            _ = _bluetoothConnection?.SendParamRequestListAsync();
+            return;
+        }
+
         if (!TryGetActiveStream(out var stream))
         {
             _logger.LogWarning("Cannot send PARAM_REQUEST_LIST - no active connection");
@@ -799,6 +935,12 @@ public class ConnectionService : IConnectionService, IDisposable
 
     public void SendParamRequestRead(ushort paramIndex)
     {
+        if (_activeConnectionType == ConnectionType.Bluetooth)
+        {
+            _ = _bluetoothConnection?.SendParamRequestReadAsync(paramIndex);
+            return;
+        }
+
         if (!TryGetActiveStream(out var stream))
         {
             _logger.LogWarning("Cannot send PARAM_REQUEST_READ - no active connection");
@@ -820,6 +962,12 @@ public class ConnectionService : IConnectionService, IDisposable
 
     public void SendParamSet(ParameterWriteRequest request)
     {
+        if (_activeConnectionType == ConnectionType.Bluetooth)
+        {
+            _ = _bluetoothConnection?.SendParamSetAsync(request.Name, request.Value);
+            return;
+        }
+
         if (!TryGetActiveStream(out var stream))
         {
             _logger.LogWarning("Cannot send PARAM_SET - no active connection");

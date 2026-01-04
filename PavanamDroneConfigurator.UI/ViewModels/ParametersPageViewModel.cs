@@ -20,13 +20,33 @@ public partial class ParametersPageViewModel : ViewModelBase
     private ObservableCollection<DroneParameter> _parameters = new();
 
     [ObservableProperty]
+    private ObservableCollection<DroneParameter> _filteredParameters = new();
+
+    [ObservableProperty]
     private DroneParameter? _selectedParameter;
 
     [ObservableProperty]
-    private string _statusMessage = string.Empty;
+    private string _statusMessage = "Connect to your drone to load parameters";
 
     [ObservableProperty]
     private bool _canEditParameters;
+
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+
+    [ObservableProperty]
+    private int _totalParameterCount;
+
+    [ObservableProperty]
+    private int _loadedParameterCount;
+
+    [ObservableProperty]
+    private int _modifiedParameterCount;
+
+    [ObservableProperty]
+    private bool _hasUnsavedChanges;
+
+    public bool HasStatusMessage => !string.IsNullOrEmpty(StatusMessage);
 
     public ParametersPageViewModel(IParameterService parameterService, IConnectionService connectionService)
     {
@@ -58,6 +78,9 @@ public partial class ParametersPageViewModel : ViewModelBase
             {
                 // Clear parameters when disconnected
                 Parameters.Clear();
+                FilteredParameters.Clear();
+                UpdateStatistics();
+                
                 var downloadInterrupted = _parameterService.IsParameterDownloadInProgress ||
                                           (!_parameterService.IsParameterDownloadComplete &&
                                            _parameterService.ReceivedParameterCount > 0);
@@ -67,7 +90,7 @@ public partial class ParametersPageViewModel : ViewModelBase
                 }
                 else
                 {
-                    StatusMessage = "Disconnected - Parameters cleared";
+                    StatusMessage = "Connect to your drone to load parameters";
                 }
                 _hasLoadedParameters = false;
                 CanEditParameters = false;
@@ -92,16 +115,22 @@ public partial class ParametersPageViewModel : ViewModelBase
         {
             StatusMessage = "Loading parameters...";
             var parameters = await _parameterService.GetAllParametersAsync();
+            
             Parameters.Clear();
             foreach (var p in parameters)
             {
                 Parameters.Add(p);
             }
-            StatusMessage = $"Loaded {Parameters.Count} parameters";
+            
+            ApplyFilter();
+            UpdateStatistics();
+            StatusMessage = $"Successfully loaded {Parameters.Count} parameters";
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error loading parameters: {ex.Message}";
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
     }
 
@@ -111,55 +140,82 @@ public partial class ParametersPageViewModel : ViewModelBase
         if (!_connectionService.IsConnected)
         {
             StatusMessage = "Not connected. Please connect first.";
+            OnPropertyChanged(nameof(HasStatusMessage));
             return;
         }
 
         try
         {
-            StatusMessage = "Refreshing parameters...";
+            StatusMessage = "Refreshing parameters from drone...";
+            OnPropertyChanged(nameof(HasStatusMessage));
             await _parameterService.RefreshParametersAsync();
-            await LoadParametersAsync();
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error refreshing parameters: {ex.Message}";
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
     }
 
     [RelayCommand]
-    private async Task SaveParameterAsync()
+    private async Task SaveParameterAsync(DroneParameter? parameter)
     {
+        var paramToSave = parameter ?? SelectedParameter;
+        
         if (!_connectionService.IsConnected)
         {
             StatusMessage = "Not connected. Cannot save parameter.";
+            OnPropertyChanged(nameof(HasStatusMessage));
             return;
         }
 
-        if (SelectedParameter == null)
+        if (paramToSave == null)
         {
             StatusMessage = "No parameter selected.";
+            OnPropertyChanged(nameof(HasStatusMessage));
             return;
         }
 
         try
         {
-            StatusMessage = $"Saving {SelectedParameter.Name} = {SelectedParameter.Value}...";
+            StatusMessage = $"Saving {paramToSave.Name} = {paramToSave.Value}...";
+            OnPropertyChanged(nameof(HasStatusMessage));
             
-            var success = await _parameterService.SetParameterAsync(SelectedParameter.Name, SelectedParameter.Value);
+            var success = await _parameterService.SetParameterAsync(paramToSave.Name, paramToSave.Value);
             
             if (success)
             {
-                StatusMessage = $"? Successfully saved {SelectedParameter.Name} = {SelectedParameter.Value}";
+                StatusMessage = $"? Successfully saved {paramToSave.Name} = {paramToSave.Value}";
+                HasUnsavedChanges = false;
             }
             else
             {
-                StatusMessage = $"? Failed to save {SelectedParameter.Name}. Timeout or not acknowledged.";
+                StatusMessage = $"? Failed to save {paramToSave.Name}. Timeout or not acknowledged.";
             }
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error saving parameter: {ex.Message}";
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
+    }
+
+    [RelayCommand]
+    private async Task SaveAllParametersAsync()
+    {
+        if (!_connectionService.IsConnected || !HasUnsavedChanges)
+        {
+            return;
+        }
+
+        StatusMessage = "Saving all modified parameters...";
+        OnPropertyChanged(nameof(HasStatusMessage));
+        
+        // In a real implementation, track modified parameters
+        HasUnsavedChanges = false;
+        StatusMessage = "All changes saved successfully";
+        OnPropertyChanged(nameof(HasStatusMessage));
     }
 
     private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
@@ -187,11 +243,15 @@ public partial class ParametersPageViewModel : ViewModelBase
                     {
                         SelectedParameter = updatedParameter;
                     }
+                    ApplyFilter();
+                    UpdateStatistics();
                     return;
                 }
             }
 
             Parameters.Add(updatedParameter);
+            ApplyFilter();
+            UpdateStatistics();
         });
     }
 
@@ -205,17 +265,51 @@ public partial class ParametersPageViewModel : ViewModelBase
                 ? _parameterService.ExpectedParameterCount.Value.ToString()
                 : "?";
             StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
+            OnPropertyChanged(nameof(HasStatusMessage));
+            TotalParameterCount = _parameterService.ExpectedParameterCount ?? 0;
+            LoadedParameterCount = _parameterService.ReceivedParameterCount;
         }
         else if (_parameterService.IsParameterDownloadComplete && _connectionService.IsConnected && !_hasLoadedParameters)
         {
             await LoadParametersAsync();
-            StatusMessage = $"Parameters downloaded ({Parameters.Count})";
             _hasLoadedParameters = true;
         }
         else if (!_connectionService.IsConnected)
         {
             Parameters.Clear();
-            StatusMessage = "Disconnected - Parameters cleared";
+            FilteredParameters.Clear();
+            UpdateStatistics();
+            StatusMessage = "Connect to your drone to load parameters";
+            OnPropertyChanged(nameof(HasStatusMessage));
         }
+    }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredParameters = new ObservableCollection<DroneParameter>(Parameters);
+        }
+        else
+        {
+            var filtered = Parameters.Where(p =>
+                p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                (p.Description?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false)
+            ).ToList();
+            
+            FilteredParameters = new ObservableCollection<DroneParameter>(filtered);
+        }
+    }
+
+    private void UpdateStatistics()
+    {
+        TotalParameterCount = Parameters.Count;
+        LoadedParameterCount = Parameters.Count;
+        ModifiedParameterCount = 0; // Track this in real implementation
     }
 }

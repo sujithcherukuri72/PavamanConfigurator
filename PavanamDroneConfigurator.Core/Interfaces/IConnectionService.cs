@@ -12,8 +12,14 @@ public interface IConnectionService
     Task DisconnectAsync();
     bool IsConnected { get; }
     event EventHandler<bool>? ConnectionStateChanged;
+    
+    // Serial port methods
     IEnumerable<SerialPortInfo> GetAvailableSerialPorts();
     event EventHandler<IEnumerable<SerialPortInfo>>? AvailableSerialPortsChanged;
+    
+    // Bluetooth methods
+    Task<IEnumerable<BluetoothDeviceInfo>> GetAvailableBluetoothDevicesAsync();
+    
     Stream? GetTransportStream();
     
     // MAVLink message events

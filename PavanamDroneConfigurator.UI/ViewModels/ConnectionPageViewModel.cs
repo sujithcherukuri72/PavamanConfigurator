@@ -9,6 +9,7 @@ using PavanamDroneConfigurator.Core.Models;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
@@ -23,6 +24,12 @@ public partial class ConnectionPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private SerialPortInfo? _selectedSerialPort;
+
+    [ObservableProperty]
+    private ObservableCollection<BluetoothDeviceInfo> _availableBluetoothDevices = new();
+
+    [ObservableProperty]
+    private BluetoothDeviceInfo? _selectedBluetoothDevice;
 
     [ObservableProperty]
     private int _baudRate = 115200;
@@ -40,13 +47,50 @@ public partial class ConnectionPageViewModel : ViewModelBase
     private bool _isConnected;
 
     [ObservableProperty]
-    private string _statusMessage = "Disconnected";
+    private string _statusMessage = "Ready to connect";
 
     [ObservableProperty]
     private string _connectionStatusText = "Disconnected";
 
     [ObservableProperty]
     private IBrush _connectionStatusBrush = Brushes.Red;
+
+    [ObservableProperty]
+    private bool _isDownloadingParameters;
+
+    [ObservableProperty]
+    private string _parameterProgressText = "0/0";
+
+    [ObservableProperty]
+    private double _parameterProgressPercentage;
+
+    [ObservableProperty]
+    private int _systemId;
+
+    [ObservableProperty]
+    private int _componentId;
+
+    [ObservableProperty]
+    private int _parameterCount;
+
+    // Connection type radio button bindings
+    public bool IsSerialConnection
+    {
+        get => ConnectionType == ConnectionType.Serial;
+        set { if (value) ConnectionType = ConnectionType.Serial; }
+    }
+
+    public bool IsTcpConnection
+    {
+        get => ConnectionType == ConnectionType.Tcp;
+        set { if (value) ConnectionType = ConnectionType.Tcp; }
+    }
+
+    public bool IsBluetoothConnection
+    {
+        get => ConnectionType == ConnectionType.Bluetooth;
+        set { if (value) ConnectionType = ConnectionType.Bluetooth; }
+    }
 
     public ConnectionPageViewModel(
         IConnectionService connectionService, 
@@ -91,8 +135,8 @@ public partial class ConnectionPageViewModel : ViewModelBase
         try
         {
             IsConnected = connected;
-            StatusMessage = connected ? "Connected" : "Disconnected";
-            SetConnectionIndicator(connected ? "Connected" : "Disconnected", connected ? Brushes.Green : Brushes.Red);
+            StatusMessage = connected ? "Connection established successfully" : "Disconnected";
+            SetConnectionIndicator(connected ? "Connected" : "Disconnected", connected ? new SolidColorBrush(Color.Parse("#10B981")) : new SolidColorBrush(Color.Parse("#EF4444")));
 
             if (connected)
             {
@@ -113,6 +157,7 @@ public partial class ConnectionPageViewModel : ViewModelBase
                 });
                 
                 _downloadInProgress = true;
+                IsDownloadingParameters = true;
                 StatusMessage = "Connected - Downloading parameters...";
             }
             else
@@ -122,6 +167,7 @@ public partial class ConnectionPageViewModel : ViewModelBase
                     ? "Disconnected during parameter download"
                     : "Disconnected";
                 _downloadInProgress = false;
+                IsDownloadingParameters = false;
             }
         }
         catch (Exception ex)
@@ -141,18 +187,58 @@ public partial class ConnectionPageViewModel : ViewModelBase
         Dispatcher.UIThread.Post(() =>
         {
             _downloadInProgress = _parameterService.IsParameterDownloadInProgress;
+            IsDownloadingParameters = _parameterService.IsParameterDownloadInProgress;
+            
+            var received = _parameterService.ReceivedParameterCount;
+            var expected = _parameterService.ExpectedParameterCount ?? 0;
+            
+            ParameterProgressText = $"{received}/{expected}";
+            ParameterProgressPercentage = expected > 0 ? (received * 100.0 / expected) : 0;
+            ParameterCount = received;
+
             if (_parameterService.IsParameterDownloadInProgress)
             {
-                var expected = _parameterService.ExpectedParameterCount.HasValue
-                    ? _parameterService.ExpectedParameterCount.Value.ToString()
-                    : "?";
-                StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
+                StatusMessage = $"Downloading parameters... {received}/{expected}";
             }
             else if (_parameterService.IsParameterDownloadComplete && _connectionService.IsConnected)
             {
-                StatusMessage = "Connected - Parameters loaded";
+                StatusMessage = $"Connected - {received} parameters loaded successfully";
+                IsDownloadingParameters = false;
             }
         });
+    }
+
+    [RelayCommand]
+    private async Task ScanBluetoothDevicesAsync()
+    {
+        try
+        {
+            StatusMessage = "Scanning for Bluetooth devices...";
+            var devices = await _connectionService.GetAvailableBluetoothDevicesAsync();
+            
+            Dispatcher.UIThread.Post(() =>
+            {
+                AvailableBluetoothDevices.Clear();
+                foreach (var device in devices)
+                {
+                    AvailableBluetoothDevices.Add(device);
+                }
+
+                if (AvailableBluetoothDevices.Any())
+                {
+                    SelectedBluetoothDevice = AvailableBluetoothDevices.First();
+                    StatusMessage = $"Found {AvailableBluetoothDevices.Count} Bluetooth device(s)";
+                }
+                else
+                {
+                    StatusMessage = "No Bluetooth devices found. Ensure Bluetooth is enabled.";
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Bluetooth scan failed: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -164,17 +250,19 @@ public partial class ConnectionPageViewModel : ViewModelBase
             PortName = SelectedSerialPort?.PortName ?? string.Empty,
             BaudRate = BaudRate,
             IpAddress = IpAddress,
-            Port = TcpPort
+            Port = TcpPort,
+            BluetoothDeviceAddress = SelectedBluetoothDevice?.DeviceAddress,
+            BluetoothDeviceName = SelectedBluetoothDevice?.DeviceName
         };
 
         StatusMessage = "Connecting...";
-        SetConnectionIndicator("Connecting", Brushes.Gold);
+        SetConnectionIndicator("Connecting", new SolidColorBrush(Color.Parse("#F59E0B")));
         var result = await _connectionService.ConnectAsync(settings);
         
         if (!result)
         {
-            StatusMessage = "Connection failed";
-            SetConnectionIndicator("Disconnected", Brushes.Red);
+            StatusMessage = "Connection failed. Please check your settings and try again.";
+            SetConnectionIndicator("Disconnected", new SolidColorBrush(Color.Parse("#EF4444")));
         }
     }
 
@@ -183,6 +271,16 @@ public partial class ConnectionPageViewModel : ViewModelBase
     {
         StatusMessage = "Disconnecting...";
         await _connectionService.DisconnectAsync();
-        SetConnectionIndicator("Disconnected", Brushes.Red);
+        SetConnectionIndicator("Disconnected", new SolidColorBrush(Color.Parse("#EF4444")));
+        IsDownloadingParameters = false;
+        ParameterProgressPercentage = 0;
+        ParameterProgressText = "0/0";
+    }
+
+    partial void OnConnectionTypeChanged(ConnectionType value)
+    {
+        OnPropertyChanged(nameof(IsSerialConnection));
+        OnPropertyChanged(nameof(IsTcpConnection));
+        OnPropertyChanged(nameof(IsBluetoothConnection));
     }
 }
