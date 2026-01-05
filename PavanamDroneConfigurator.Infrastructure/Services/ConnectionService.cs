@@ -4,15 +4,12 @@ using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Core.Models;
 using PavanamDroneConfigurator.Infrastructure.MAVLink;
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Management;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +20,7 @@ namespace PavanamDroneConfigurator.Infrastructure.Services;
 public class ConnectionService : IConnectionService, IDisposable
 {
     private readonly ILogger<ConnectionService> _logger;
-    private readonly object _sendLock = new();
+    private readonly SynchronizationContext? _synchronizationContext;
     private SerialPort? _serialPort;
     private TcpClient? _tcpClient;
     private BluetoothMavConnection? _bluetoothConnection;
@@ -33,35 +30,17 @@ public class ConnectionService : IConnectionService, IDisposable
     private Task? _serialPortWatcherTask;
     private DateTime _lastHeartbeat = DateTime.MinValue;
     private const int HeartbeatTimeoutMs = 5000;
-    private const byte GroundControlSystemId = 255;
-    private const byte GroundControlComponentId = 190;
-    private const byte MavParamTypeReal32 = 9;
-    private const byte DefaultTargetSystemId = 1;
-    private const byte DefaultTargetComponentId = 1;
-    private const int MavlinkV1MinFrameLength = 8;
-    private const int MavlinkV2MinFrameHeaderLength = 12;
-    private const byte CrcExtraHeartbeat = 50;
-    private const byte CrcExtraParamRequestRead = 214;
-    private const byte CrcExtraParamRequestList = 122;
-    private const byte CrcExtraParamValue = 220;
-    private const byte CrcExtraParamSet = 168;
-    private const ushort X25InitialCrc = 0xFFFF;
-    private const ushort X25Polynomial = 0xA001;
     private const int SerialPortWatcherIntervalMs = 1000;
-    private const int MaxBufferBytes = 4096;
     private static readonly Regex ComPortRegex = new(@"\((COM\d+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private CancellationTokenSource? _receiveCts;
-    private Task? _receiveTask;
     private TaskCompletionSource<bool>? _firstHeartbeatTcs;
-    private readonly List<byte> _rxBuffer = new();
-    private readonly object _bufferLock = new();
     private readonly SemaphoreSlim _disconnectLock = new(1, 1);
     private ConnectionType? _activeConnectionType;
     private string? _activeSerialPortName;
     private SerialPortInfo[] _availablePorts = Array.Empty<SerialPortInfo>();
+
     private byte _targetSystemId;
     private byte _targetComponentId;
-    private byte _packetSequence;
+    private AsvMavlinkWrapper? _asvWrapper;
 
     public bool IsConnected => _isConnected;
 
@@ -75,8 +54,57 @@ public class ConnectionService : IConnectionService, IDisposable
     public ConnectionService(ILogger<ConnectionService> logger)
     {
         _logger = logger;
+        // Capture the synchronization context (UI thread) at construction time
+        _synchronizationContext = SynchronizationContext.Current;
         _availablePorts = EnumerateSerialPorts();
         StartSerialPortWatcher();
+    }
+
+    /// <summary>
+    /// Safely invoke an action on the UI thread if a synchronization context is available
+    /// </summary>
+    private void InvokeOnUIThread(Action action)
+    {
+        if (_synchronizationContext != null)
+        {
+            _synchronizationContext.Post(_ => action(), null);
+        }
+        else
+        {
+            action();
+        }
+    }
+
+    /// <summary>
+    /// Safely raise ConnectionStateChanged event on UI thread
+    /// </summary>
+    private void RaiseConnectionStateChanged(bool connected)
+    {
+        InvokeOnUIThread(() => ConnectionStateChanged?.Invoke(this, connected));
+    }
+
+    /// <summary>
+    /// Safely raise HeartbeatReceived event on UI thread
+    /// </summary>
+    private void RaiseHeartbeatReceived()
+    {
+        InvokeOnUIThread(() => HeartbeatReceived?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>
+    /// Safely raise ParamValueReceived event on UI thread
+    /// </summary>
+    private void RaiseParamValueReceived(MavlinkParamValueEventArgs args)
+    {
+        InvokeOnUIThread(() => ParamValueReceived?.Invoke(this, args));
+    }
+
+    /// <summary>
+    /// Safely raise AvailableSerialPortsChanged event on UI thread
+    /// </summary>
+    private void RaiseAvailableSerialPortsChanged(IEnumerable<SerialPortInfo> ports)
+    {
+        InvokeOnUIThread(() => AvailableSerialPortsChanged?.Invoke(this, ports));
     }
 
     public async Task<bool> ConnectAsync(ConnectionSettings settings)
@@ -85,6 +113,10 @@ public class ConnectionService : IConnectionService, IDisposable
         {
             await DisconnectAsync();
             _logger.LogInformation("Connecting via {Type}...", settings.Type);
+
+            // Create heartbeat task completion source BEFORE opening transport
+            // This prevents race condition where heartbeat arrives before TCS is ready
+            _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             bool transportOpened = settings.Type switch
             {
@@ -96,40 +128,25 @@ public class ConnectionService : IConnectionService, IDisposable
 
             if (!transportOpened)
             {
+                _firstHeartbeatTcs = null;
                 return false;
             }
 
             _activeConnectionType = settings.Type;
             
-            // For non-Bluetooth connections, start receive loop
-            if (settings.Type != ConnectionType.Bluetooth)
+            // Wait for first heartbeat with timeout
+            _logger.LogInformation("Waiting for heartbeat...");
+            var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
+            var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
+            
+            if (!heartbeatReceived)
             {
-                _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                StartReceiveLoop(settings.Type);
-
-                var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
-                var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
-                if (!heartbeatReceived)
-                {
-                    _logger.LogWarning("No heartbeat received within timeout. Disconnecting.");
-                    await DisconnectAsync();
-                    return false;
-                }
-            }
-            else
-            {
-                // Bluetooth connection handles heartbeat internally
-                _firstHeartbeatTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                var completed = await Task.WhenAny(_firstHeartbeatTcs.Task, Task.Delay(HeartbeatTimeoutMs));
-                var heartbeatReceived = completed == _firstHeartbeatTcs.Task && _firstHeartbeatTcs.Task.Result;
-                if (!heartbeatReceived)
-                {
-                    _logger.LogWarning("No heartbeat received within timeout. Disconnecting.");
-                    await DisconnectAsync();
-                    return false;
-                }
+                _logger.LogWarning("No heartbeat received within {Timeout}ms. Disconnecting.", HeartbeatTimeoutMs);
+                await DisconnectAsync();
+                return false;
             }
 
+            _logger.LogInformation("Connection established successfully");
             return true;
         }
         catch (Exception ex)
@@ -152,12 +169,21 @@ public class ConnectionService : IConnectionService, IDisposable
 
             _tcpClient = new TcpClient();
             await _tcpClient.ConnectAsync(settings.IpAddress, settings.Port);
+            if (!_tcpClient.Connected)
+            {
+                return false;
+            }
+
+            var stream = _tcpClient.GetStream();
+            InitializeAsvWrapper(stream, stream);
+
             _logger.LogInformation("TCP connection established to {IpAddress}:{Port}", settings.IpAddress, settings.Port);
-            return _tcpClient.Connected;
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to establish TCP connection");
+            await DisposeAsvAsync();
             _tcpClient?.Dispose();
             _tcpClient = null;
             return false;
@@ -181,6 +207,10 @@ public class ConnectionService : IConnectionService, IDisposable
             };
             _serialPort.Open();
             _activeSerialPortName = settings.PortName;
+
+            var stream = _serialPort.BaseStream;
+            InitializeAsvWrapper(stream, stream);
+
             _logger.LogInformation("Serial connection established on {PortName} at {BaudRate} baud", settings.PortName, settings.BaudRate);
             return Task.FromResult(_serialPort.IsOpen);
         }
@@ -192,6 +222,83 @@ public class ConnectionService : IConnectionService, IDisposable
             _activeSerialPortName = null;
             return Task.FromResult(false);
         }
+    }
+
+    private void InitializeAsvWrapper(Stream input, Stream output)
+    {
+        DisposeAsvAsync().GetAwaiter().GetResult();
+
+        _asvWrapper = new AsvMavlinkWrapper(_logger);
+        
+        // Subscribe to MAVLink events
+        _asvWrapper.HeartbeatReceived += OnAsvHeartbeatReceived;
+        _asvWrapper.ParamValueReceived += OnAsvParamValueReceived;
+
+        _asvWrapper.Initialize(input, output);
+    }
+
+    private void OnAsvHeartbeatReceived(object? sender, (byte SystemId, byte ComponentId) e)
+    {
+        // Ignore invalid heartbeats
+        if (e.SystemId == 0)
+        {
+            return;
+        }
+
+        _targetSystemId = e.SystemId;
+        _targetComponentId = e.ComponentId;
+        _lastHeartbeat = DateTime.UtcNow;
+        _firstHeartbeatTcs?.TrySetResult(true);
+
+        if (!_isConnected)
+        {
+            _isConnected = true;
+            StartHeartbeatMonitoring();
+            // Raise event on UI thread to avoid cross-thread exception
+            RaiseConnectionStateChanged(true);
+            _logger.LogInformation("Heartbeat received from sysid {SystemId}, compid {ComponentId}. Connection established.", e.SystemId, e.ComponentId);
+        }
+        
+        // Raise event on UI thread
+        RaiseHeartbeatReceived();
+    }
+
+    private void OnAsvParamValueReceived(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
+    {
+        var parameter = new DroneParameter
+        {
+            Name = e.Name,
+            Value = e.Value
+        };
+        
+        // Raise event on UI thread
+        RaiseParamValueReceived(new MavlinkParamValueEventArgs(parameter, e.Index, e.Count));
+    }
+
+    private async Task DisposeAsvAsync()
+    {
+        try
+        {
+            if (_asvWrapper != null)
+            {
+                // Unsubscribe from events
+                _asvWrapper.HeartbeatReceived -= OnAsvHeartbeatReceived;
+                _asvWrapper.ParamValueReceived -= OnAsvParamValueReceived;
+                
+                // Dispose the wrapper
+                _asvWrapper.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error disposing Asv wrapper");
+        }
+        finally
+        {
+            _asvWrapper = null;
+        }
+        
+        await Task.CompletedTask;
     }
 
     private async Task<bool> ConnectBluetoothAsync(ConnectionSettings settings)
@@ -234,274 +341,22 @@ public class ConnectionService : IConnectionService, IDisposable
         }
     }
 
-    private void StartReceiveLoop(ConnectionType type)
+    private void OnBluetoothHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
     {
-        _receiveCts = new CancellationTokenSource();
-        _receiveTask = Task.Run(() => ReceiveLoopAsync(type, _receiveCts.Token));
+        OnAsvHeartbeatReceived(sender, e);
     }
 
-    private async Task ReceiveLoopAsync(ConnectionType type, CancellationToken token)
+    private void OnBluetoothParamValue(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
     {
-        try
-        {
-            Stream? stream = type == ConnectionType.Tcp
-                ? _tcpClient?.GetStream()
-                : _serialPort?.BaseStream;
-
-            if (stream == null)
-            {
-                _logger.LogWarning("No transport stream available for receiving data.");
-                await DisconnectInternalAsync(true);
-                return;
-            }
-
-            var buffer = new byte[512];
-            while (!token.IsCancellationRequested)
-            {
-                int read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), token);
-                if (read == 0)
-                {
-                    _logger.LogWarning("Transport closed by remote endpoint.");
-                    await DisconnectInternalAsync(true);
-                    return;
-                }
-
-                ProcessIncomingData(buffer.AsSpan(0, read));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected during disconnect
-        }
-        catch (IOException ex)
-        {
-            _logger.LogError(ex, "Transport I/O failure detected");
-            await DisconnectInternalAsync(true);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Expected during teardown
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected failure in receive loop");
-            await DisconnectInternalAsync(true);
-        }
+        OnAsvParamValueReceived(sender, e);
     }
 
-    private void ProcessIncomingData(ReadOnlySpan<byte> data)
+    private void OnBluetoothConnectionStateChanged(object? sender, bool connected)
     {
-        if (data.IsEmpty)
-            return;
-
-        lock (_bufferLock)
+        if (!connected)
         {
-            AppendDataInternal(data);
-
-            while (true)
-            {
-                int startIndex = FindStartIndex();
-                if (startIndex < 0)
-                {
-                    if (_rxBuffer.Count > MaxBufferBytes)
-                    {
-                        _rxBuffer.Clear();
-                    }
-                    return;
-                }
-
-                if (startIndex > 0)
-                {
-                    _rxBuffer.RemoveRange(0, startIndex);
-                }
-
-                byte stx = _rxBuffer[0];
-                if (stx == 0xFE)
-                {
-                    if (_rxBuffer.Count < MavlinkV1MinFrameLength)
-                    {
-                        return;
-                    }
-
-                    byte payloadLen = _rxBuffer[1];
-                    int frameLength = payloadLen + 8;
-                    if (_rxBuffer.Count < frameLength)
-                    {
-                        return;
-                    }
-
-                    var frame = _rxBuffer.Take(frameLength).ToArray();
-                    HandleMavlinkFrame(frame);
-                    _rxBuffer.RemoveRange(0, frameLength);
-                }
-                else if (stx == 0xFD)
-                {
-                    if (_rxBuffer.Count < MavlinkV2MinFrameHeaderLength)
-                    {
-                        return;
-                    }
-
-                    byte payloadLen = _rxBuffer[1];
-                    byte incompatFlags = _rxBuffer[2];
-                    bool hasSignature = (incompatFlags & 0x01) != 0;
-                    int signatureLength = hasSignature ? 13 : 0;
-                    int frameLength = payloadLen + 12 + signatureLength;
-
-                    if (_rxBuffer.Count < frameLength)
-                    {
-                        return;
-                    }
-
-                    var frame = _rxBuffer.Take(frameLength).ToArray();
-                    HandleMavlinkFrame(frame);
-                    _rxBuffer.RemoveRange(0, frameLength);
-                }
-                else
-                {
-                    _rxBuffer.RemoveAt(0);
-                }
-            }
+            _ = DisconnectAsync();
         }
-    }
-
-    private void HandleMavlinkFrame(ReadOnlySpan<byte> frame)
-    {
-        if (frame.IsEmpty)
-        {
-            return;
-        }
-
-        var stx = frame[0];
-        if (stx == 0xFE)
-        {
-            HandleMavlink1Frame(frame);
-        }
-        else if (stx == 0xFD)
-        {
-            HandleMavlink2Frame(frame);
-        }
-    }
-
-    private void HandleMavlink1Frame(ReadOnlySpan<byte> frame)
-    {
-        if (frame.Length < 8)
-        {
-            return;
-        }
-
-        byte payloadLen = frame[1];
-        if (frame.Length < payloadLen + 8)
-        {
-            return;
-        }
-
-        byte systemId = frame[3];
-        byte componentId = frame[4];
-        byte messageId = frame[5];
-        var payload = frame.Slice(6, payloadLen);
-
-        switch (messageId)
-        {
-            case 0:
-                OnHeartbeatReceived(systemId, componentId);
-                break;
-            case 22:
-                HandleParamValuePayload(payload);
-                break;
-        }
-    }
-
-    private void HandleMavlink2Frame(ReadOnlySpan<byte> frame)
-    {
-        if (frame.Length < 12)
-        {
-            return;
-        }
-
-        byte payloadLen = frame[1];
-        byte incompatFlags = frame[2];
-        bool hasSignature = (incompatFlags & 0x01) != 0;
-        int signatureLength = hasSignature ? 13 : 0;
-
-        if (frame.Length < payloadLen + 12 + signatureLength)
-        {
-            return;
-        }
-
-        byte systemId = frame[5];
-        byte componentId = frame[6];
-        int messageId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
-        var payload = frame.Slice(10, payloadLen);
-
-        switch (messageId)
-        {
-            case 0:
-                OnHeartbeatReceived(systemId, componentId);
-                break;
-            case 22:
-                HandleParamValuePayload(payload);
-                break;
-        }
-    }
-
-    private void OnHeartbeatReceived(byte systemId, byte componentId)
-    {
-        // Ignore invalid or GCS-originated heartbeats
-        if (systemId == 0 || componentId == GroundControlComponentId)
-        {
-            return;
-        }
-
-        _targetSystemId = systemId;
-        _targetComponentId = componentId;
-        _lastHeartbeat = DateTime.UtcNow;
-        _firstHeartbeatTcs?.TrySetResult(true);
-
-        if (!_isConnected)
-        {
-            _isConnected = true;
-            StartHeartbeatMonitoring();
-            ConnectionStateChanged?.Invoke(this, true);
-            _logger.LogInformation("Heartbeat received from sysid {SystemId}, compid {ComponentId}. Connection established.", systemId, componentId);
-        }
-        
-        // Raise event for subscribers (like UI to trigger parameter download)
-        HeartbeatReceived?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void HandleParamValuePayload(ReadOnlySpan<byte> payload)
-    {
-        const int paramCountOffset = 4;
-        const int paramIndexOffset = 6;
-        const int paramIdOffset = 8;
-        const int paramIdLength = 16;
-        const int paramTypeOffset = paramIdOffset + paramIdLength;
-
-        if (payload.Length < paramTypeOffset + 1)
-        {
-            _logger.LogWarning("Received PARAM_VALUE with insufficient payload length: {Length}", payload.Length);
-            return;
-        }
-
-        float value = BinaryPrimitives.ReadSingleLittleEndian(payload);
-        ushort paramCount = BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(paramCountOffset, 2));
-        ushort paramIndex = BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(paramIndexOffset, 2));
-        string name = Encoding.ASCII.GetString(payload.Slice(paramIdOffset, paramIdLength)).TrimEnd('\0', ' ');
-        byte paramType = payload[paramTypeOffset];
-
-        if (paramType != MavParamTypeReal32)
-        {
-            _logger.LogDebug("Received PARAM_VALUE {Name} with param_type {ParamType}", name, paramType);
-        }
-
-        var parameter = new DroneParameter
-        {
-            Name = name,
-            Value = value
-        };
-
-        // Raise event for ParameterService to handle
-        ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(parameter, paramIndex, paramCount));
     }
 
     private void StartHeartbeatMonitoring()
@@ -552,25 +407,10 @@ public class ConnectionService : IConnectionService, IDisposable
         {
             _firstHeartbeatTcs?.TrySetResult(false);
 
-            _receiveCts?.Cancel();
-
-            if (!calledFromReceiveLoop && _receiveTask != null)
-            {
-                try
-                {
-                    await _receiveTask;
-                }
-                catch (OperationCanceledException)
-                {
-                    // expected during shutdown
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error waiting for receive loop to stop");
-                }
-            }
-
             StopHeartbeatMonitoring();
+
+            // Dispose ASV wrapper
+            await DisposeAsvAsync();
 
             if (_serialPort != null)
             {
@@ -623,12 +463,8 @@ public class ConnectionService : IConnectionService, IDisposable
                 _bluetoothConnection = null;
             }
 
-            _receiveCts?.Dispose();
-            _receiveCts = null;
-            _receiveTask = null;
             _activeConnectionType = null;
             _activeSerialPortName = null;
-            _rxBuffer.Clear();
             ResetParameterTracking();
 
             bool wasConnected = _isConnected;
@@ -637,7 +473,8 @@ public class ConnectionService : IConnectionService, IDisposable
 
             if (wasConnected)
             {
-                ConnectionStateChanged?.Invoke(this, false);
+                // Raise event on UI thread
+                RaiseConnectionStateChanged(false);
             }
         }
         finally
@@ -669,29 +506,6 @@ public class ConnectionService : IConnectionService, IDisposable
         {
             _logger.LogError(ex, "Failed to discover Bluetooth devices");
             return Array.Empty<Core.Models.BluetoothDeviceInfo>();
-        }
-    }
-
-    private void OnBluetoothHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
-    {
-        OnHeartbeatReceived(e.SystemId, e.ComponentId);
-    }
-
-    private void OnBluetoothParamValue(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
-    {
-        var parameter = new DroneParameter
-        {
-            Name = e.Name,
-            Value = e.Value
-        };
-        ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(parameter, e.Index, e.Count));
-    }
-
-    private void OnBluetoothConnectionStateChanged(object? sender, bool connected)
-    {
-        if (!connected)
-        {
-            _ = DisconnectAsync();
         }
     }
 
@@ -746,7 +560,8 @@ public class ConnectionService : IConnectionService, IDisposable
         if (!PortsEqual(_availablePorts, ports))
         {
             _availablePorts = ports;
-            AvailableSerialPortsChanged?.Invoke(this, _availablePorts);
+            // Raise event on UI thread
+            RaiseAvailableSerialPortsChanged(_availablePorts);
         }
 
         if (_serialPort != null &&
@@ -887,28 +702,6 @@ public class ConnectionService : IConnectionService, IDisposable
         return true;
     }
 
-    private void AppendDataInternal(ReadOnlySpan<byte> data)
-    {
-        _rxBuffer.EnsureCapacity(_rxBuffer.Count + data.Length);
-        for (int i = 0; i < data.Length; i++)
-        {
-            _rxBuffer.Add(data[i]);
-        }
-    }
-
-    private int FindStartIndex()
-    {
-        for (int i = 0; i < _rxBuffer.Count; i++)
-        {
-            if (_rxBuffer[i] == 0xFE || _rxBuffer[i] == 0xFD)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
     public void SendParamRequestList()
     {
         if (_activeConnectionType == ConnectionType.Bluetooth)
@@ -917,20 +710,13 @@ public class ConnectionService : IConnectionService, IDisposable
             return;
         }
 
-        if (!TryGetActiveStream(out var stream))
+        if (_asvWrapper != null)
         {
-            _logger.LogWarning("Cannot send PARAM_REQUEST_LIST - no active connection");
+            _ = _asvWrapper.SendParamRequestListAsync();
             return;
         }
 
-        var targetSystem = _targetSystemId == 0 ? DefaultTargetSystemId : _targetSystemId;
-        var targetComponent = _targetComponentId == 0 ? DefaultTargetComponentId : _targetComponentId;
-        Span<byte> payload = stackalloc byte[2];
-        payload[0] = targetSystem;
-        payload[1] = targetComponent;
-
-        var frame = BuildMavlink1Frame(21, payload);
-        SendFrame(stream, frame);
+        _logger.LogWarning("Cannot send PARAM_REQUEST_LIST - no active connection");
     }
 
     public void SendParamRequestRead(ushort paramIndex)
@@ -941,23 +727,13 @@ public class ConnectionService : IConnectionService, IDisposable
             return;
         }
 
-        if (!TryGetActiveStream(out var stream))
+        if (_asvWrapper != null)
         {
-            _logger.LogWarning("Cannot send PARAM_REQUEST_READ - no active connection");
+            _ = _asvWrapper.SendParamRequestReadAsync(paramIndex);
             return;
         }
 
-        var targetSystem = _targetSystemId == 0 ? DefaultTargetSystemId : _targetSystemId;
-        var targetComponent = _targetComponentId == 0 ? DefaultTargetComponentId : _targetComponentId;
-
-        var payload = new byte[20];
-        // param_id bytes (0-15) left empty when requesting by index
-        BinaryPrimitives.WriteInt16LittleEndian(payload.AsSpan(16, 2), (short)paramIndex);
-        payload[18] = targetSystem;
-        payload[19] = targetComponent;
-
-        var frame = BuildMavlink1Frame(20, payload);
-        SendFrame(stream, frame);
+        _logger.LogWarning("Cannot send PARAM_REQUEST_READ - no active connection");
     }
 
     public void SendParamSet(ParameterWriteRequest request)
@@ -968,138 +744,28 @@ public class ConnectionService : IConnectionService, IDisposable
             return;
         }
 
-        if (!TryGetActiveStream(out var stream))
+        if (_asvWrapper != null)
         {
-            _logger.LogWarning("Cannot send PARAM_SET - no active connection");
+            _ = _asvWrapper.SendParamSetAsync(request.Name, request.Value);
             return;
         }
 
-        var targetSystem = _targetSystemId == 0 ? DefaultTargetSystemId : _targetSystemId;
-        var targetComponent = _targetComponentId == 0 ? DefaultTargetComponentId : _targetComponentId;
-
-        var payload = new byte[23];
-        BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(0, 4), request.Value);
-        payload[4] = targetSystem;
-        payload[5] = targetComponent;
-
-        var nameBytes = Encoding.ASCII.GetBytes(request.Name);
-        for (int i = 0; i < Math.Min(16, nameBytes.Length); i++)
-        {
-            payload[6 + i] = nameBytes[i];
-        }
-
-        payload[22] = MavParamTypeReal32; // MAV_PARAM_TYPE_REAL32
-
-        var frame = BuildMavlink1Frame(23, payload);
-        SendFrame(stream, frame);
+        _logger.LogWarning("Cannot send PARAM_SET - no active connection");
     }
-
-    private bool TryGetActiveStream([NotNullWhen(true)] out Stream? stream)
-    {
-        stream = null;
-        if (_activeConnectionType == ConnectionType.Tcp && _tcpClient?.Connected == true)
-        {
-            stream = _tcpClient.GetStream();
-        }
-        else if (_activeConnectionType == ConnectionType.Serial && _serialPort?.IsOpen == true)
-        {
-            stream = _serialPort.BaseStream;
-        }
-
-        return stream != null;
-    }
-
-    private byte[] BuildMavlink1Frame(byte messageId, ReadOnlySpan<byte> payload)
-    {
-        var frame = new byte[payload.Length + 8];
-        frame[0] = 0xFE;
-        frame[1] = (byte)payload.Length;
-        frame[2] = _packetSequence++;
-        frame[3] = GroundControlSystemId;
-        frame[4] = GroundControlComponentId;
-        frame[5] = messageId;
-        payload.CopyTo(frame.AsSpan(6));
-
-        ushort crc = ComputeX25Crc(frame.AsSpan(1, payload.Length + 5), GetCrcExtra(messageId));
-        frame[^2] = (byte)(crc & 0xFF);
-        frame[^1] = (byte)(crc >> 8);
-        return frame;
-    }
-
-    private void SendFrame(Stream stream, ReadOnlySpan<byte> frame)
-    {
-        try
-        {
-            lock (_sendLock)
-            {
-                stream.Write(frame);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send MAVLink frame");
-        }
-    }
-
-    private static ushort ComputeX25Crc(ReadOnlySpan<byte> buffer, byte crcExtra)
-    {
-        ushort crc = X25InitialCrc;
-        foreach (var b in buffer)
-        {
-            crc ^= b;
-            for (int i = 0; i < 8; i++)
-            {
-                if ((crc & 1) != 0)
-                {
-                    crc = (ushort)((crc >> 1) ^ X25Polynomial);
-                }
-                else
-                {
-                    crc >>= 1;
-                }
-            }
-        }
-
-        crc ^= crcExtra;
-        for (int i = 0; i < 8; i++)
-        {
-            if ((crc & 1) != 0)
-            {
-                crc = (ushort)((crc >> 1) ^ X25Polynomial);
-            }
-            else
-            {
-                crc >>= 1;
-            }
-        }
-
-        return crc;
-    }
-
-    private static byte GetCrcExtra(byte messageId) => messageId switch
-    {
-        0 => CrcExtraHeartbeat,
-        20 => CrcExtraParamRequestRead,
-        21 => CrcExtraParamRequestList,
-        22 => CrcExtraParamValue,
-        23 => CrcExtraParamSet,
-        _ => 0
-    };
 
     private void ResetParameterTracking()
     {
         _targetSystemId = 0;
         _targetComponentId = 0;
-        _packetSequence = 0;
     }
 
     public void Dispose()
     {
         StopHeartbeatMonitoring();
         StopSerialPortWatcher();
-        _receiveCts?.Cancel();
         _serialPort?.Dispose();
         _tcpClient?.Dispose();
-        _receiveCts?.Dispose();
+        _ = DisposeAsvAsync();
+        _disconnectLock.Dispose();
     }
 }

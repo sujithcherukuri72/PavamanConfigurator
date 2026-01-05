@@ -1,533 +1,261 @@
 using Microsoft.Extensions.Logging;
 using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Core.Models;
+using System.Collections.Concurrent;
 
 namespace PavanamDroneConfigurator.Infrastructure.Services;
 
+/// <summary>
+/// Parameter service that downloads parameters from drone like Mission Planner.
+/// Uses aggressive retry strategy for missing parameters.
+/// </summary>
 public class ParameterService : IParameterService
 {
     private readonly ILogger<ParameterService> _logger;
     private readonly IConnectionService _connectionService;
-    private readonly Dictionary<string, DroneParameter> _parameters = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, TaskCompletionSource<DroneParameter>> _pendingParamWrites = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<int> _receivedParamIndices = new();
-    private readonly HashSet<int> _missingParamIndices = new();
-    private readonly object _sync = new();
-    private TaskCompletionSource<bool>? _parameterListCompletion;
-    private readonly TimeSpan _operationTimeout = TimeSpan.FromSeconds(5);
-    private readonly TimeSpan _parameterDownloadTimeout = TimeSpan.FromSeconds(60);
-    private readonly TimeSpan _paramValueIdleTimeout = TimeSpan.FromSeconds(3);
-    private const int _maxParameterRetries = 3;
-    private CancellationTokenSource? _parameterDownloadCts;
-    private Task? _parameterDownloadMonitorTask;
-    private ushort? _expectedParamCount;
-    private bool _isParameterDownloadInProgress;
-    private bool _isParameterDownloadComplete;
-    private int _receivedParameterCount;
-    private int _retryAttempts;
-    private DateTime _lastParamValueReceived = DateTime.MinValue;
-    private bool _parameterDownloadCompletionRaised;
+    private readonly ConcurrentDictionary<string, DroneParameter> _parameters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<DroneParameter>> _pendingWrites = new();
+    private readonly HashSet<int> _receivedIndices = new();
+    private readonly object _lock = new();
+    
+    private TaskCompletionSource<bool>? _downloadComplete;
+    private CancellationTokenSource? _downloadCts;
+    private ushort? _expectedCount;
+    private volatile bool _downloading;
+    private volatile bool _downloadDone;
+    private int _received;
 
     public event EventHandler<string>? ParameterUpdated;
     public event EventHandler? ParameterDownloadStarted;
     public event EventHandler<bool>? ParameterDownloadCompleted;
     public event EventHandler? ParameterDownloadProgressChanged;
 
+    public bool IsParameterDownloadInProgress => _downloading;
+    public bool IsParameterDownloadComplete => _downloadDone;
+    public int ReceivedParameterCount => _received;
+    public int? ExpectedParameterCount => _expectedCount;
+
     public ParameterService(ILogger<ParameterService> logger, IConnectionService connectionService)
     {
         _logger = logger;
         _connectionService = connectionService;
-        
-        // Subscribe to ConnectionService events to receive MAVLink messages
-        _connectionService.ParamValueReceived += OnParamValueReceived;
-        _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
+        _connectionService.ParamValueReceived += OnParamReceived;
+        _connectionService.ConnectionStateChanged += OnConnectionChanged;
     }
 
-    private void OnParamValueReceived(object? sender, MavlinkParamValueEventArgs e)
+    private void OnConnectionChanged(object? sender, bool connected)
     {
-        HandleParamValue(e.Parameter, e.ParamIndex, e.ParamCount);
+        if (!connected) Reset();
     }
 
-    private void OnConnectionStateChanged(object? sender, bool connected)
+    private void OnParamReceived(object? sender, MavlinkParamValueEventArgs e)
     {
-        if (!connected)
+        var param = e.Parameter;
+        _parameters[param.Name] = param;
+
+        bool isNew;
+        lock (_lock)
         {
-            // Reset parameter state when disconnected
-            Reset();
+            if (!_expectedCount.HasValue && e.ParamCount > 0)
+            {
+                _expectedCount = e.ParamCount;
+                _logger.LogInformation("Total parameter count: {Count}", e.ParamCount);
+            }
+
+            isNew = _receivedIndices.Add(e.ParamIndex);
+            _received = _receivedIndices.Count;
+
+            // Check completion
+            if (_expectedCount.HasValue && _received >= _expectedCount.Value)
+            {
+                _downloadComplete?.TrySetResult(true);
+            }
+        }
+
+        if (isNew)
+        {
+            ParameterUpdated?.Invoke(this, param.Name);
+            
+            // Update progress every 100 params
+            if (_received % 100 == 0 || (_expectedCount.HasValue && _received >= _expectedCount.Value))
+            {
+                ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        // Handle pending write confirmations
+        if (_pendingWrites.TryRemove(param.Name, out var tcs))
+        {
+            tcs.TrySetResult(param);
         }
     }
 
     public Task<List<DroneParameter>> GetAllParametersAsync()
     {
-        _logger.LogInformation("Getting all cached parameters");
-        lock (_sync)
-        {
-            return Task.FromResult(_parameters.Values.ToList());
-        }
-    }
-
-    public bool IsParameterDownloadInProgress
-    {
-        get
-        {
-            lock (_sync)
-            {
-                return _isParameterDownloadInProgress;
-            }
-        }
-    }
-
-    public bool IsParameterDownloadComplete
-    {
-        get
-        {
-            lock (_sync)
-            {
-                return _isParameterDownloadComplete;
-            }
-        }
-    }
-
-    public int ReceivedParameterCount
-    {
-        get
-        {
-            lock (_sync)
-            {
-                return _receivedParameterCount;
-            }
-        }
-    }
-
-    public int? ExpectedParameterCount
-    {
-        get
-        {
-            lock (_sync)
-            {
-                return _expectedParamCount.HasValue ? (int?)_expectedParamCount.Value : null;
-            }
-        }
+        return Task.FromResult(_parameters.Values.OrderBy(p => p.Name).ToList());
     }
 
     public Task<DroneParameter?> GetParameterAsync(string name)
     {
-        _logger.LogInformation("Getting parameter: {Name}", name);
-        lock (_sync)
-        {
-            _parameters.TryGetValue(name, out var param);
-            return Task.FromResult(param);
-        }
+        _parameters.TryGetValue(name, out var param);
+        return Task.FromResult(param);
     }
 
     public async Task<bool> SetParameterAsync(string name, float value)
     {
-        if (!_connectionService.IsConnected)
-        {
-            _logger.LogWarning("Cannot set parameter: not connected");
-            return false;
-        }
+        if (!_connectionService.IsConnected) return false;
 
-        var confirmationSource = new TaskCompletionSource<DroneParameter>(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_sync)
-        {
-            _pendingParamWrites[name] = confirmationSource;
-        }
+        var tcs = new TaskCompletionSource<DroneParameter>();
+        _pendingWrites[name] = tcs;
 
-        // Call ConnectionService to send PARAM_SET
         _connectionService.SendParamSet(new ParameterWriteRequest(name, value));
 
-        var completed = await Task.WhenAny(confirmationSource.Task, Task.Delay(_operationTimeout));
-        if (completed != confirmationSource.Task)
-        {
-            _logger.LogWarning("Timed out waiting for PARAM_VALUE confirmation for {Name}", name);
-            lock (_sync)
-            {
-                _pendingParamWrites.Remove(name);
-            }
-            return false;
-        }
+        var completed = await Task.WhenAny(tcs.Task, Task.Delay(3000));
+        _pendingWrites.TryRemove(name, out _);
 
-        var confirmedParameter = confirmationSource.Task.Result;
-        lock (_sync)
-        {
-            _parameters[confirmedParameter.Name] = confirmedParameter;
-        }
-
-        _logger.LogInformation("Parameter {Name} updated from MAVLink confirmation", name);
-        return true;
+        return completed == tcs.Task;
     }
 
     public async Task RefreshParametersAsync()
     {
-        _logger.LogInformation("Requesting full parameter list via MAVLink PARAM_REQUEST_LIST");
-
         if (!_connectionService.IsConnected)
         {
-            _logger.LogWarning("Cannot refresh parameters: not connected");
-            lock (_sync)
-            {
-                _receivedParamIndices.Clear();
-                _missingParamIndices.Clear();
-                _isParameterDownloadInProgress = false;
-                _isParameterDownloadComplete = false;
-                _receivedParameterCount = 0;
-                _expectedParamCount = null;
-                _retryAttempts = 0;
-                _lastParamValueReceived = DateTime.MinValue;
-            }
-            StopParameterMonitoring();
-            ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
+            _logger.LogWarning("Cannot refresh: not connected");
             return;
         }
 
-        TaskCompletionSource<bool>? listCompletion;
-        bool raiseProgressEvent;
-        StopParameterMonitoring();
-        var monitorCts = new CancellationTokenSource();
-        lock (_sync)
+        // Stop any existing download
+        _downloadCts?.Cancel();
+        
+        // Reset state
+        _parameters.Clear();
+        lock (_lock)
         {
-            _receivedParamIndices.Clear();
-            _missingParamIndices.Clear();
-            _expectedParamCount = null;
-            _parameterListCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            listCompletion = _parameterListCompletion;
-            _isParameterDownloadInProgress = true;
-            _isParameterDownloadComplete = false;
-            _receivedParameterCount = 0;
-            _retryAttempts = 0;
-            _lastParamValueReceived = DateTime.UtcNow;
-            _parameterDownloadCts = monitorCts;
-            _parameterDownloadMonitorTask = MonitorParameterDownloadAsync(monitorCts.Token);
-            _parameterDownloadCompletionRaised = false;
-            raiseProgressEvent = true;
+            _receivedIndices.Clear();
+            _expectedCount = null;
         }
+        _received = 0;
+        _downloading = true;
+        _downloadDone = false;
+        _downloadComplete = new TaskCompletionSource<bool>();
+        _downloadCts = new CancellationTokenSource();
 
         ParameterDownloadStarted?.Invoke(this, EventArgs.Empty);
+        ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
 
-        if (raiseProgressEvent)
-        {
-            ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-        }
+        _logger.LogInformation("Starting parameter download...");
 
-        // Call ConnectionService to send PARAM_REQUEST_LIST
-        _connectionService.SendParamRequestList();
-
-        if (listCompletion == null)
-        {
-            return;
-        }
-
-        using var downloadTimeoutCts = new CancellationTokenSource();
-        var timeoutTask = Task.Delay(_parameterDownloadTimeout, downloadTimeoutCts.Token);
-        var completed = await Task.WhenAny(listCompletion.Task, timeoutTask);
-        if (completed == listCompletion.Task)
-        {
-            downloadTimeoutCts.Cancel();
-        }
-        else
-        {
-            _logger.LogWarning("Parameter list request timed out before completion");
-            bool raiseCompletedEvent = false;
-            lock (_sync)
-            {
-                var wasInProgress = _isParameterDownloadInProgress;
-                _receivedParamIndices.Clear();
-                _missingParamIndices.Clear();
-                _expectedParamCount = null;
-                _receivedParameterCount = 0;
-                _isParameterDownloadInProgress = false;
-                _isParameterDownloadComplete = false;
-                _retryAttempts = 0;
-                _lastParamValueReceived = DateTime.MinValue;
-                _parameterListCompletion = null;
-                if (wasInProgress)
-                {
-                    raiseCompletedEvent = TryMarkDownloadCompleted();
-                }
-            }
-            StopParameterMonitoring();
-            if (raiseCompletedEvent)
-            {
-                ParameterDownloadCompleted?.Invoke(this, false);
-            }
-            ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    // This method is called by ConnectionService when PARAM_VALUE messages are received
-    public void OnParameterValueReceived(string name, float value, int index, int count)
-    {
-        var param = new DroneParameter
-        {
-            Name = name,
-            Value = value,
-            Description = $"Parameter {index + 1} of {count}"
-        };
-
-        lock (_sync)
-        {
-            _parameters[name] = param;
-        }
-        _logger.LogInformation("PARAM_VALUE: {Name} = {Value} (#{Index}/{Count})", 
-            name, value, index + 1, count);
-        
-        // Notify subscribers that this parameter was updated
-        ParameterUpdated?.Invoke(this, name);
-    }
-
-    private void HandleParamValue(DroneParameter parameter, ushort paramIndex, ushort paramCount)
-    {
-        TaskCompletionSource<DroneParameter>? pendingWrite = null;
-        TaskCompletionSource<bool>? listCompletion = null;
-        bool raiseProgress = false;
-        bool stopMonitor = false;
-        bool raiseCompletedEvent = false;
-        var parameterName = parameter.Name;
-
-        lock (_sync)
-        {
-            _parameters[parameterName] = parameter;
-
-            if (!_expectedParamCount.HasValue && paramCount > 0)
-            {
-                _expectedParamCount = paramCount;
-                _missingParamIndices.Clear();
-                _missingParamIndices.UnionWith(Enumerable.Range(0, paramCount));
-                foreach (var receivedIndex in _receivedParamIndices)
-                {
-                    _missingParamIndices.Remove(receivedIndex);
-                }
-            }
-            else if (_expectedParamCount.HasValue && paramCount > 0 && _expectedParamCount.Value != paramCount)
-            {
-                _logger.LogWarning("Parameter count changed from {Expected} to {Actual}", _expectedParamCount, paramCount);
-            }
-
-            var indexWithinRange = !_expectedParamCount.HasValue || paramIndex < _expectedParamCount.Value;
-            if (!indexWithinRange && _expectedParamCount.HasValue)
-            {
-                _logger.LogWarning("Received param_index {ParamIndex} outside expected range 0-{MaxIndex}", paramIndex, _expectedParamCount.Value - 1);
-            }
-
-            if (indexWithinRange && _receivedParamIndices.Add(paramIndex))
-            {
-                if (_expectedParamCount.HasValue)
-                {
-                    _missingParamIndices.Remove(paramIndex);
-                }
-            }
-            _receivedParameterCount = _receivedParamIndices.Count;
-            _lastParamValueReceived = DateTime.UtcNow;
-            _retryAttempts = 0;
-
-            if (_pendingParamWrites.TryGetValue(parameter.Name, out pendingWrite))
-            {
-                _pendingParamWrites.Remove(parameter.Name);
-            }
-
-            if (_parameterListCompletion != null && _expectedParamCount.HasValue &&
-                _receivedParameterCount >= _expectedParamCount.Value)
-            {
-                listCompletion = _parameterListCompletion;
-                _parameterListCompletion = null;
-                _isParameterDownloadInProgress = false;
-                _isParameterDownloadComplete = true;
-                stopMonitor = true;
-                raiseCompletedEvent = TryMarkDownloadCompleted();
-            }
-            raiseProgress = true;
-        }
-
-        pendingWrite?.TrySetResult(parameter);
-        listCompletion?.TrySetResult(true);
-        if (stopMonitor)
-        {
-            StopParameterMonitoring();
-        }
-        if (raiseCompletedEvent)
-        {
-            ParameterDownloadCompleted?.Invoke(this, true);
-        }
-        ParameterUpdated?.Invoke(this, parameterName);
-        if (raiseProgress)
-        {
-            ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    private bool TryMarkDownloadCompleted()
-    {
-        if (_parameterDownloadCompletionRaised)
-        {
-            return false;
-        }
-
-        _parameterDownloadCompletionRaised = true;
-        return true;
-    }
-
-    private async Task MonitorParameterDownloadAsync(CancellationToken token)
-    {
         try
         {
-            while (!token.IsCancellationRequested)
+            var ct = _downloadCts.Token;
+
+            // Send initial PARAM_REQUEST_LIST
+            _connectionService.SendParamRequestList();
+
+            // Wait up to 2 seconds for first response
+            await Task.Delay(2000, ct);
+
+            // Retry loop like Mission Planner
+            for (int retry = 0; retry < 5 && !ct.IsCancellationRequested; retry++)
             {
-                await Task.Delay(_paramValueIdleTimeout, token);
+                int expected;
+                int received;
+                List<int> missing;
+                bool hasExpected;
+                bool isComplete;
 
-                List<ushort>? missingIndices = null;
-                bool completeDownload = false;
-                bool raiseProgress = false;
-                bool stopMonitor = false;
-                bool skipProcessing = false;
-                bool raiseCompletedEvent = false;
-
-                lock (_sync)
+                lock (_lock)
                 {
-                    if (!_isParameterDownloadInProgress)
+                    hasExpected = _expectedCount.HasValue;
+                    expected = _expectedCount ?? 0;
+                    received = _receivedIndices.Count;
+                    isComplete = hasExpected && received >= expected;
+                    
+                    if (hasExpected && !isComplete)
                     {
-                        skipProcessing = true;
+                        missing = Enumerable.Range(0, expected)
+                            .Where(i => !_receivedIndices.Contains(i))
+                            .ToList();
                     }
                     else
                     {
-                        var now = DateTime.UtcNow;
-                        var timeSinceLastParam = now - _lastParamValueReceived;
-                        var expectedCount = _expectedParamCount;
-                        var hasExpectedCount = expectedCount.HasValue;
-
-                        if (hasExpectedCount && _receivedParameterCount >= expectedCount!.Value)
-                        {
-                            completeDownload = true;
-                        }
-                        else if (timeSinceLastParam >= _paramValueIdleTimeout)
-                        {
-                            completeDownload = true;
-                        }
-                        else if (hasExpectedCount && _missingParamIndices.Count > 0)
-                        {
-                            if (_retryAttempts < _maxParameterRetries)
-                            {
-                                missingIndices = new List<ushort>(_missingParamIndices.Count);
-                                foreach (var index in _missingParamIndices)
-                                {
-                                    missingIndices.Add((ushort)index);
-                                }
-                                _retryAttempts++;
-                            }
-                        }
-
-                        if (completeDownload)
-                        {
-                            _isParameterDownloadInProgress = false;
-                            _isParameterDownloadComplete = true;
-                            _parameterListCompletion?.TrySetResult(true);
-                            _parameterListCompletion = null;
-                            stopMonitor = true;
-                            raiseCompletedEvent = TryMarkDownloadCompleted();
-                        }
-
-                        raiseProgress = completeDownload || missingIndices != null;
+                        missing = new List<int>();
                     }
                 }
 
-                if (skipProcessing)
+                if (isComplete)
                 {
+                    _logger.LogInformation("All {Count} parameters received", expected);
+                    break;
+                }
+
+                if (!hasExpected)
+                {
+                    // No response yet - resend request
+                    _logger.LogWarning("No parameters received, resending PARAM_REQUEST_LIST (attempt {N})", retry + 1);
+                    _connectionService.SendParamRequestList();
+                    await Task.Delay(2000, ct);
                     continue;
                 }
 
-                if (missingIndices != null)
+                _logger.LogInformation("Retry {N}: {Received}/{Expected}, requesting {Missing} missing", 
+                    retry + 1, received, expected, missing.Count);
+
+                // Request missing parameters in chunks
+                foreach (var chunk in missing.Chunk(10))
                 {
-                    foreach (var missingIndex in missingIndices)
+                    if (ct.IsCancellationRequested) break;
+
+                    foreach (var idx in chunk)
                     {
-                        // Call ConnectionService to send PARAM_REQUEST_READ
-                        _connectionService.SendParamRequestRead(missingIndex);
+                        _connectionService.SendParamRequestRead((ushort)idx);
                     }
+                    await Task.Delay(100, ct); // Brief pause between chunks
                 }
 
-                if (completeDownload && stopMonitor)
-                {
-                    StopParameterMonitoring();
-                }
-
-                if (raiseCompletedEvent)
-                {
-                    ParameterDownloadCompleted?.Invoke(this, true);
-                }
-
-                if (raiseProgress)
-                {
-                    ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-                }
+                // Wait for responses
+                await Task.Delay(1000, ct);
             }
         }
         catch (OperationCanceledException)
         {
-            // Expected during teardown
+            // Normal cancellation
         }
-    }
-
-    private void StopParameterMonitoring()
-    {
-        CancellationTokenSource? cts;
-        lock (_sync)
+        catch (Exception ex)
         {
-            cts = _parameterDownloadCts;
-            _parameterDownloadCts = null;
-            _parameterDownloadMonitorTask = null;
+            _logger.LogError(ex, "Error during parameter download");
         }
 
-        if (cts != null)
-        {
-            cts.Cancel();
-            cts.Dispose();
-        }
+        // Finalize
+        _downloading = false;
+        _downloadDone = _received > 0;
+
+        _logger.LogInformation("Parameter download finished: {Received}/{Expected}", 
+            _received, _expectedCount ?? 0);
+
+        ParameterDownloadCompleted?.Invoke(this, _downloadDone);
+        ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Reset()
     {
-        TaskCompletionSource<bool>? listCompletion;
-        List<TaskCompletionSource<DroneParameter>> pendingWrites;
-        bool raiseProgress = false;
-        bool raiseCompletedEvent = false;
-
-        lock (_sync)
+        _downloadCts?.Cancel();
+        _parameters.Clear();
+        lock (_lock)
         {
-            if (_isParameterDownloadInProgress)
-            {
-                raiseCompletedEvent = TryMarkDownloadCompleted();
-            }
-            listCompletion = _parameterListCompletion;
-            _parameterListCompletion = null;
-            pendingWrites = _pendingParamWrites.Values.ToList();
-            _pendingParamWrites.Clear();
-            _parameters.Clear();
-            _receivedParamIndices.Clear();
-            _missingParamIndices.Clear();
-            _expectedParamCount = null;
-            _receivedParameterCount = 0;
-            _retryAttempts = 0;
-            _lastParamValueReceived = DateTime.MinValue;
-            _isParameterDownloadInProgress = false;
-            _isParameterDownloadComplete = false;
-            _parameterDownloadCompletionRaised = false;
-            raiseProgress = true;
+            _receivedIndices.Clear();
+            _expectedCount = null;
         }
+        _received = 0;
+        _downloading = false;
+        _downloadDone = false;
+        _downloadComplete?.TrySetCanceled();
+        _downloadComplete = null;
 
-        StopParameterMonitoring();
-        listCompletion?.TrySetCanceled();
-        foreach (var pending in pendingWrites)
-        {
-            pending.TrySetCanceled();
-        }
+        foreach (var tcs in _pendingWrites.Values)
+            tcs.TrySetCanceled();
+        _pendingWrites.Clear();
 
-        if (raiseCompletedEvent)
-        {
-            ParameterDownloadCompleted?.Invoke(this, false);
-        }
-
-        if (raiseProgress)
-        {
-            ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-        }
+        ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
     }
 }

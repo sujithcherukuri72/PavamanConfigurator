@@ -108,34 +108,34 @@
                            Margin="12,8,0,8"/>
 
                 <StackPanel x:Name="NavigationMenu" Spacing="4">
-                    <Button Content="?? Connection" 
+                    <Button Content="Connection" 
                             Classes="nav-button"
                             CommandParameter="{Binding ConnectionPage}" 
                             Click="NavButton_Click" />
 
-                    <Button Content="?? Airframe" 
+                    <Button Content="Airframe" 
                             Classes="nav-button"
                             CommandParameter="{Binding AirframePage}" 
                             Click="NavButton_Click" 
                             IsEnabled="{Binding CanAccessAirframe}" />
 
-                    <Button Content="?? Parameters" 
+                    <Button Content="Parameters" 
                             Classes="nav-button"
                             CommandParameter="{Binding ParametersPage}" 
                             Click="NavButton_Click" 
                             IsEnabled="{Binding CanAccessParameters}" />
 
-                    <Button Content="?? Calibration" 
+                    <Button Content="Calibration" 
                             Classes="nav-button"
                             CommandParameter="{Binding CalibrationPage}" 
                             Click="NavButton_Click" />
 
-                    <Button Content="??? Safety" 
+                    <Button Content="Safety" 
                             Classes="nav-button"
                             CommandParameter="{Binding SafetyPage}" 
                             Click="NavButton_Click" />
 
-                    <Button Content="?? Profiles" 
+                    <Button Content="Profiles" 
                             Classes="nav-button"
                             CommandParameter="{Binding ProfilePage}" 
                             Click="NavButton_Click" />

@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- MAVLink Protocol - Locked to 3.9.0 to prevent version drift -->
+    <!-- MAVLink Protocol - Locked to 3.9.x -->
     <PackageReference Include="Asv.Mavlink" Version="3.9.0" />
+    <PackageReference Include="Asv.IO" Version="2.0.1" />
     
     <!-- Modern Bluetooth for .NET (InTheHand.Net - modern 32feet.NET successor) -->
     <PackageReference Include="InTheHand.Net.Bluetooth" Version="4.2.0" />
