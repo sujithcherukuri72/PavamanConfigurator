@@ -41,6 +41,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
 
+    private bool _navigatedAfterConnect;
+
     public MainWindowViewModel(
         ConnectionPageViewModel connectionPage,
         AirframePageViewModel airframePage,
@@ -66,7 +68,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
         InitializeFromServices();
 
-        _currentPage = connectionPage;
+        _currentPage = connectionPage; // ensure connection page is the first page after splash
     }
 
     private void OnParameterDownloadStarted(object? sender, EventArgs e)
@@ -104,7 +106,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        Dispatcher.UIThread.Post(UpdateAccessPermissions);
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdateAccessPermissions();
+            UpdateNavigationForConnectionState(connected);
+        });
     }
 
     private void InitializeFromServices()
@@ -113,6 +119,25 @@ public partial class MainWindowViewModel : ViewModelBase
         IsParameterDownloadComplete = _parameterService.IsParameterDownloadComplete;
         UpdateProgress();
         UpdateAccessPermissions();
+        UpdateNavigationForConnectionState(_connectionService.IsConnected);
+    }
+
+    private void UpdateNavigationForConnectionState(bool connected)
+    {
+        if (connected)
+        {
+            if (!_navigatedAfterConnect)
+            {
+                CurrentPage = ParametersPage; // open main application experience after connect
+                _navigatedAfterConnect = true;
+            }
+        }
+        else
+        {
+            // return to connection page and reset navigation state on disconnect
+            CurrentPage = ConnectionPage;
+            _navigatedAfterConnect = false;
+        }
     }
 
     private void UpdateProgress()

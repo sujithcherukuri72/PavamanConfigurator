@@ -11,6 +11,8 @@ using PavanamDroneConfigurator.Core.Interfaces;
 using PavanamDroneConfigurator.Infrastructure.Services;
 using PavanamDroneConfigurator.UI.ViewModels;
 using PavanamDroneConfigurator.UI.Views;
+using Avalonia.Threading;
+using System;
 
 namespace PavanamDroneConfigurator.UI;
 
@@ -62,7 +64,6 @@ public partial class App : Application
         {
             DisableAvaloniaDataAnnotationValidation();
             
-            // Show splash screen first
             var splashScreen = new SplashScreenWindow
             {
                 DataContext = Services!.GetRequiredService<SplashScreenViewModel>()
@@ -70,22 +71,30 @@ public partial class App : Application
             
             splashScreen.Show();
 
-            // Initialize app in background and show main window when ready
             Task.Run(async () =>
             {
-                var splashViewModel = (SplashScreenViewModel)splashScreen.DataContext!;
-                await splashViewModel.InitializeAsync();
-                
-                // Show main window on UI thread
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                try
                 {
-                    desktop.MainWindow = new MainWindow
+                    var splashViewModel = (SplashScreenViewModel)splashScreen.DataContext!;
+                    await splashViewModel.InitializeAsync();
+                }
+                catch (Exception ex)
+                {
+                    // Minimal fallback logging
+                    Console.WriteLine($"Splash initialization failed: {ex.Message}");
+                }
+                finally
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        DataContext = Services!.GetRequiredService<MainWindowViewModel>(),
-                    };
-                    desktop.MainWindow.Show();
-                    splashScreen.Close();
-                });
+                        desktop.MainWindow = new MainWindow
+                        {
+                            DataContext = Services!.GetRequiredService<MainWindowViewModel>(),
+                        };
+                        desktop.MainWindow.Show();
+                        splashScreen.Close();
+                    });
+                }
             });
 
             desktop.Exit += (_, _) => Services?.Dispose();

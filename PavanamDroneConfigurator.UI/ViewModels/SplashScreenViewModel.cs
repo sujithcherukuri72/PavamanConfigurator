@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Avalonia.Threading;
 
 namespace PavanamDroneConfigurator.UI.ViewModels;
 
@@ -78,7 +79,6 @@ public partial class SplashScreenViewModel : ViewModelBase
 
     public async Task InitializeAsync()
     {
-        // Simulate initialization process with progress updates
         await UpdateProgress("Loading core services...", 0);
         await Task.Delay(300);
 
@@ -97,9 +97,11 @@ public partial class SplashScreenViewModel : ViewModelBase
 
     private async Task UpdateProgress(string message, double progress)
     {
-        LoadingMessage = message;
-        Progress = progress;
-        IsIndeterminate = false;
-        await Task.Delay(10); // Small delay to ensure UI updates
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            LoadingMessage = message;
+            Progress = progress;
+            IsIndeterminate = false;
+        });
     }
 }
