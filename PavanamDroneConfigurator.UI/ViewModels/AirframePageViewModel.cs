@@ -11,6 +11,7 @@ public partial class AirframePageViewModel : ViewModelBase
 {
     private readonly IAirframeService _airframeService;
     private readonly IConnectionService _connectionService;
+    private readonly IParameterService _parameterService;
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
@@ -54,27 +55,51 @@ public partial class AirframePageViewModel : ViewModelBase
         new FrameTypeOption(5, "A-Tail", "A-Tail configuration")
     };
 
-    public AirframePageViewModel(IAirframeService airframeService, IConnectionService connectionService)
+    public AirframePageViewModel(IAirframeService airframeService, IConnectionService connectionService, IParameterService parameterService)
     {
         _airframeService = airframeService;
         _connectionService = connectionService;
+        _parameterService = parameterService;
 
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
+        _parameterService.ParameterDownloadCompleted += OnParameterDownloadCompleted;
+        
         IsConnected = _connectionService.IsConnected;
+        
+        // If already connected and parameters downloaded, load settings
+        if (_connectionService.IsConnected && _parameterService.IsParameterDownloadComplete)
+        {
+            _ = LoadSettingsAsync();
+        }
     }
 
-    private async void OnConnectionStateChanged(object? sender, bool connected)
+    private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        IsConnected = connected;
-        
-        if (connected)
+        Dispatcher.UIThread.Post(() =>
         {
-            await LoadSettingsAsync();
-        }
-        else
+            IsConnected = connected;
+            
+            if (!connected)
+            {
+                StatusMessage = "Disconnected";
+                CurrentFrameName = "Not connected";
+            }
+            else
+            {
+                StatusMessage = "Connected - Waiting for parameters...";
+            }
+        });
+    }
+
+    private void OnParameterDownloadCompleted(object? sender, bool success)
+    {
+        if (success)
         {
-            StatusMessage = "Disconnected";
-            CurrentFrameName = "Not connected";
+            // Auto-load airframe settings after parameters are downloaded
+            Dispatcher.UIThread.Post(async () =>
+            {
+                await LoadSettingsAsync();
+            });
         }
     }
 
@@ -87,8 +112,14 @@ public partial class AirframePageViewModel : ViewModelBase
             return;
         }
 
+        if (!_parameterService.IsParameterDownloadComplete)
+        {
+            StatusMessage = "Waiting for parameters to download...";
+            return;
+        }
+
         IsLoading = true;
-        StatusMessage = "Loading airframe settings...";
+        StatusMessage = "Loading airframe settings from drone...";
 
         try
         {
@@ -99,11 +130,11 @@ public partial class AirframePageViewModel : ViewModelBase
                 SelectedFrameType = settings.FrameType;
                 CurrentFrameName = settings.FrameName;
 
-                StatusMessage = "Airframe settings loaded successfully";
+                StatusMessage = $"Airframe: {settings.FrameName}";
             }
             else
             {
-                StatusMessage = "Failed to load airframe settings";
+                StatusMessage = "Could not determine airframe settings";
             }
         }
         catch (Exception ex)

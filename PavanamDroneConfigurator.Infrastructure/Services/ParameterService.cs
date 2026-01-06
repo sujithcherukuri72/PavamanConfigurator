@@ -50,8 +50,18 @@ public class ParameterService : IParameterService
 
     private void OnParamReceived(object? sender, MavlinkParamValueEventArgs e)
     {
-        var param = e.Parameter;
+        // Store parameter with value from drone
+        var param = new DroneParameter
+        {
+            Name = e.Parameter.Name,
+            Value = e.Parameter.Value,
+            Description = $"Index: {e.ParamIndex}"
+        };
+        
         _parameters[param.Name] = param;
+        
+        _logger.LogDebug("Received param: {Name} = {Value} [{Index}/{Count}]", 
+            param.Name, param.Value, e.ParamIndex, e.ParamCount);
 
         bool isNew;
         lock (_lock)
@@ -59,7 +69,7 @@ public class ParameterService : IParameterService
             if (!_expectedCount.HasValue && e.ParamCount > 0)
             {
                 _expectedCount = e.ParamCount;
-                _logger.LogInformation("Total parameter count: {Count}", e.ParamCount);
+                _logger.LogInformation("Total parameter count from drone: {Count}", e.ParamCount);
             }
 
             isNew = _receivedIndices.Add(e.ParamIndex);
@@ -76,8 +86,8 @@ public class ParameterService : IParameterService
         {
             ParameterUpdated?.Invoke(this, param.Name);
             
-            // Update progress every 100 params
-            if (_received % 100 == 0 || (_expectedCount.HasValue && _received >= _expectedCount.Value))
+            // Update progress every 50 params or near completion
+            if (_received % 50 == 0 || (_expectedCount.HasValue && _received >= _expectedCount.Value - 5))
             {
                 ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -92,7 +102,9 @@ public class ParameterService : IParameterService
 
     public Task<List<DroneParameter>> GetAllParametersAsync()
     {
-        return Task.FromResult(_parameters.Values.OrderBy(p => p.Name).ToList());
+        var list = _parameters.Values.OrderBy(p => p.Name).ToList();
+        _logger.LogInformation("GetAllParametersAsync returning {Count} parameters", list.Count);
+        return Task.FromResult(list);
     }
 
     public Task<DroneParameter?> GetParameterAsync(string name)
@@ -140,23 +152,26 @@ public class ParameterService : IParameterService
         _downloadComplete = new TaskCompletionSource<bool>();
         _downloadCts = new CancellationTokenSource();
 
+        _logger.LogInformation("=== Starting parameter download from drone ===");
+        
         ParameterDownloadStarted?.Invoke(this, EventArgs.Empty);
         ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
-
-        _logger.LogInformation("Starting parameter download...");
 
         try
         {
             var ct = _downloadCts.Token;
 
             // Send initial PARAM_REQUEST_LIST
+            _logger.LogInformation("Sending PARAM_REQUEST_LIST...");
             _connectionService.SendParamRequestList();
 
-            // Wait up to 2 seconds for first response
-            await Task.Delay(2000, ct);
+            // Wait for first parameters to arrive
+            await Task.Delay(3000, ct);
+            
+            _logger.LogInformation("After initial wait: received {Count} parameters", _received);
 
-            // Retry loop like Mission Planner
-            for (int retry = 0; retry < 5 && !ct.IsCancellationRequested; retry++)
+            // Retry loop - Mission Planner style
+            for (int retry = 0; retry < 10 && !ct.IsCancellationRequested; retry++)
             {
                 int expected;
                 int received;
@@ -185,24 +200,30 @@ public class ParameterService : IParameterService
 
                 if (isComplete)
                 {
-                    _logger.LogInformation("All {Count} parameters received", expected);
+                    _logger.LogInformation("All {Count} parameters received from drone!", expected);
                     break;
                 }
 
                 if (!hasExpected)
                 {
                     // No response yet - resend request
-                    _logger.LogWarning("No parameters received, resending PARAM_REQUEST_LIST (attempt {N})", retry + 1);
+                    _logger.LogWarning("No parameters received yet, resending PARAM_REQUEST_LIST (attempt {N}/10)", retry + 1);
                     _connectionService.SendParamRequestList();
-                    await Task.Delay(2000, ct);
+                    await Task.Delay(3000, ct);
                     continue;
                 }
 
-                _logger.LogInformation("Retry {N}: {Received}/{Expected}, requesting {Missing} missing", 
+                if (missing.Count == 0)
+                {
+                    _logger.LogInformation("Download complete: {Received}/{Expected}", received, expected);
+                    break;
+                }
+
+                _logger.LogInformation("Retry {N}: {Received}/{Expected} params, requesting {Missing} missing", 
                     retry + 1, received, expected, missing.Count);
 
-                // Request missing parameters in chunks
-                foreach (var chunk in missing.Chunk(10))
+                // Request missing parameters in small chunks
+                foreach (var chunk in missing.Chunk(5))
                 {
                     if (ct.IsCancellationRequested) break;
 
@@ -210,16 +231,19 @@ public class ParameterService : IParameterService
                     {
                         _connectionService.SendParamRequestRead((ushort)idx);
                     }
-                    await Task.Delay(100, ct); // Brief pause between chunks
+                    await Task.Delay(200, ct); // Give time for responses
                 }
 
                 // Wait for responses
-                await Task.Delay(1000, ct);
+                await Task.Delay(2000, ct);
+                
+                // Update progress
+                ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
             }
         }
         catch (OperationCanceledException)
         {
-            // Normal cancellation
+            _logger.LogInformation("Parameter download cancelled");
         }
         catch (Exception ex)
         {
@@ -230,8 +254,14 @@ public class ParameterService : IParameterService
         _downloading = false;
         _downloadDone = _received > 0;
 
-        _logger.LogInformation("Parameter download finished: {Received}/{Expected}", 
-            _received, _expectedCount ?? 0);
+        _logger.LogInformation("=== Parameter download finished: {Received} parameters from drone ===", _received);
+        
+        // Log first few parameters as proof
+        var sample = _parameters.Values.Take(5).ToList();
+        foreach (var p in sample)
+        {
+            _logger.LogInformation("  Sample param: {Name} = {Value}", p.Name, p.Value);
+        }
 
         ParameterDownloadCompleted?.Invoke(this, _downloadDone);
         ParameterDownloadProgressChanged?.Invoke(this, EventArgs.Empty);
@@ -239,6 +269,7 @@ public class ParameterService : IParameterService
 
     public void Reset()
     {
+        _logger.LogInformation("ParameterService Reset called");
         _downloadCts?.Cancel();
         _parameters.Clear();
         lock (_lock)

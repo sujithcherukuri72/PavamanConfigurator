@@ -464,5 +464,5 @@ namespace PavanamDroneConfigurator.Infrastructure.MAVLink
             _inputStream = null;
             _outputStream = null;
         }
-    }
+1    }
 }

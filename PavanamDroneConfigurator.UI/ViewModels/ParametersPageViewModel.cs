@@ -14,7 +14,6 @@ public partial class ParametersPageViewModel : ViewModelBase
 {
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
-    private bool _hasLoadedParameters;
 
     [ObservableProperty]
     private ObservableCollection<DroneParameter> _parameters = new();
@@ -56,294 +55,187 @@ public partial class ParametersPageViewModel : ViewModelBase
         _parameterService = parameterService;
         _connectionService = connectionService;
 
-        // Subscribe to connection state changes
+        // Subscribe to all relevant events
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
-        _parameterService.ParameterDownloadProgressChanged += OnParameterDownloadProgressChanged;
-        _parameterService.ParameterUpdated += OnParameterUpdated;
+        _parameterService.ParameterDownloadStarted += OnDownloadStarted;
+        _parameterService.ParameterDownloadCompleted += OnDownloadCompleted;
+        _parameterService.ParameterDownloadProgressChanged += OnProgressChanged;
         
-        // Initialize can edit state
-        CanEditParameters = _connectionService.IsConnected && _parameterService.IsParameterDownloadComplete;
-    }
-
-    private async void OnConnectionStateChanged(object? sender, bool connected)
-    {
-        try
+        // Check if already connected and has parameters
+        if (_connectionService.IsConnected && _parameterService.IsParameterDownloadComplete)
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (connected)
-                {
-                    CanEditParameters = _parameterService.IsParameterDownloadComplete;
-                    _hasLoadedParameters = false;
-                    StatusMessage = _parameterService.IsParameterDownloadComplete
-                        ? "Parameters ready"
-                        : "Waiting for parameter download...";
-                }
-                else
-                {
-                    // Clear parameters when disconnected
-                    Parameters.Clear();
-                    FilteredParameters.Clear();
-                    UpdateStatistics();
-                    
-                    var downloadInterrupted = _parameterService.IsParameterDownloadInProgress ||
-                                              (!_parameterService.IsParameterDownloadComplete &&
-                                               _parameterService.ReceivedParameterCount > 0);
-                    if (downloadInterrupted)
-                    {
-                        StatusMessage = "Disconnected during parameter download - parameters unavailable";
-                    }
-                    else
-                    {
-                        StatusMessage = "Connect to your drone to load parameters";
-                    }
-                    _hasLoadedParameters = false;
-                    CanEditParameters = false;
-                }
-                OnPropertyChanged(nameof(HasStatusMessage));
-            });
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error handling connection state: {ex.Message}";
-            OnPropertyChanged(nameof(HasStatusMessage));
+            _ = LoadParametersIntoGridAsync();
         }
     }
 
-    [RelayCommand]
-    private async Task LoadParametersAsync()
+    private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        if (!_connectionService.IsConnected)
+        Dispatcher.UIThread.Post(() =>
         {
-            StatusMessage = "Not connected. Please connect first.";
-            return;
-        }
-
-        try
-        {
-            StatusMessage = "Loading parameters...";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            
-            var parameters = await _parameterService.GetAllParametersAsync();
-            
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            if (!connected)
             {
-                // Clear and repopulate the existing collections (don't create new ones!)
+                // Clear everything when disconnected
                 Parameters.Clear();
                 FilteredParameters.Clear();
-                
-                foreach (var p in parameters.OrderBy(x => x.Name))
-                {
-                    Parameters.Add(p);
-                    FilteredParameters.Add(p);
-                }
-                
-                UpdateStatistics();
+                TotalParameterCount = 0;
+                LoadedParameterCount = 0;
+                CanEditParameters = false;
+                IsRefreshing = false;
+                StatusMessage = "Disconnected - Connect to your drone to load parameters";
+            }
+            else
+            {
+                StatusMessage = "Connected - Waiting for parameters...";
+            }
+        });
+    }
+
+    private void OnDownloadStarted(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsRefreshing = true;
+            CanEditParameters = false;
+            Parameters.Clear();
+            FilteredParameters.Clear();
+            TotalParameterCount = 0;
+            LoadedParameterCount = 0;
+            StatusMessage = "Downloading parameters from drone...";
+        });
+    }
+
+    private void OnDownloadCompleted(object? sender, bool success)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            IsRefreshing = false;
+            
+            if (success && _parameterService.ReceivedParameterCount > 0)
+            {
+                // AUTO-LOAD parameters into the grid immediately after download completes
+                await LoadParametersIntoGridAsync();
                 CanEditParameters = true;
-                StatusMessage = $"Successfully loaded {Parameters.Count} parameters";
-                OnPropertyChanged(nameof(HasStatusMessage));
-            });
+                StatusMessage = $"Successfully loaded {Parameters.Count} parameters from drone";
+            }
+            else
+            {
+                StatusMessage = "No parameters received from drone";
+                CanEditParameters = false;
+            }
+        });
+    }
+
+    private void OnProgressChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var received = _parameterService.ReceivedParameterCount;
+            var expected = _parameterService.ExpectedParameterCount;
+            
+            TotalParameterCount = expected ?? 0;
+            LoadedParameterCount = received;
+            
+            if (_parameterService.IsParameterDownloadInProgress)
+            {
+                var expectedStr = expected?.ToString() ?? "?";
+                StatusMessage = $"Downloading parameters... {received}/{expectedStr}";
+            }
+        });
+    }
+
+    /// <summary>
+    /// Loads all parameters from the service into the UI grid
+    /// </summary>
+    private async Task LoadParametersIntoGridAsync()
+    {
+        try
+        {
+            // Get all parameters from the service
+            var allParams = await _parameterService.GetAllParametersAsync();
+            
+            // Clear and populate the collections
+            Parameters.Clear();
+            FilteredParameters.Clear();
+            
+            foreach (var p in allParams)
+            {
+                Parameters.Add(p);
+                FilteredParameters.Add(p);
+            }
+            
+            // Update statistics
+            TotalParameterCount = Parameters.Count;
+            LoadedParameterCount = Parameters.Count;
+            
+            // Force UI update
+            OnPropertyChanged(nameof(Parameters));
+            OnPropertyChanged(nameof(FilteredParameters));
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error loading parameters: {ex.Message}";
-            OnPropertyChanged(nameof(HasStatusMessage));
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanRefreshParameters))]
+    [RelayCommand]
     private async Task RefreshParametersAsync()
     {
         if (!_connectionService.IsConnected)
         {
-            StatusMessage = "Not connected. Please connect first.";
-            OnPropertyChanged(nameof(HasStatusMessage));
+            StatusMessage = "Not connected";
             return;
         }
 
-        try
-        {
-            IsRefreshing = true;
-            _hasLoadedParameters = false;
-            StatusMessage = "Refreshing parameters from drone...";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            
-            // Clear existing parameters
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Parameters.Clear();
-                FilteredParameters.Clear();
-                UpdateStatistics();
-            });
-            
-            await _parameterService.RefreshParametersAsync();
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error refreshing parameters: {ex.Message}";
-            OnPropertyChanged(nameof(HasStatusMessage));
-        }
-        finally
-        {
-            IsRefreshing = false;
-        }
+        // This will trigger OnDownloadStarted, then OnDownloadCompleted which auto-loads the grid
+        await _parameterService.RefreshParametersAsync();
     }
-    
-    private bool CanRefreshParameters() => _connectionService.IsConnected && !IsRefreshing;
-
-    [RelayCommand(CanExecute = nameof(CanSaveParameter))]
-    private async Task SaveParameterAsync(DroneParameter? parameter)
-    {
-        var paramToSave = parameter ?? SelectedParameter;
-        
-        if (paramToSave == null)
-        {
-            StatusMessage = "No parameter selected.";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            return;
-        }
-        
-        if (!_connectionService.IsConnected)
-        {
-            StatusMessage = "Not connected. Cannot save parameter.";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            return;
-        }
-
-        try
-        {
-            StatusMessage = $"Saving {paramToSave.Name} = {paramToSave.Value}...";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            
-            var success = await _parameterService.SetParameterAsync(paramToSave.Name, paramToSave.Value);
-            
-            if (success)
-            {
-                StatusMessage = $"Successfully saved {paramToSave.Name} = {paramToSave.Value}";
-            }
-            else
-            {
-                StatusMessage = $"Failed to save {paramToSave.Name}. Timeout or not acknowledged.";
-            }
-            OnPropertyChanged(nameof(HasStatusMessage));
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error saving parameter: {ex.Message}";
-            OnPropertyChanged(nameof(HasStatusMessage));
-        }
-    }
-    
-    private bool CanSaveParameter() => _connectionService.IsConnected && CanEditParameters;
 
     [RelayCommand]
-    private async Task SaveAllParametersAsync()
+    private async Task SaveParameterAsync(DroneParameter? parameter)
     {
-        if (!_connectionService.IsConnected || !HasUnsavedChanges)
+        var p = parameter ?? SelectedParameter;
+        if (p == null)
         {
+            StatusMessage = "No parameter selected";
             return;
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        if (!_connectionService.IsConnected)
         {
-            StatusMessage = "Saving all modified parameters...";
-            OnPropertyChanged(nameof(HasStatusMessage));
-        });
-        
-        // Wait for async operation simulation
-        await Task.Delay(100);
-        
-        // In a real implementation, track modified parameters
-        HasUnsavedChanges = false;
-        StatusMessage = "All changes saved successfully";
-        OnPropertyChanged(nameof(HasStatusMessage));
+            StatusMessage = "Not connected";
+            return;
+        }
+
+        StatusMessage = $"Saving {p.Name}...";
+        var success = await _parameterService.SetParameterAsync(p.Name, p.Value);
+        StatusMessage = success 
+            ? $"Saved {p.Name} = {p.Value}" 
+            : $"Failed to save {p.Name}";
     }
 
-    private void OnParameterDownloadProgressChanged(object? sender, EventArgs e)
+    [RelayCommand]
+    private Task SaveAllParametersAsync()
     {
-        _ = Dispatcher.UIThread.InvokeAsync(UpdateParameterDownloadStateAsync);
-    }
-
-    private void OnParameterUpdated(object? sender, string parameterName)
-    {
-        // This is called frequently during download - just update statistics
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (_parameterService.IsParameterDownloadInProgress)
-            {
-                // During download, just update the counts
-                TotalParameterCount = _parameterService.ExpectedParameterCount ?? 0;
-                LoadedParameterCount = _parameterService.ReceivedParameterCount;
-            }
-        });
-    }
-
-    private async Task UpdateParameterDownloadStateAsync()
-    {
-        if (_parameterService.IsParameterDownloadInProgress)
-        {
-            var expected = _parameterService.ExpectedParameterCount.HasValue
-                ? _parameterService.ExpectedParameterCount.Value.ToString()
-                : "?";
-            StatusMessage = $"Downloading parameters... {_parameterService.ReceivedParameterCount}/{expected}";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            TotalParameterCount = _parameterService.ExpectedParameterCount ?? 0;
-            LoadedParameterCount = _parameterService.ReceivedParameterCount;
-            CanEditParameters = false;
-        }
-        else if (_parameterService.IsParameterDownloadComplete && _connectionService.IsConnected)
-        {
-            // Download complete - load all parameters into the grid
-            if (!_hasLoadedParameters)
-            {
-                _hasLoadedParameters = true;
-                await LoadParametersAsync();
-            }
-            CanEditParameters = true;
-        }
-        else if (!_connectionService.IsConnected)
-        {
-            Parameters.Clear();
-            FilteredParameters.Clear();
-            UpdateStatistics();
-            StatusMessage = "Connect to your drone to load parameters";
-            OnPropertyChanged(nameof(HasStatusMessage));
-            CanEditParameters = false;
-        }
-        
-        RefreshParametersCommand.NotifyCanExecuteChanged();
-        SaveParameterCommand.NotifyCanExecuteChanged();
+        StatusMessage = "Save all not implemented yet";
+        return Task.CompletedTask;
     }
 
     partial void OnSearchTextChanged(string value)
     {
-        ApplyFilter();
-    }
-
-    private void ApplyFilter()
-    {
-        // Clear and repopulate the FilteredParameters collection (don't replace it!)
+        // Apply filter when search text changes
         FilteredParameters.Clear();
         
-        var source = string.IsNullOrWhiteSpace(SearchText) 
-            ? Parameters 
-            : Parameters.Where(p =>
-                p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                (p.Description?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false));
+        var filtered = string.IsNullOrWhiteSpace(value)
+            ? Parameters
+            : Parameters.Where(p => 
+                p.Name.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                (p.Description?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
         
-        foreach (var p in source)
+        foreach (var p in filtered)
         {
             FilteredParameters.Add(p);
         }
         
-        // Update the count display
-        OnPropertyChanged(nameof(FilteredParameters));
-    }
-
-    private void UpdateStatistics()
-    {
-        TotalParameterCount = Parameters.Count;
         LoadedParameterCount = FilteredParameters.Count;
-        ModifiedParameterCount = 0;
     }
 }
