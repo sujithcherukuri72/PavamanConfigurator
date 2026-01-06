@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PavanamDroneConfigurator.Core\PavanamDroneConfigurator.Core.csproj" />
+    <ProjectReference Include="..\PavamanDroneConfigurator.Core\PavamanDroneConfigurator.Core.csproj" />
   </ItemGroup>
 
 </Project>

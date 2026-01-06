@@ -8,7 +8,7 @@
 
 ## Summary
 
-Successfully implemented production-ready Bluetooth MAVLink connection for Pavanam Drone Configurator matching the Kotlin reference implementation exactly. Uses ASV.Mavlink for protocol handling and 32feet.NET for Windows Bluetooth SPP connectivity.
+Successfully implemented production-ready Bluetooth MAVLink connection for pavaman Drone Configurator matching the Kotlin reference implementation exactly. Uses ASV.Mavlink for protocol handling and 32feet.NET for Windows Bluetooth SPP connectivity.
 
 ---
 
@@ -16,7 +16,7 @@ Successfully implemented production-ready Bluetooth MAVLink connection for Pavan
 
 ### 1. **BluetoothMavConnection.cs** ?
 
-**Location:** `PavanamDroneConfigurator.Infrastructure/MAVLink/BluetoothMavConnection.cs`
+**Location:** `pavamanDroneConfigurator.Infrastructure/MAVLink/BluetoothMavConnection.cs`
 
 **Key Features:**
 - ? SPP (Serial Port Profile) connectivity
@@ -109,7 +109,7 @@ public interface IConnectionService
 
 ### 3. **ConnectionService Integration** ?
 
-**Location:** `PavanamDroneConfigurator.Infrastructure/Services/ConnectionService.cs`
+**Location:** `pavamanDroneConfigurator.Infrastructure/Services/ConnectionService.cs`
 
 **Changes:**
 - ? Added `BluetoothMavConnection` field

@@ -395,9 +395,9 @@ ApplyFilter(); // Single filter pass
 
 **Final Build:**
 ```
-? PavanamDroneConfigurator.Core - SUCCESS
-? PavanamDroneConfigurator.Infrastructure - SUCCESS  
-? PavanamDroneConfigurator.UI - SUCCESS
+? pavamanDroneConfigurator.Core - SUCCESS
+? pavamanDroneConfigurator.Infrastructure - SUCCESS  
+? pavamanDroneConfigurator.UI - SUCCESS
 
 0 Errors
 0 Warnings

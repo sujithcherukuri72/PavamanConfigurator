@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using PavanamDroneConfigurator.Core.Interfaces;
+using pavamanDroneConfigurator.Core.Interfaces;
 
-namespace PavanamDroneConfigurator.Infrastructure.Services;
+namespace pavamanDroneConfigurator.Infrastructure.Services;
 
 public class PersistenceService : IPersistenceService
 {
@@ -14,7 +14,7 @@ public class PersistenceService : IPersistenceService
         _logger = logger;
         _profilesPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "PavanamDroneConfigurator",
+            "pavamanDroneConfigurator",
             "Profiles");
 
         Directory.CreateDirectory(_profilesPath);

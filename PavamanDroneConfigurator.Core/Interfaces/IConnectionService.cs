@@ -1,10 +1,10 @@
-using PavanamDroneConfigurator.Core.Models;
+using pavamanDroneConfigurator.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace PavanamDroneConfigurator.Core.Interfaces;
+namespace pavamanDroneConfigurator.Core.Interfaces;
 
 public interface IConnectionService
 {

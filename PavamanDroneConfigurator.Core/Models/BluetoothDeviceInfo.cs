@@ -1,4 +1,4 @@
-namespace PavanamDroneConfigurator.Core.Models;
+namespace pavamanDroneConfigurator.Core.Models;
 
 public class BluetoothDeviceInfo
 {

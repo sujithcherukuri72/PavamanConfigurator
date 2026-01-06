@@ -12,8 +12,8 @@
 
 **Error Message:**
 ```
-MSB3027: Could not copy "PavanamDroneConfigurator.Infrastructure.dll" to bin folder.
-The file is locked by: "PavanamDroneConfigurator.UI (27756)"
+MSB3027: Could not copy "pavamanDroneConfigurator.Infrastructure.dll" to bin folder.
+The file is locked by: "pavamanDroneConfigurator.UI (27756)"
 ```
 
 **Root Cause:**
@@ -28,12 +28,12 @@ The file is locked by: "PavanamDroneConfigurator.UI (27756)"
 ### 1. **Killed Running Process** ?
 
 ```powershell
-taskkill /F /IM PavanamDroneConfigurator.UI.exe
+taskkill /F /IM pavamanDroneConfigurator.UI.exe
 ```
 
 **Result:**
 ```
-SUCCESS: The process "PavanamDroneConfigurator.UI.exe" with PID 27756 has been terminated.
+SUCCESS: The process "pavamanDroneConfigurator.UI.exe" with PID 27756 has been terminated.
 ```
 
 ### 2. **Clean Rebuild** ?
@@ -43,8 +43,8 @@ SUCCESS: The process "PavanamDroneConfigurator.UI.exe" with PID 27756 has been t
 **Result:**
 ```
 Build started at 10:16...
-1>------ Build started: Project: PavanamDroneConfigurator.UI, Configuration: Debug Any CPU ------
-1>PavanamDroneConfigurator.UI -> C:\Pavaman\Final-repo\PavanamDroneConfigurator.UI\bin\Debug\net9.0-windows\PavanamDroneConfigurator.UI.dll
+1>------ Build started: Project: pavamanDroneConfigurator.UI, Configuration: Debug Any CPU ------
+1>pavamanDroneConfigurator.UI -> C:\Pavaman\Final-repo\pavamanDroneConfigurator.UI\bin\Debug\net9.0-windows\pavamanDroneConfigurator.UI.dll
 ========== Build: 1 succeeded, 0 failed, 2 up-to-date, 0 skipped ==========
 ========== Build completed at 10:16 and took 03.005 seconds ==========
 ```
@@ -61,9 +61,9 @@ Build started at 10:16...
 
 | Project | Status | Output |
 |---------|--------|--------|
-| **PavanamDroneConfigurator.Core** | ? Success | Core.dll |
-| **PavanamDroneConfigurator.Infrastructure** | ? Success | Infrastructure.dll |
-| **PavanamDroneConfigurator.UI** | ? Success | UI.exe |
+| **pavamanDroneConfigurator.Core** | ? Success | Core.dll |
+| **pavamanDroneConfigurator.Infrastructure** | ? Success | Infrastructure.dll |
+| **pavamanDroneConfigurator.UI** | ? Success | UI.exe |
 
 ### **No Compilation Errors** ?
 
@@ -92,7 +92,7 @@ Checked all critical files:
 **Solution:**
 ```powershell
 # Stop the application
-taskkill /F /IM PavanamDroneConfigurator.UI.exe
+taskkill /F /IM pavamanDroneConfigurator.UI.exe
 
 # Clean solution
 dotnet clean
@@ -120,7 +120,7 @@ dotnet build
 - Invalid asset URI
 
 **Solution:**
-- Check asset path: `avares://PavanamDroneConfigurator.UI/Assets/Images/logo.ico`
+- Check asset path: `avares://pavamanDroneConfigurator.UI/Assets/Images/logo.ico`
 - Verify files exist in `Assets/Images/` folder
 - Ensure `<AvaloniaResource Include="Assets\**" />` in .csproj
 
@@ -149,10 +149,10 @@ dotnet build
 
 ```powershell
 # Find running instances
-Get-Process | Where-Object { $_.ProcessName -like "*PavanamDrone*" }
+Get-Process | Where-Object { $_.ProcessName -like "*pavamanDrone*" }
 
 # Kill if needed
-taskkill /F /IM PavanamDroneConfigurator.UI.exe
+taskkill /F /IM pavamanDroneConfigurator.UI.exe
 ```
 
 ### 4. **Monitor Build Output** ?
@@ -188,7 +188,7 @@ Always check:
 
 ### Error: "File is locked"
 ```powershell
-taskkill /F /IM PavanamDroneConfigurator.UI.exe
+taskkill /F /IM pavamanDroneConfigurator.UI.exe
 dotnet clean
 dotnet build
 ```
@@ -204,7 +204,7 @@ dotnet build
 ```
 1. Check file exists: Assets/Images/logo.ico
 2. Verify build action: AvaloniaResource
-3. Check URI: avares://PavanamDroneConfigurator.UI/...
+3. Check URI: avares://pavamanDroneConfigurator.UI/...
 ```
 
 ### Error: "XAML parse error"
@@ -254,9 +254,9 @@ First build: ~10-15 seconds (NuGet restore)
 ### Build Output Size
 
 ```
-PavanamDroneConfigurator.Core.dll: ~20 KB
-PavanamDroneConfigurator.Infrastructure.dll: ~80 KB
-PavanamDroneConfigurator.UI.exe: ~150 KB
+pavamanDroneConfigurator.Core.dll: ~20 KB
+pavamanDroneConfigurator.Infrastructure.dll: ~80 KB
+pavamanDroneConfigurator.UI.exe: ~150 KB
 Total (with dependencies): ~50 MB
 ```
 
@@ -269,7 +269,7 @@ Total (with dependencies): ~50 MB
 ```
 Press F5 in Visual Studio
 or
-dotnet run --project PavanamDroneConfigurator.UI
+dotnet run --project pavamanDroneConfigurator.UI
 ```
 
 ### 2. **Test All Features**
@@ -303,7 +303,7 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 
 ### Stop Application
 ```powershell
-taskkill /F /IM PavanamDroneConfigurator.UI.exe
+taskkill /F /IM pavamanDroneConfigurator.UI.exe
 ```
 
 ### Clean Solution
@@ -318,7 +318,7 @@ dotnet build
 
 ### Run Application
 ```powershell
-dotnet run --project PavanamDroneConfigurator.UI
+dotnet run --project pavamanDroneConfigurator.UI
 ```
 
 ### Publish Release

@@ -11,7 +11,7 @@ Build: ? **SUCCESSFUL**
 
 ### 1. **AsvMavlinkWrapper.cs** ?
 
-**Location:** `PavanamDroneConfigurator.Infrastructure/MAVLink/AsvMavlinkWrapper.cs`
+**Location:** `pavamanDroneConfigurator.Infrastructure/MAVLink/AsvMavlinkWrapper.cs`
 
 **Features:**
 - ? Wraps Asv.Mavlink 3.9.0 library

@@ -1,13 +1,12 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavanamDroneConfigurator.Core", "PavanamDroneConfigurator.Core\PavanamDroneConfigurator.Core.csproj", "{9D189485-8336-464F-9947-37EBD72DD54B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavamanDroneConfigurator.Core", "PavamanDroneConfigurator.Core\PavamanDroneConfigurator.Core.csproj", "{9D189485-8336-464F-9947-37EBD72DD54B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavanamDroneConfigurator.Infrastructure", "PavanamDroneConfigurator.Infrastructure\PavanamDroneConfigurator.Infrastructure.csproj", "{D2E186DA-D696-4558-A280-7D02B1559AFA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavamanDroneConfigurator.Infrastructure", "PavamanDroneConfigurator.Infrastructure\PavamanDroneConfigurator.Infrastructure.csproj", "{D2E186DA-D696-4558-A280-7D02B1559AFA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavanamDroneConfigurator.UI", "PavanamDroneConfigurator.UI\PavanamDroneConfigurator.UI.csproj", "{03FE0D0E-0B2D-402A-B4F2-F45DA6462D8D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PavamanDroneConfigurator.UI", "PavamanDroneConfigurator.UI\PavamanDroneConfigurator.UI.csproj", "{03FE0D0E-0B2D-402A-B4F2-F45DA6462D8D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

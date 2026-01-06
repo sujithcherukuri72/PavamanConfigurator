@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PavanamDroneConfigurator.Infrastructure.MAVLink;
+namespace pavamanDroneConfigurator.Infrastructure.MAVLink;
 
 /// <summary>
 /// Bluetooth MAVLink Connection using SPP (Serial Port Profile)

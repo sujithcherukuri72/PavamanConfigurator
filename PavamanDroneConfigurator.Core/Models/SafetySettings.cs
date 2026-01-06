@@ -1,6 +1,6 @@
-using PavanamDroneConfigurator.Core.Enums;
+using pavamanDroneConfigurator.Core.Enums;
 
-namespace PavanamDroneConfigurator.Core.Models;
+namespace pavamanDroneConfigurator.Core.Models;
 
 public class SafetySettings
 {

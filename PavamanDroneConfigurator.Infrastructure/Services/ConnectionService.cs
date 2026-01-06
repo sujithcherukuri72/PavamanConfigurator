@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
-using PavanamDroneConfigurator.Core.Enums;
-using PavanamDroneConfigurator.Core.Interfaces;
-using PavanamDroneConfigurator.Core.Models;
-using PavanamDroneConfigurator.Infrastructure.MAVLink;
+using pavamanDroneConfigurator.Core.Enums;
+using pavamanDroneConfigurator.Core.Interfaces;
+using pavamanDroneConfigurator.Core.Models;
+using pavamanDroneConfigurator.Infrastructure.MAVLink;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using InTheHand.Net.Sockets;
 
-namespace PavanamDroneConfigurator.Infrastructure.Services;
+namespace pavamanDroneConfigurator.Infrastructure.Services;
 
 public class ConnectionService : IConnectionService, IDisposable
 {

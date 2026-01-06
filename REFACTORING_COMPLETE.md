@@ -302,4 +302,4 @@ Hot Reload Warnings: 22 (ENC0033 - cosmetic only)
 ---
 
 *Generated: January 1, 2025*  
-*Pavanam Drone Configurator v2.0*
+*pavaman Drone Configurator v2.0*

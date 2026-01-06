@@ -1,5 +1,5 @@
 # MAVLink Commands Documentation
-**Pavanam Drone Configurator**
+**pavaman Drone Configurator**
 
 **Date:** January 1, 2025  
 **Build Status:** ? Production-Ready  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Pavanam Drone Configurator uses a **manual implementation** of the MAVLink protocol. **NO external MAVLink library is used for protocol communication**. While the project includes `Asv.Mavlink` package (v3.9.0) as a dependency, it is **NOT actively used** in the current production code.
+The pavaman Drone Configurator uses a **manual implementation** of the MAVLink protocol. **NO external MAVLink library is used for protocol communication**. While the project includes `Asv.Mavlink` package (v3.9.0) as a dependency, it is **NOT actively used** in the current production code.
 
 All MAVLink packet creation, parsing, and handling is implemented **manually** in the `ConnectionService` class.
 
@@ -674,5 +674,5 @@ If the application needs to support more MAVLink messages (e.g., telemetry, miss
 
 **Document Version:** 1.0  
 **Last Updated:** January 1, 2025  
-**Author:** Pavanam Drone Configurator Development Team  
+**Author:** pavaman Drone Configurator Development Team  
 **Status:** ? Production-Ready

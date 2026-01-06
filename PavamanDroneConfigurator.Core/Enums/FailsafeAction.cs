@@ -1,4 +1,4 @@
-namespace PavanamDroneConfigurator.Core.Enums;
+namespace pavamanDroneConfigurator.Core.Enums;
 
 public enum FailsafeAction
 {

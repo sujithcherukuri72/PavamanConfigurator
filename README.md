@@ -1,12 +1,12 @@
-# Pavanam Drone Configurator
+# Pavaman Drone Configurator
 
 A Windows-only Avalonia-based drone configurator application with Clean Architecture layout.
 
 ## Project Structure
 
-- **PavanamDroneConfigurator.Core** - Domain layer with interfaces and models (no dependencies)
-- **PavanamDroneConfigurator.Infrastructure** - Implementation layer with service implementations
-- **PavanamDroneConfigurator.UI** - Avalonia UI layer with MVVM pattern using CommunityToolkit.Mvvm
+- **PavamanDroneConfigurator.Core** - Domain layer with interfaces and models (no dependencies)
+- **PavamanDroneConfigurator.Infrastructure** - Implementation layer with service implementations
+- **PavamanDroneConfigurator.UI** - Avalonia UI layer with MVVM pattern using CommunityToolkit.Mvvm
 
 ## Requirements
 
@@ -18,21 +18,21 @@ A Windows-only Avalonia-based drone configurator application with Clean Architec
 From the repository root, run:
 
 ```bash
-dotnet build PavanamDroneConfigurator.sln
+dotnet build PavamanDroneConfigurator.sln
 ```
 
 ## Running the Application
 
 ```bash
-dotnet run --project PavanamDroneConfigurator.UI/PavanamDroneConfigurator.UI.csproj
+dotnet run --project PavamanDroneConfigurator.UI/PavamanDroneConfigurator.UI.csproj
 ```
 
 Or build and run the executable:
 
 ```bash
 dotnet build -c Release
-cd PavanamDroneConfigurator.UI/bin/Release/net9.0-windows
-./PavanamDroneConfigurator.UI.exe
+cd PavamanDroneConfigurator.UI/bin/Release/net9.0-windows
+./PavamanDroneConfigurator.UI.exe
 ```
 
 ## Features
