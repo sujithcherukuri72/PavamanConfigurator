@@ -1,6 +1,6 @@
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Models;
 
-namespace pavamanDroneConfigurator.Core.Interfaces;
+namespace PavamanDroneConfigurator.Core.Interfaces;
 
 public interface IPersistenceService
 {

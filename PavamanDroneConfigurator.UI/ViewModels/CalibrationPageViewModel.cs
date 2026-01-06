@@ -1,10 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using pavamanDroneConfigurator.Core.Enums;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Enums;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Models;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class CalibrationPageViewModel : ViewModelBase
 {

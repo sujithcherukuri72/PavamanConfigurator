@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Models;
 using System.Collections.Concurrent;
 
-namespace pavamanDroneConfigurator.Infrastructure.Services;
+namespace PavamanDroneConfigurator.Infrastructure.Services;
 
 /// <summary>
 /// Parameter service that downloads parameters from drone like Mission Planner.

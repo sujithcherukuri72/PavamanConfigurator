@@ -1,6 +1,6 @@
-using pavamanDroneConfigurator.Core.Enums;
+using PavamanDroneConfigurator.Core.Enums;
 
-namespace pavamanDroneConfigurator.Core.Models;
+namespace PavamanDroneConfigurator.Core.Models;
 
 public class CalibrationStateModel
 {

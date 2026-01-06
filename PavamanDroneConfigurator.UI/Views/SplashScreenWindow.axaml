@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="using:pavamanDroneConfigurator.UI.ViewModels"
+        xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
-        x:Class="pavamanDroneConfigurator.UI.Views.SplashScreenWindow"
+        x:Class="PavamanDroneConfigurator.UI.Views.SplashScreenWindow"
         x:DataType="vm:SplashScreenViewModel"
         Title="pavaman Drone Configurator"
         Width="800"
@@ -56,7 +56,7 @@
     <Border Classes="splash-container">
         <!-- Background Image -->
         <Border.Background>
-            <ImageBrush Source="avares://pavamanDroneConfigurator.UI/Assets/Images/background.jpg" 
+            <ImageBrush Source="avares://PavamanDroneConfigurator.UI/Assets/Images/background.jpg" 
                         Stretch="UniformToFill"/>
         </Border.Background>
         
@@ -76,7 +76,7 @@
                             Background="White"
                             BoxShadow="0 10 25 -5 #40000000"
                             IsVisible="{Binding HasLogo}">
-                        <Image Source="avares://pavamanDroneConfigurator.UI/Assets/Images/logo.ico"
+                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/logo.ico"
                                Stretch="Uniform"
                                Margin="20"/>
                     </Border>

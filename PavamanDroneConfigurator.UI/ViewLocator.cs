@@ -2,9 +2,9 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using pavamanDroneConfigurator.UI.ViewModels;
+using PavamanDroneConfigurator.UI.ViewModels;
 
-namespace pavamanDroneConfigurator.UI;
+namespace PavamanDroneConfigurator.UI;
 
 /// <summary>
 /// Given a view model, returns the corresponding view if possible.

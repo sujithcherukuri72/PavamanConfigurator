@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Infrastructure.Services;
-using pavamanDroneConfigurator.UI.ViewModels;
-using pavamanDroneConfigurator.UI.Views;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Infrastructure.Services;
+using PavamanDroneConfigurator.UI.ViewModels;
+using PavamanDroneConfigurator.UI.Views;
 using Avalonia.Threading;
 using System;
 
-namespace pavamanDroneConfigurator.UI;
+namespace PavamanDroneConfigurator.UI;
 
 public partial class App : Application
 {

@@ -1,15 +1,18 @@
-using Asv.Mavlink;
 using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace pavamanDroneConfigurator.Infrastructure.MAVLink;
+// Alias to avoid ambiguity with InTheHand.Net.Sockets.BluetoothDeviceInfo
+using CoreBluetoothDeviceInfo = PavamanDroneConfigurator.Core.Models.BluetoothDeviceInfo;
+
+namespace PavamanDroneConfigurator.Infrastructure.MAVLink;
 
 /// <summary>
 /// Bluetooth MAVLink Connection using SPP (Serial Port Profile)
@@ -218,6 +221,41 @@ public class BluetoothMavConnection : IDisposable
             throw new InvalidOperationException("Bluetooth connection is not active");
 
         await _mavlinkWrapper.SendParamSetAsync(paramName, paramValue, ct);
+    }
+
+    /// <summary>
+    /// Discover available Bluetooth devices
+    /// </summary>
+    public async Task<IEnumerable<CoreBluetoothDeviceInfo>> DiscoverDevicesAsync()
+    {
+        var devices = new List<CoreBluetoothDeviceInfo>();
+        
+        try
+        {
+            _logger.LogInformation("Discovering Bluetooth devices...");
+            
+            var client = new BluetoothClient();
+            var discovered = await Task.Run(() => client.DiscoverDevices().ToList());
+            
+            foreach (var device in discovered)
+            {
+                devices.Add(new CoreBluetoothDeviceInfo
+                {
+                    DeviceAddress = device.DeviceAddress.ToString(),
+                    DeviceName = device.DeviceName ?? "Unknown Device",
+                    IsConnected = device.Connected,
+                    IsPaired = device.Authenticated
+                });
+            }
+            
+            _logger.LogInformation("Found {Count} Bluetooth devices", devices.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error discovering Bluetooth devices");
+        }
+        
+        return devices;
     }
 
     private void OnMavlinkHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)

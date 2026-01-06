@@ -3,15 +3,15 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using pavamanDroneConfigurator.Core.Enums;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Enums;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Models;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class ConnectionPageViewModel : ViewModelBase
 {

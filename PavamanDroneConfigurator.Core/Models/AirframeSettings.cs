@@ -1,4 +1,4 @@
-namespace pavamanDroneConfigurator.Core.Models;
+namespace PavamanDroneConfigurator.Core.Models;
 
 public class AirframeSettings
 {

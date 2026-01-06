@@ -1,9 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using pavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Interfaces;
 using System.Collections.ObjectModel;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class ProfilePageViewModel : ViewModelBase
 {

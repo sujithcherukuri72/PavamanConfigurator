@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace pavamanDroneConfigurator.UI.Views;
+namespace PavamanDroneConfigurator.UI.Views;
 
 public partial class CalibrationPage : UserControl
 {

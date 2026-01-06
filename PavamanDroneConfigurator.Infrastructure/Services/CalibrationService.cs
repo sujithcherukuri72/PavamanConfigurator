@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
-using pavamanDroneConfigurator.Core.Enums;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Enums;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Models;
 
-namespace pavamanDroneConfigurator.Infrastructure.Services;
+namespace PavamanDroneConfigurator.Infrastructure.Services;
 
 public class CalibrationService : ICalibrationService
 {

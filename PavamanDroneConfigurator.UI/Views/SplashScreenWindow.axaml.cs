@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace pavamanDroneConfigurator.UI.Views;
+namespace PavamanDroneConfigurator.UI.Views;
 
 public partial class SplashScreenWindow : Window
 {

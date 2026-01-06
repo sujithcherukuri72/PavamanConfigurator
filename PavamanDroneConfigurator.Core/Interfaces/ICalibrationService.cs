@@ -1,7 +1,7 @@
-using pavamanDroneConfigurator.Core.Enums;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Enums;
+using PavamanDroneConfigurator.Core.Models;
 
-namespace pavamanDroneConfigurator.Core.Interfaces;
+namespace PavamanDroneConfigurator.Core.Interfaces;
 
 public interface ICalibrationService
 {

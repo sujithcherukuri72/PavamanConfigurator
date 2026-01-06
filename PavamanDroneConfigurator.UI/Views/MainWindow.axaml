@@ -1,18 +1,18 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:pavamanDroneConfigurator.UI.ViewModels"
-        xmlns:views="using:pavamanDroneConfigurator.UI.Views"
+        xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+        xmlns:views="using:PavamanDroneConfigurator.UI.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
-        x:Class="pavamanDroneConfigurator.UI.Views.MainWindow"
+        x:Class="PavamanDroneConfigurator.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="pavaman Drone Configurator"
         Width="1280" 
         Height="800"
         MinWidth="1024"
         MinHeight="600"
-        Icon="avares://pavamanDroneConfigurator.UI/Assets/Images/logo.ico"
+        Icon="avares://PavamanDroneConfigurator.UI/Assets/Images/logo.ico"
         WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
@@ -91,7 +91,7 @@
                             Background="White"
                             Margin="0,0,0,12"
                             HorizontalAlignment="Left">
-                        <Image Source="avares://pavamanDroneConfigurator.UI/Assets/Images/logo.ico"
+                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/logo.ico"
                                Stretch="Uniform"
                                Margin="8"/>
                     </Border>

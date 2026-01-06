@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using pavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Interfaces;
 
-namespace pavamanDroneConfigurator.Infrastructure.Services;
+namespace PavamanDroneConfigurator.Infrastructure.Services;
 
 public class PersistenceService : IPersistenceService
 {

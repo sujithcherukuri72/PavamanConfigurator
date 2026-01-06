@@ -5,7 +5,7 @@ using Avalonia.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Avalonia.Threading;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class SplashScreenViewModel : ViewModelBase
 {

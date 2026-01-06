@@ -1,9 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using pavamanDroneConfigurator.UI.ViewModels;
+using PavamanDroneConfigurator.UI.ViewModels;
 using System.Linq;
 
-namespace pavamanDroneConfigurator.UI.Views;
+namespace PavamanDroneConfigurator.UI.Views;
 
 public partial class MainWindow : Window
 {

@@ -1,11 +1,11 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using pavamanDroneConfigurator.Core.Interfaces;
-using pavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Models;
 using System.Collections.Generic;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class AirframePageViewModel : ViewModelBase
 {

@@ -1,7 +1,7 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
 
-namespace pavamanDroneConfigurator.UI;
+namespace PavamanDroneConfigurator.UI;
 
 sealed class Program
 {

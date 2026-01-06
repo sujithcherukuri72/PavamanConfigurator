@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace pavamanDroneConfigurator.Infrastructure.MAVLink
+namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 {
     /// <summary>
     /// MAVLink protocol implementation matching Mission Planner's approach.

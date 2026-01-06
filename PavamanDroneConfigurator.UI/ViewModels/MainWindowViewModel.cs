@@ -1,9 +1,9 @@
 using System;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using pavamanDroneConfigurator.Core.Interfaces;
+using PavamanDroneConfigurator.Core.Interfaces;
 
-namespace pavamanDroneConfigurator.UI.ViewModels;
+namespace PavamanDroneConfigurator.UI.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {

@@ -1,4 +1,4 @@
-namespace pavamanDroneConfigurator.Core.Enums;
+namespace PavamanDroneConfigurator.Core.Enums;
 
 public enum FlightMode
 {
