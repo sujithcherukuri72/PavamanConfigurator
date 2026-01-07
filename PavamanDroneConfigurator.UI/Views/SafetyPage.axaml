@@ -342,7 +342,7 @@
                                     </Grid>
                                     
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="12">
-                                        <TextBlock Grid.Column="0" Grid.Row="0" Classes="FieldLabel" Text="Threshold:" Width="100"/>
+                                        <TextBlock Grid.Column="0" Grid.Row="0" Classes="FieldLabel" Text="Threshold(V):" Width="100"/>
                                         <NumericUpDown Grid.Column="1" Grid.Row="0"
                                                        Value="{Binding BattLowVoltage}"
                                                        Minimum="0" Maximum="60" 
@@ -369,7 +369,7 @@
                                     </Grid>
                                     
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="12">
-                                        <TextBlock Grid.Column="0" Grid.Row="0" Classes="FieldLabel" Text="Threshold:" Width="100"/>
+                                        <TextBlock Grid.Column="0" Grid.Row="0" Classes="FieldLabel" Text="Threshold(V):" Width="100"/>
                                         <NumericUpDown Grid.Column="1" Grid.Row="0"
                                                        Value="{Binding BattCritVoltage}"
                                                        Minimum="0" Maximum="60"
