@@ -1,96 +1,111 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             xmlns:models="using:PavamanDroneConfigurator.Core.Models"
              x:Class="PavamanDroneConfigurator.UI.Views.ParametersPage"
              x:DataType="vm:ParametersPageViewModel">
 
     <UserControl.Styles>
-        <!-- Modern Card Style -->
-        <Style Selector="Border.card">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#E5E7EB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="24"/>
-            <Setter Property="BoxShadow" Value="0 1 3 0 #10000000"/>
-        </Style>
-
-        <!-- Section Header Style -->
-        <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#111827"/>
-            <Setter Property="Margin" Value="0,0,0,12"/>
-        </Style>
-
-        <!-- DataGrid Header Style -->
-        <Style Selector="DataGridColumnHeader">
-            <Setter Property="Background" Value="#F9FAFB"/>
-            <Setter Property="Foreground" Value="#111827"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+        <!-- Header Row Style -->
+        <Style Selector="TextBlock.header">
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Padding" Value="12,16"/>
         </Style>
 
-        <!-- DataGrid Row Styles -->
-        <Style Selector="DataGridRow:nth-child(even)">
-            <Setter Property="Background" Value="#FAFAFA"/>
+        <!-- Cell Style -->
+        <Style Selector="TextBlock.cell">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
-        
-        <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
-            <Setter Property="Fill" Value="#F3F4F6"/>
+
+        <!-- Parameter Name Cell -->
+        <Style Selector="TextBlock.param-name">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <!-- Range Cell (light blue) -->
+        <Style Selector="TextBlock.range">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#3B82F6"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <!-- Description Cell -->
+        <Style Selector="TextBlock.description">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <!-- Row Border -->
+        <Style Selector="Border.row">
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="Border.row:pointerover">
+            <Setter Property="Background" Value="#F9FAFB"/>
         </Style>
 
         <!-- Button Styles -->
-        <Style Selector="Button.primary">
+        <Style Selector="Button.browse-btn">
             <Setter Property="Background" Value="#3B82F6"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="20,10"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="24,10"/>
+            <Setter Property="CornerRadius" Value="20"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
-        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+        <Style Selector="Button.browse-btn:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#2563EB"/>
         </Style>
-        
-        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#D1D5DB"/>
-            <Setter Property="Cursor" Value="Arrow"/>
-        </Style>
 
-        <Style Selector="Button.secondary">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#374151"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="20,10"/>
-            <Setter Property="CornerRadius" Value="8"/>
+        <Style Selector="Button.export-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#3B82F6"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="24,10"/>
+            <Setter Property="CornerRadius" Value="20"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
-        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#F9FAFB"/>
+        <Style Selector="Button.export-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EFF6FF"/>
         </Style>
-        
-        <Style Selector="Button.action-btn">
-            <Setter Property="Background" Value="#10B981"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="16,6"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
+
+        <!-- Value TextBox Style -->
+        <Style Selector="TextBox.value-input">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
-        
-        <Style Selector="Button.action-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#059669"/>
+
+        <Style Selector="TextBox.value-input:focus">
+            <Setter Property="Background" Value="#FEF3C7"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="#F59E0B"/>
         </Style>
-        
+
         <!-- Loading Spinner -->
         <Style Selector="ProgressBar.spinner">
             <Setter Property="IsIndeterminate" Value="True"/>
@@ -99,144 +114,140 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*" Margin="32,24">
+    <Grid RowDefinitions="Auto,Auto,*" Background="#FFFFFF">
         <!-- Header Section -->
-        <StackPanel Grid.Row="0" Spacing="20" Margin="0,0,0,24">
-            <!-- Title -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Parameters" FontSize="32" FontWeight="Bold" Foreground="#111827"/>
-                <TextBlock Text="View and modify drone configuration parameters" FontSize="14" Foreground="#6B7280"/>
-            </StackPanel>
+        <StackPanel Grid.Row="0" Margin="32,24,32,0" Spacing="24">
+            <!-- Title and Search Row -->
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Title -->
+                <TextBlock Grid.Column="0" 
+                           Text="ADVANCED SETTINGS" 
+                           FontSize="24" 
+                           FontWeight="Bold" 
+                           Foreground="#3B82F6"
+                           VerticalAlignment="Center"/>
 
-            <!-- Stats Cards -->
-            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
-                <Border Grid.Column="0" Classes="card" Padding="16">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Total Parameters" FontSize="12" Foreground="#6B7280"/>
-                        <TextBlock Text="{Binding TotalParameterCount}" FontSize="28" FontWeight="Bold" Foreground="#111827"/>
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="1" Classes="card" Padding="16">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Loaded" FontSize="12" Foreground="#6B7280"/>
-                        <TextBlock Text="{Binding LoadedParameterCount}" FontSize="28" FontWeight="Bold" Foreground="#10B981"/>
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="2" Classes="card" Padding="16">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Modified" FontSize="12" Foreground="#6B7280"/>
-                        <TextBlock Text="{Binding ModifiedParameterCount}" FontSize="28" FontWeight="Bold" Foreground="#F59E0B"/>
-                    </StackPanel>
+                <!-- Search Box -->
+                <Border Grid.Column="2" 
+                        Background="White" 
+                        BorderBrush="#D1D5DB" 
+                        BorderThickness="1" 
+                        CornerRadius="8"
+                        Padding="8,0"
+                        MinWidth="280">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <!-- Search Icon -->
+                        <Viewbox Grid.Column="0" Width="20" Height="20" Margin="4,0,8,0">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#9CA3AF" 
+                                      Data="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SearchText, Mode=TwoWay}"
+                                 Watermark="Search Parameter"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Padding="4,8"
+                                 FontSize="14"/>
+                    </Grid>
                 </Border>
             </Grid>
 
-            <!-- Search and Actions -->
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                <TextBox Grid.Column="0"
-                         Text="{Binding SearchText, Mode=TwoWay}"
-                         Watermark="Search parameters by name or description..."
-                         MinHeight="42"
-                         Padding="12,10"
-                         CornerRadius="8"
-                         BorderBrush="#D1D5DB"
-                         BorderThickness="1"/>
-
-                <Button Grid.Column="1" 
-                        Content="Refresh" 
+            <!-- Import/Export Row -->
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock Text="Import parameters from file" 
+                           FontSize="14" 
+                           Foreground="#374151"
+                           VerticalAlignment="Center"/>
+                <Button Content="Browse" 
+                        Classes="browse-btn"
+                        Command="{Binding ImportParametersCommand}"
+                        ToolTip.Tip="Import parameters from a file"/>
+                <Button Content="Export" 
+                        Classes="export-btn"
+                        Command="{Binding ExportParametersCommand}"
+                        ToolTip.Tip="Export current parameters to a file"/>
+                
+                <!-- Refresh button -->
+                <Button Content="Refresh" 
+                        Classes="export-btn"
                         Command="{Binding RefreshParametersCommand}"
-                        Classes="secondary"
-                        ToolTip.Tip="Reload parameters from drone"/>
+                        ToolTip.Tip="Reload parameters from drone"
+                        Margin="16,0,0,0"/>
 
-                <Button Grid.Column="2" 
-                        Content="Save All Changes" 
-                        Command="{Binding SaveAllParametersCommand}"
-                        Classes="primary"
-                        IsEnabled="{Binding HasUnsavedChanges}"
-                        ToolTip.Tip="Save all modified parameters to drone"/>
-            </Grid>
+                <!-- Modified count indicator -->
+                <Border Background="#FEF3C7" 
+                        CornerRadius="12" 
+                        Padding="12,6"
+                        Margin="16,0,0,0"
+                        IsVisible="{Binding HasUnsavedChanges}">
+                    <TextBlock FontSize="12" Foreground="#92400E">
+                        <Run Text="{Binding ModifiedParameterCount}"/>
+                        <Run Text=" parameter(s) modified"/>
+                    </TextBlock>
+                </Border>
+            </StackPanel>
 
             <!-- Loading Indicator -->
             <ProgressBar Classes="spinner" IsVisible="{Binding IsRefreshing}" />
 
             <!-- Status Message -->
-            <Border Classes="card" Background="#F9FAFB" IsVisible="{Binding HasStatusMessage}">
-                <TextBlock Text="{Binding StatusMessage}" 
-                           FontSize="13" 
-                           Foreground="#374151"
-                           TextWrapping="Wrap"
-                           Padding="4"/>
-            </Border>
+            <TextBlock Text="{Binding StatusMessage}" 
+                       FontSize="12" 
+                       Foreground="#6B7280"
+                       IsVisible="{Binding HasStatusMessage}"
+                       Margin="0,0,0,8"/>
         </StackPanel>
 
-        <!-- Parameters DataGrid -->
-        <Border Grid.Row="1" Classes="card" Padding="0">
-            <Grid RowDefinitions="*,Auto">
-                <DataGrid Grid.Row="0"
-                          ItemsSource="{Binding FilteredParameters}" 
-                          SelectedItem="{Binding SelectedParameter}" 
-                          AutoGenerateColumns="False" 
-                          IsEnabled="{Binding CanEditParameters}"
-                          GridLinesVisibility="Horizontal"
-                          BorderThickness="0"
-                          HeadersVisibility="Column"
-                          CanUserReorderColumns="True"
-                          CanUserResizeColumns="True"
-                          CanUserSortColumns="True"
-                          SelectionMode="Single">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Parameter Name" 
-                                            Binding="{Binding Name}" 
-                                            Width="2*" 
-                                            IsReadOnly="True"
-                                            FontWeight="SemiBold"/>
-
-                        <DataGridTextColumn Header="Value" 
-                                            Binding="{Binding Value, Mode=TwoWay}" 
-                                            Width="*"
-                                            FontFamily="Consolas"/>
-
-                        <DataGridTextColumn Header="Description" 
-                                            Binding="{Binding Description}" 
-                                            Width="3*" 
-                                            IsReadOnly="True"
-                                            Foreground="#6B7280"/>
-
-                        <DataGridTemplateColumn Header="Actions" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Apply" 
-                                            Command="{Binding $parent[DataGrid].((vm:ParametersPageViewModel)DataContext).SaveParameterCommand}"
-                                            CommandParameter="{Binding}"
-                                            Classes="action-btn"
-                                            ToolTip.Tip="Write this parameter value to the drone"
-                                            Margin="4"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-                
-                <!-- Footer Info -->
-                <Border Grid.Row="1" 
-                        Background="#F9FAFB" 
-                        BorderBrush="#E5E7EB" 
-                        BorderThickness="0,1,0,0"
-                        Padding="16,12">
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-                        <TextBlock FontSize="12" Foreground="#6B7280">
-                            <Run Text="Showing"/>
-                            <Run Text="{Binding FilteredParameters.Count}" FontWeight="SemiBold"/>
-                            <Run Text="of"/>
-                            <Run Text="{Binding TotalParameterCount}" FontWeight="SemiBold"/>
-                            <Run Text="parameters"/>
-                        </TextBlock>
-                        <TextBlock Text="�" FontSize="12" Foreground="#D1D5DB"/>
-                        <TextBlock Text="Double-click a value to edit" FontSize="12" Foreground="#6B7280" FontStyle="Italic"/>
-                    </StackPanel>
-                </Border>
+        <!-- Table Header -->
+        <Border Grid.Row="1" 
+                BorderBrush="#E5E7EB" 
+                BorderThickness="0,0,0,2"
+                Margin="32,16,32,0">
+            <Grid ColumnDefinitions="180,120,150,*">
+                <TextBlock Grid.Column="0" Text="Parameter ID" Classes="header"/>
+                <TextBlock Grid.Column="1" Text="Value" Classes="header"/>
+                <TextBlock Grid.Column="2" Text="Range" Classes="header"/>
+                <TextBlock Grid.Column="3" Text="Description" Classes="header"/>
             </Grid>
         </Border>
+
+        <!-- Parameters List -->
+        <ScrollViewer Grid.Row="2" 
+                      Margin="32,0,32,24"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding FilteredParameters}" IsEnabled="{Binding CanEditParameters}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:DroneParameter">
+                        <Border Classes="row">
+                            <Grid ColumnDefinitions="180,120,150,*" MinHeight="48">
+                                <!-- Parameter ID -->
+                                <TextBlock Grid.Column="0" 
+                                           Text="{Binding Name}" 
+                                           Classes="param-name"/>
+
+                                <!-- Value (Editable) - changes trigger auto-save -->
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding Value, Mode=TwoWay}"
+                                         Classes="value-input"
+                                         ToolTip.Tip="Edit value and press Enter or Tab to save to vehicle"/>
+
+                                <!-- Range -->
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding RangeDisplay}"
+                                           Classes="range"/>
+
+                                <!-- Description -->
+                                <TextBlock Grid.Column="3" 
+                                           Text="{Binding Description, TargetNullValue='No description available'}" 
+                                           Classes="description"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </UserControl>

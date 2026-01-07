@@ -119,7 +119,7 @@
                             Click="NavButton_Click" 
                             IsEnabled="{Binding CanAccessAirframe}" />
 
-                    <Button Content="Parameters" 
+                    <Button Content="Advanced Settings" 
                             Classes="nav-button"
                             CommandParameter="{Binding ParametersPage}" 
                             Click="NavButton_Click" 

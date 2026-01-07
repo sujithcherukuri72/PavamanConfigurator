@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -14,6 +16,15 @@ public partial class ParametersPageViewModel : ViewModelBase
 {
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
+    
+    // Track original values for change detection
+    private readonly Dictionary<string, float> _originalValues = new();
+
+    // Track if parameters are fully loaded to prevent progress updates from overwriting
+    private bool _parametersLoaded;
+    
+    // Track if we're currently saving to prevent recursive saves
+    private bool _isSaving;
 
     [ObservableProperty]
     private ObservableCollection<DroneParameter> _parameters = new();
@@ -75,12 +86,17 @@ public partial class ParametersPageViewModel : ViewModelBase
             if (!connected)
             {
                 // Clear everything when disconnected
+                UnsubscribeFromParameterChanges();
                 Parameters.Clear();
                 FilteredParameters.Clear();
+                _originalValues.Clear();
                 TotalParameterCount = 0;
                 LoadedParameterCount = 0;
+                ModifiedParameterCount = 0;
+                HasUnsavedChanges = false;
                 CanEditParameters = false;
                 IsRefreshing = false;
+                _parametersLoaded = false;
                 StatusMessage = "Disconnected - Connect to your drone to load parameters";
             }
             else
@@ -96,10 +112,15 @@ public partial class ParametersPageViewModel : ViewModelBase
         {
             IsRefreshing = true;
             CanEditParameters = false;
+            _parametersLoaded = false;
+            UnsubscribeFromParameterChanges();
             Parameters.Clear();
             FilteredParameters.Clear();
+            _originalValues.Clear();
             TotalParameterCount = 0;
             LoadedParameterCount = 0;
+            ModifiedParameterCount = 0;
+            HasUnsavedChanges = false;
             StatusMessage = "Downloading parameters from drone...";
         });
     }
@@ -112,15 +133,16 @@ public partial class ParametersPageViewModel : ViewModelBase
             
             if (success && _parameterService.ReceivedParameterCount > 0)
             {
-                // AUTO-LOAD parameters into the grid immediately after download completes
                 await LoadParametersIntoGridAsync();
                 CanEditParameters = true;
-                StatusMessage = $"Successfully loaded {Parameters.Count} parameters from drone";
+                _parametersLoaded = true;
+                StatusMessage = $"Successfully loaded {Parameters.Count} parameters - Edit values to update vehicle";
             }
             else
             {
                 StatusMessage = "No parameters received from drone";
                 CanEditParameters = false;
+                _parametersLoaded = false;
             }
         });
     }
@@ -129,6 +151,11 @@ public partial class ParametersPageViewModel : ViewModelBase
     {
         Dispatcher.UIThread.Post(() =>
         {
+            if (_parametersLoaded)
+            {
+                return;
+            }
+            
             var received = _parameterService.ReceivedParameterCount;
             var expected = _parameterService.ExpectedParameterCount;
             
@@ -143,37 +170,100 @@ public partial class ParametersPageViewModel : ViewModelBase
         });
     }
 
-    /// <summary>
-    /// Loads all parameters from the service into the UI grid
-    /// </summary>
     private async Task LoadParametersIntoGridAsync()
     {
         try
         {
-            // Get all parameters from the service
+            UnsubscribeFromParameterChanges();
+            
             var allParams = await _parameterService.GetAllParametersAsync();
             
-            // Clear and populate the collections
             Parameters.Clear();
             FilteredParameters.Clear();
+            _originalValues.Clear();
             
             foreach (var p in allParams)
             {
+                _originalValues[p.Name] = p.Value;
+                p.OriginalValue = p.Value;
+                p.PropertyChanged += OnParameterPropertyChanged;
                 Parameters.Add(p);
                 FilteredParameters.Add(p);
             }
             
-            // Update statistics
             TotalParameterCount = Parameters.Count;
-            LoadedParameterCount = Parameters.Count;
+            LoadedParameterCount = FilteredParameters.Count;
+            ModifiedParameterCount = 0;
+            HasUnsavedChanges = false;
             
-            // Force UI update
             OnPropertyChanged(nameof(Parameters));
             OnPropertyChanged(nameof(FilteredParameters));
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error loading parameters: {ex.Message}";
+        }
+    }
+
+    private void UnsubscribeFromParameterChanges()
+    {
+        foreach (var p in Parameters)
+        {
+            p.PropertyChanged -= OnParameterPropertyChanged;
+        }
+    }
+
+    private void OnParameterPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not DroneParameter parameter || e.PropertyName != nameof(DroneParameter.Value))
+            return;
+        
+        if (_isSaving)
+            return;
+        
+        UpdateModifiedCount();
+        _ = SaveParameterToVehicleAsync(parameter);
+    }
+
+    private void UpdateModifiedCount()
+    {
+        ModifiedParameterCount = Parameters.Count(p => p.IsModified);
+        HasUnsavedChanges = ModifiedParameterCount > 0;
+    }
+
+    private async Task SaveParameterToVehicleAsync(DroneParameter parameter)
+    {
+        if (!_connectionService.IsConnected || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            StatusMessage = $"Updating {parameter.Name}...";
+            
+            var success = await _parameterService.SetParameterAsync(parameter.Name, parameter.Value);
+            
+            if (success)
+            {
+                parameter.MarkAsSaved();
+                _originalValues[parameter.Name] = parameter.Value;
+                UpdateModifiedCount();
+                StatusMessage = $"? Updated {parameter.Name} = {parameter.Value}";
+            }
+            else
+            {
+                StatusMessage = $"? Failed to update {parameter.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error updating {parameter.Name}: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 
@@ -186,43 +276,25 @@ public partial class ParametersPageViewModel : ViewModelBase
             return;
         }
 
-        // This will trigger OnDownloadStarted, then OnDownloadCompleted which auto-loads the grid
         await _parameterService.RefreshParametersAsync();
     }
 
     [RelayCommand]
-    private async Task SaveParameterAsync(DroneParameter? parameter)
+    private Task ImportParametersAsync()
     {
-        var p = parameter ?? SelectedParameter;
-        if (p == null)
-        {
-            StatusMessage = "No parameter selected";
-            return;
-        }
-
-        if (!_connectionService.IsConnected)
-        {
-            StatusMessage = "Not connected";
-            return;
-        }
-
-        StatusMessage = $"Saving {p.Name}...";
-        var success = await _parameterService.SetParameterAsync(p.Name, p.Value);
-        StatusMessage = success 
-            ? $"Saved {p.Name} = {p.Value}" 
-            : $"Failed to save {p.Name}";
+        StatusMessage = "Import parameters feature - coming soon";
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
-    private Task SaveAllParametersAsync()
+    private Task ExportParametersAsync()
     {
-        StatusMessage = "Save all not implemented yet";
+        StatusMessage = "Export parameters feature - coming soon";
         return Task.CompletedTask;
     }
 
     partial void OnSearchTextChanged(string value)
     {
-        // Apply filter when search text changes
         FilteredParameters.Clear();
         
         var filtered = string.IsNullOrWhiteSpace(value)
@@ -237,5 +309,18 @@ public partial class ParametersPageViewModel : ViewModelBase
         }
         
         LoadedParameterCount = FilteredParameters.Count;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            UnsubscribeFromParameterChanges();
+            _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+            _parameterService.ParameterDownloadStarted -= OnDownloadStarted;
+            _parameterService.ParameterDownloadCompleted -= OnDownloadCompleted;
+            _parameterService.ParameterDownloadProgressChanged -= OnProgressChanged;
+        }
+        base.Dispose(disposing);
     }
 }
