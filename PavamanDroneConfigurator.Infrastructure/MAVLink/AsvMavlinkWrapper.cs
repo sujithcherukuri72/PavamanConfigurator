@@ -43,6 +43,12 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte MAVLINK_MSG_ID_PARAM_REQUEST_LIST = 21;
         private const byte MAVLINK_MSG_ID_PARAM_VALUE = 22;
         private const byte MAVLINK_MSG_ID_PARAM_SET = 23;
+        private const byte MAVLINK_MSG_ID_COMMAND_LONG = 76;
+        private const ushort MAVLINK_MSG_ID_COMMAND_ACK = 77;
+
+        // MAV_CMD IDs
+        private const ushort MAV_CMD_DO_MOTOR_TEST = 209;
+        private const ushort MAV_CMD_PREFLIGHT_CALIBRATION = 241;
 
         // CRC extras from MAVLink message definitions
         private const byte CRC_EXTRA_HEARTBEAT = 50;
@@ -50,9 +56,12 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte CRC_EXTRA_PARAM_REQUEST_LIST = 159;
         private const byte CRC_EXTRA_PARAM_VALUE = 220;
         private const byte CRC_EXTRA_PARAM_SET = 168;
+        private const byte CRC_EXTRA_COMMAND_LONG = 152;
+        private const byte CRC_EXTRA_COMMAND_ACK = 143;
 
         public event EventHandler<(byte SystemId, byte ComponentId)>? HeartbeatReceived;
         public event EventHandler<(string Name, float Value, ushort Index, ushort Count)>? ParamValueReceived;
+        public event EventHandler<(ushort Command, byte Result)>? CommandAckReceived;
 
         public AsvMavlinkWrapper(ILogger logger)
         {
@@ -272,6 +281,10 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 case MAVLINK_MSG_ID_PARAM_VALUE:
                     HandleParamValue(payload);
                     break;
+
+                case (byte)MAVLINK_MSG_ID_COMMAND_ACK:
+                    HandleCommandAck(payload);
+                    break;
             }
         }
 
@@ -315,6 +328,24 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 name, value, paramIndex + 1, paramCount, paramType);
 
             ParamValueReceived?.Invoke(this, (name, value, paramIndex, paramCount));
+        }
+
+        private void HandleCommandAck(byte[] payload)
+        {
+            // COMMAND_ACK payload:
+            // [0-1] command (uint16)
+            // [2]   result (uint8)
+            if (payload.Length < 3)
+            {
+                _logger.LogWarning("COMMAND_ACK payload too short: {Len}", payload.Length);
+                return;
+            }
+
+            ushort command = BitConverter.ToUInt16(payload, 0);
+            byte result = payload[2];
+
+            _logger.LogDebug("COMMAND_ACK: cmd={Command} result={Result}", command, result);
+            CommandAckReceived?.Invoke(this, (command, result));
         }
 
         public async Task SendParamRequestListAsync(CancellationToken ct = default)
@@ -370,6 +401,78 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
             _logger.LogInformation("Sending PARAM_SET: {Name}={Value}", name, value);
             await SendMessageAsync(MAVLINK_MSG_ID_PARAM_SET, payload, ct);
+        }
+
+        /// <summary>
+        /// Send DO_MOTOR_TEST command (MAV_CMD = 209)
+        /// </summary>
+        /// <param name="motorInstance">Motor instance (1-based)</param>
+        /// <param name="throttleType">Throttle type (0=percent, 1=PWM, 2=pilot)</param>
+        /// <param name="throttleValue">Throttle value (percent or PWM)</param>
+        /// <param name="timeout">Timeout in seconds</param>
+        /// <param name="motorCount">Motor count (0=single motor test)</param>
+        /// <param name="testOrder">Test order (0=default, 1=sequence)</param>
+        public async Task SendMotorTestAsync(
+            int motorInstance, 
+            int throttleType, 
+            float throttleValue, 
+            float timeout, 
+            int motorCount = 0, 
+            int testOrder = 0,
+            CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending DO_MOTOR_TEST: motor={Motor} throttle={Throttle} timeout={Timeout}s",
+                motorInstance, throttleValue, timeout);
+
+            await SendCommandLongAsync(
+                MAV_CMD_DO_MOTOR_TEST,
+                motorInstance,      // param1: motor instance
+                throttleType,       // param2: throttle type
+                throttleValue,      // param3: throttle value
+                timeout,            // param4: timeout
+                motorCount,         // param5: motor count
+                testOrder,          // param6: test order
+                0,                  // param7: empty
+                ct);
+        }
+
+        /// <summary>
+        /// Send COMMAND_LONG message
+        /// </summary>
+        private async Task SendCommandLongAsync(
+            ushort command,
+            float param1, float param2, float param3, float param4,
+            float param5, float param6, float param7,
+            CancellationToken ct = default)
+        {
+            // COMMAND_LONG payload (33 bytes):
+            // [0-3]   param1 (float)
+            // [4-7]   param2 (float)
+            // [8-11]  param3 (float)
+            // [12-15] param4 (float)
+            // [16-19] param5 (float)
+            // [20-23] param6 (float)
+            // [24-27] param7 (float)
+            // [28-29] command (uint16)
+            // [30]    target_system
+            // [31]    target_component
+            // [32]    confirmation
+
+            var payload = new byte[33];
+            
+            BitConverter.GetBytes(param1).CopyTo(payload, 0);
+            BitConverter.GetBytes(param2).CopyTo(payload, 4);
+            BitConverter.GetBytes(param3).CopyTo(payload, 8);
+            BitConverter.GetBytes(param4).CopyTo(payload, 12);
+            BitConverter.GetBytes(param5).CopyTo(payload, 16);
+            BitConverter.GetBytes(param6).CopyTo(payload, 20);
+            BitConverter.GetBytes(param7).CopyTo(payload, 24);
+            BitConverter.GetBytes(command).CopyTo(payload, 28);
+            payload[30] = _targetSystemId != 0 ? _targetSystemId : (byte)1;
+            payload[31] = _targetComponentId != 0 ? _targetComponentId : (byte)1;
+            payload[32] = 0; // confirmation
+
+            await SendMessageAsync(MAVLINK_MSG_ID_COMMAND_LONG, payload, ct);
         }
 
         private async Task SendMessageAsync(byte msgId, byte[] payload, CancellationToken ct)
@@ -443,6 +546,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             MAVLINK_MSG_ID_PARAM_REQUEST_LIST => CRC_EXTRA_PARAM_REQUEST_LIST,
             MAVLINK_MSG_ID_PARAM_VALUE => CRC_EXTRA_PARAM_VALUE,
             MAVLINK_MSG_ID_PARAM_SET => CRC_EXTRA_PARAM_SET,
+            MAVLINK_MSG_ID_COMMAND_LONG => CRC_EXTRA_COMMAND_LONG,
             _ => 0
         };
 

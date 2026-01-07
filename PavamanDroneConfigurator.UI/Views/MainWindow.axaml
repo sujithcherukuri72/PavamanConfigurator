@@ -124,6 +124,11 @@
                             CommandParameter="{Binding FlightModesPage}" 
                             Click="NavButton_Click" />
 
+                    <Button Content="Motor &amp; ESC" 
+                            Classes="nav-button"
+                            CommandParameter="{Binding MotorEscPage}" 
+                            Click="NavButton_Click" />
+
                     <Button Content="Power" 
                             Classes="nav-button"
                             CommandParameter="{Binding PowerPage}" 
@@ -196,6 +201,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:PowerPageViewModel">
                         <views:PowerPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:MotorEscPageViewModel">
+                        <views:MotorEscPage />
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

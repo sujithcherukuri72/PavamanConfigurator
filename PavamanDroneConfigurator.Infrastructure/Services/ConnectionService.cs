@@ -464,6 +464,23 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _ = _mavlink.SendParamSetAsync(request.Name, request.Value);
     }
 
+    public void SendMotorTest(int motorInstance, int throttleType, float throttleValue, float timeout, int motorCount = 0, int testOrder = 0)
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            _ = _bluetoothConnection.SendMotorTestAsync(motorInstance, throttleType, throttleValue, timeout, motorCount, testOrder);
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send DO_MOTOR_TEST - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendMotorTestAsync(motorInstance, throttleType, throttleValue, timeout, motorCount, testOrder);
+    }
+
     private void SetConnected(bool connected)
     {
         if (_isConnected != connected)

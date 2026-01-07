@@ -224,6 +224,20 @@ public class BluetoothMavConnection : IDisposable
     }
 
     /// <summary>
+    /// Send DO_MOTOR_TEST command to drone
+    /// Throws if connection is not active
+    /// </summary>
+    public async Task SendMotorTestAsync(int motorInstance, int throttleType, float throttleValue, 
+        float timeout, int motorCount = 0, int testOrder = 0, CancellationToken ct = default)
+    {
+        if (!_isConnected || _mavlinkWrapper == null)
+            throw new InvalidOperationException("Bluetooth connection is not active");
+
+        await _mavlinkWrapper.SendMotorTestAsync(motorInstance, throttleType, throttleValue, 
+            timeout, motorCount, testOrder, ct);
+    }
+
+    /// <summary>
     /// Discover available Bluetooth devices
     /// </summary>
     public async Task<IEnumerable<CoreBluetoothDeviceInfo>> DiscoverDevicesAsync()

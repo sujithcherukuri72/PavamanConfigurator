@@ -1,0 +1,430 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             x:Class="PavamanDroneConfigurator.UI.Views.MotorEscPage"
+             x:DataType="vm:MotorEscPageViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+        </Style>
+        
+        <Style Selector="TextBlock.PageSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Width" Value="80"/>
+        </Style>
+        
+        <Style Selector="TextBlock.HelpText">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#084298"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#6C757D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Danger">
+            <Setter Property="Background" Value="#DC3545"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Danger:pointerover">
+            <Setter Property="Background" Value="#BB2D3B"/>
+        </Style>
+        
+        <Style Selector="Slider">
+            <Setter Property="MinWidth" Value="200"/>
+        </Style>
+        
+        <Style Selector="Border.WarningBanner">
+            <Setter Property="Background" Value="#FFF3CD"/>
+            <Setter Property="BorderBrush" Value="#FFC107"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="Border.DangerBanner">
+            <Setter Property="Background" Value="#F8D7DA"/>
+            <Setter Property="BorderBrush" Value="#DC3545"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="Border.MotorSliderRow">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style Selector="Border.MotorSliderRow.Testing">
+            <Setter Property="Background" Value="#DBEAFE"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="1200">
+            
+            <!-- HEADER SECTION -->
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Classes="PageTitle" Text="Motor Test &amp; ESC"/>
+                    <TextBlock Classes="PageSubtitle" Text="Test motors individually and calibrate ESCs"/>
+                </StackPanel>
+                
+                <Button Grid.Column="1" Classes="Danger" Command="{Binding StopAllMotorsCommand}" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="" FontSize="14"/>
+                        <TextBlock Text="STOP ALL"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Grid.Column="2" Classes="Secondary" Command="{Binding RefreshCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="" FontSize="16"/>
+                        <TextBlock Text="Refresh"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- STATUS BAR -->
+            <Border Background="#F5F5F5" CornerRadius="6" Padding="12" Margin="0,0,0,16" IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- SAFETY WARNING -->
+            <Border Classes="DangerBanner">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+                        <TextBlock Text="" FontSize="24"/>
+                        <TextBlock Text="DANGER - REMOVE ALL PROPELLERS BEFORE TESTING" 
+                                   FontSize="16" FontWeight="Bold" Foreground="#DC3545"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="HelpText" Foreground="#721C24" Margin="0,0,0,12">
+                        Motor testing can be dangerous. Ensure all propellers are removed and the vehicle is secured before enabling motor sliders. Keep hands, clothing, and objects away from motors during testing.
+                    </TextBlock>
+                    <CheckBox IsChecked="{Binding SafetyAcknowledged}" 
+                              FontWeight="Bold" Foreground="#721C24">
+                        <TextBlock Text="I confirm propellers are removed - Enable motor sliders" FontWeight="Bold"/>
+                    </CheckBox>
+                </StackPanel>
+            </Border>
+
+            <!-- MOTOR TEST SECTION -->
+            <Border Classes="SectionCard">
+                <StackPanel>
+                    <TextBlock Classes="SectionTitle" Text="Motor Test"/>
+                    <TextBlock Classes="SectionSubtitle" Text="Test individual motors by moving the sliders"/>
+                    
+                    <!-- Global Controls -->
+                    <Border Background="#F1F5F9" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Test Duration:" Margin="0,0,16,0"/>
+                            <Slider Grid.Column="1" 
+                                    Value="{Binding TestDuration}" 
+                                    Minimum="0.5" Maximum="10" 
+                                    TickFrequency="0.5"
+                                    IsSnapToTickEnabled="True"
+                                    Margin="0,0,16,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding TestDuration, StringFormat={}{0:F1}s}" 
+                                       VerticalAlignment="Center" Margin="0,0,24,0" Width="40"/>
+                            
+                            <Button Grid.Column="3" Classes="Primary" Command="{Binding TestAllMotorsCommand}"
+                                    IsEnabled="{Binding SlidersEnabled}" Margin="0,0,8,0">
+                                <TextBlock Text="Test All Sequential"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Motor Sliders -->
+                    <StackPanel IsEnabled="{Binding SlidersEnabled}">
+                        
+                        <!-- Motor 1 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor1Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 1"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor1Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor1Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Motor 2 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor2Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 2"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor2Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor2Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Motor 3 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor3Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 3"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor3Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor3Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Motor 4 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor4Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 4"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor4Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor4Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Motor 5 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor5Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 5"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor5Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor5Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Motor 6 -->
+                        <Border Classes="MotorSliderRow" Classes.Testing="{Binding Motor6Testing}">
+                            <Grid ColumnDefinitions="80,*,60">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Motor 6"/>
+                                <Slider Grid.Column="1" 
+                                        Value="{Binding Motor6Throttle}" 
+                                        Minimum="0" Maximum="100"/>
+                                <TextBlock Grid.Column="2" 
+                                           Text="{Binding Motor6Throttle, StringFormat={}{0:F0}%}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    
+                    <!-- Disabled overlay when safety not acknowledged -->
+                    <Border Background="#80FFFFFF" IsVisible="{Binding !SlidersEnabled}" 
+                            IsHitTestVisible="False" Margin="-24,-200,-24,0" Height="200">
+                        <TextBlock Text="Enable motor sliders above to test motors" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="14" Foreground="#64748B"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ESC CALIBRATION SECTION -->
+            <Border Classes="SectionCard">
+                <StackPanel>
+                    <TextBlock Classes="SectionTitle" Text=" ESC Calibration"/>
+                    <TextBlock Classes="SectionSubtitle" Text="Calibrate all ESCs to the same throttle range"/>
+                    
+                    <!-- Calibration Instructions -->
+                    <Border Background="#F8FAFC" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Click Calibrate to start, then:" FontWeight="Bold" Foreground="#1E293B"/>
+                            <TextBlock Classes="HelpText" Text="� Disconnect USB and battery so flight controller powers down"/>
+                            <TextBlock Classes="HelpText" Text="� Connect the battery"/>
+                            <TextBlock Classes="HelpText" Text="� The arming tone will be played (if the vehicle has buzzer attached)"/>
+                            <TextBlock Classes="HelpText" Text="� If using a flight controller with a safety button, press it until it displays solid red"/>
+                            <TextBlock Classes="HelpText" Text="� You will hear a musical tone then two beeps"/>
+                            <TextBlock Classes="HelpText" Text="� Few seconds later you should hear a number of beeps (one for each battery cell you are using)"/>
+                            <TextBlock Classes="HelpText" Text="� And finally a single long beep indicating the end points have been set and the ESC is calibrated"/>
+                            <TextBlock Classes="HelpText" Text="� Disconnect the battery and power up again normally"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Calibration Status -->
+                    <Border Classes="WarningBanner" IsVisible="{Binding EscCalibrationPending}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="" FontSize="18"/>
+                            <TextBlock Text="ESC calibration is pending - complete the steps above on next power cycle" 
+                                       VerticalAlignment="Center" FontWeight="Bold" Foreground="#856404"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Calibration Buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+                        <Button Classes="Secondary" Command="{Binding CancelEscCalibrationCommand}"
+                                IsVisible="{Binding EscCalibrationPending}">
+                            <TextBlock Text="Cancel Calibration"/>
+                        </Button>
+                        <Button Classes="Primary" Command="{Binding StartEscCalibrationCommand}"
+                                IsEnabled="{Binding IsConnected}">
+                            <TextBlock Text="Calibrate"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- MOTOR SETTINGS SECTION -->
+            <Border Classes="SectionCard">
+                <StackPanel>
+                    <TextBlock Classes="SectionTitle" Text=" Motor Settings"/>
+                    <TextBlock Classes="SectionSubtitle" Text="Advanced motor output configuration"/>
+                    
+                    <Grid ColumnDefinitions="*,24,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                        
+                        <!-- Left Column -->
+                        <StackPanel Grid.Column="0" Grid.Row="0" Spacing="12">
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Output Type:"/>
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding OutputTypeOptions}"
+                                          SelectedItem="{Binding SelectedOutputType}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="PWM Min:"/>
+                                <NumericUpDown Grid.Column="1"
+                                               Value="{Binding PwmMin}"
+                                               Minimum="800" Maximum="1500"
+                                               Increment="10"
+                                               FormatString="F0"/>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="PWM Max:"/>
+                                <NumericUpDown Grid.Column="1"
+                                               Value="{Binding PwmMax}"
+                                               Minimum="1500" Maximum="2200"
+                                               Increment="10"
+                                               FormatString="F0"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <!-- Right Column -->
+                        <StackPanel Grid.Column="2" Grid.Row="0" Spacing="12">
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Spin Armed:"/>
+                                <NumericUpDown Grid.Column="1"
+                                               Value="{Binding SpinArmed}"
+                                               Minimum="0" Maximum="0.3"
+                                               Increment="0.01"
+                                               FormatString="F2"/>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Spin Min:"/>
+                                <NumericUpDown Grid.Column="1"
+                                               Value="{Binding SpinMin}"
+                                               Minimum="0" Maximum="0.5"
+                                               Increment="0.01"
+                                               FormatString="F2"/>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="120,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Thrust Hover:"/>
+                                <NumericUpDown Grid.Column="1"
+                                               Value="{Binding ThrustHover}"
+                                               Minimum="0.1" Maximum="0.8"
+                                               Increment="0.01"
+                                               FormatString="F2"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Save Button -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button Classes="Primary" Command="{Binding SaveSettingsCommand}"
+                                IsEnabled="{Binding IsConnected}">
+                            <TextBlock Text="Save Settings"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- FOOTER INFO -->
+            <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
+                        <Run Text="Safety Note:"/>
+                        <Run Text="Always test motors at low throttle first. If a motor spins in the wrong direction, swap any two of its three wires or change direction in BLHeli configurator."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

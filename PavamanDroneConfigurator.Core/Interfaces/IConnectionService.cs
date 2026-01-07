@@ -30,6 +30,9 @@ public interface IConnectionService
     void SendParamRequestList();
     void SendParamRequestRead(ushort paramIndex);
     void SendParamSet(ParameterWriteRequest request);
+    
+    // Motor test command (DO_MOTOR_TEST MAV_CMD = 209)
+    void SendMotorTest(int motorInstance, int throttleType, float throttleValue, float timeout, int motorCount = 0, int testOrder = 0);
 }
 
 // Event args for PARAM_VALUE messages
