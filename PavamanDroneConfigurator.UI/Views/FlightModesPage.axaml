@@ -151,7 +151,7 @@
                 
                 <Button Grid.Column="1" Classes="Secondary" Command="{Binding RefreshCommand}" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="?" FontSize="16"/>
+                        <TextBlock Text="" FontSize="16"/>
                         <TextBlock Text="Refresh"/>
                     </StackPanel>
                 </Button>
@@ -181,11 +181,11 @@
                 <StackPanel>
                     <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,8"
                                Foreground="#1E293B"
-                               Text="? Configuration Valid"
+                               Text=" Configuration Valid"
                                IsVisible="{Binding !HasValidationWarnings}"/>
                     <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,8"
                                Foreground="#1E293B"
-                               Text="? Configuration Warnings"
+                               Text=" Configuration Warnings"
                                IsVisible="{Binding HasValidationWarnings}"/>
                     <TextBlock Text="{Binding ValidationMessage}" 
                                TextWrapping="Wrap" 
@@ -197,7 +197,7 @@
             <!-- CHANNEL CONFIGURATION -->
             <Border Classes="SectionCard">
                 <StackPanel>
-                    <TextBlock Classes="SectionTitle" Text="??? Channel Configuration"/>
+                    <TextBlock Classes="SectionTitle" Text=" Channel Configuration"/>
                     <TextBlock Classes="SectionSubtitle" Text="Select the RC channel used for flight mode switching"/>
                     
                     <Grid ColumnDefinitions="200,*" Margin="0,0,0,8">
@@ -217,7 +217,7 @@
             <!-- FLIGHT MODE SLOTS (3x2 Grid) -->
             <Border Classes="SectionCard">
                 <StackPanel>
-                    <TextBlock Classes="SectionTitle" Text="?? Flight Mode Slots"/>
+                    <TextBlock Classes="SectionTitle" Text=" Flight Mode Slots"/>
                     <TextBlock Classes="SectionSubtitle" Text="Configure flight modes for each PWM range position"/>
                     
                     <!-- Row 1: Modes 1-3 -->
@@ -353,7 +353,7 @@
             <!-- MODE DESCRIPTION / INFO -->
             <Border Classes="SectionCard">
                 <StackPanel>
-                    <TextBlock Classes="SectionTitle" Text="?? Mode Information"/>
+                    <TextBlock Classes="SectionTitle" Text=" Mode Information"/>
                     <TextBlock Classes="SectionSubtitle" Text="Details about the selected flight mode"/>
                     
                     <TextBlock Text="{Binding SelectedModeDescription}" 
@@ -400,7 +400,7 @@
             <!-- FOOTER INFO -->
             <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="??" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock Text="" FontSize="16" VerticalAlignment="Center"/>
                     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
                         <Run Text="Recommendation:"/>
                         <Run Text="Always have at least one stable mode (Stabilize/AltHold) and one emergency mode (RTL/Land) configured."/>
