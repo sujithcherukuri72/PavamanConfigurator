@@ -1,0 +1,286 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             x:Class="PavamanDroneConfigurator.UI.Views.PowerPage"
+             x:DataType="vm:PowerPageViewModel">
+
+    <UserControl.Styles>
+        <!-- Page Title Style -->
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#3B82F6"/>
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+        
+        <!-- Section Card -->
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        
+        <!-- Field Label -->
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <!-- Unit Label -->
+        <Style Selector="TextBlock.UnitLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+        
+        <!-- Input Field -->
+        <Style Selector="TextBox.InputField">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style Selector="TextBox.InputField:focus">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+        </Style>
+        
+        <!-- ComboBox Style -->
+        <Style Selector="ComboBox.DropdownField">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="MinWidth" Value="200"/>
+        </Style>
+        
+        <!-- NumericUpDown Style -->
+        <Style Selector="NumericUpDown">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        
+        <!-- Calculate Button -->
+        <Style Selector="Button.CalculateButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#3B82F6"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.CalculateButton:pointerover">
+            <Setter Property="Background" Value="#EFF6FF"/>
+        </Style>
+        
+        <!-- Update Button -->
+        <Style Selector="Button.UpdateButton">
+            <Setter Property="Background" Value="#93C5FD"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.UpdateButton:pointerover">
+            <Setter Property="Background" Value="#60A5FA"/>
+        </Style>
+        
+        <Style Selector="Button.UpdateButton:pressed">
+            <Setter Property="Background" Value="#3B82F6"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32" MaxWidth="1200">
+            
+            <!-- Page Title -->
+            <TextBlock Classes="PageTitle" Text="POWER SETTINGS"/>
+            
+            <!-- Status Bar -->
+            <Border Background="#F5F5F5" CornerRadius="6" Padding="12" Margin="0,0,0,16" IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content Card -->
+            <Border Classes="SectionCard">
+                <StackPanel Spacing="32">
+                    
+                    <!-- Row 1: Battery Monitor, Battery Capacity, Minimum Arming Voltage -->
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto">
+                        <!-- Battery Monitor -->
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Classes="FieldLabel" Text="Battery Monitor"/>
+                            <ComboBox Classes="DropdownField"
+                                      ItemsSource="{Binding BatteryMonitorTypeOptions}"
+                                      SelectedItem="{Binding SelectedBatteryMonitor}"
+                                      DisplayMemberBinding="{Binding Label}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        
+                        <!-- Battery Capacity -->
+                        <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                            <TextBlock Classes="FieldLabel" Text="Battery Capacity"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <NumericUpDown Grid.Column="0"
+                                               Value="{Binding BatteryCapacity}"
+                                               Minimum="0"
+                                               Maximum="100000"
+                                               Increment="100"
+                                               FormatString="F0"/>
+                                <TextBlock Grid.Column="1" Classes="UnitLabel" Text="mAh"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <!-- Minimum Arming Voltage -->
+                        <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                            <TextBlock Classes="FieldLabel" Text="Minimum Arming Voltage"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <NumericUpDown Grid.Column="0"
+                                               Value="{Binding MinimumArmingVoltage}"
+                                               Minimum="0"
+                                               Maximum="100"
+                                               Increment="0.1"
+                                               FormatString="F4"/>
+                                <TextBlock Grid.Column="1" Classes="UnitLabel" Text="V"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Row 2: Power Sensor, Current Pin, Voltage Pin -->
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto">
+                        <!-- Power Sensor -->
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Classes="FieldLabel" Text="Power Sensor"/>
+                            <ComboBox Classes="DropdownField"
+                                      ItemsSource="{Binding PowerSensorOptions}"
+                                      SelectedItem="{Binding SelectedPowerSensor}"
+                                      DisplayMemberBinding="{Binding Name}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        
+                        <!-- Current Pin -->
+                        <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                            <TextBlock Classes="FieldLabel" Text="Current Pin"/>
+                            <ComboBox Classes="DropdownField"
+                                      ItemsSource="{Binding CurrentPinTypeOptions}"
+                                      SelectedItem="{Binding SelectedCurrentPin}"
+                                      DisplayMemberBinding="{Binding Label}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        
+                        <!-- Voltage Pin -->
+                        <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                            <TextBlock Classes="FieldLabel" Text="Voltage Pin"/>
+                            <ComboBox Classes="DropdownField"
+                                      ItemsSource="{Binding VoltagePinTypeOptions}"
+                                      SelectedItem="{Binding SelectedVoltagePin}"
+                                      DisplayMemberBinding="{Binding Label}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Row 3: Voltage Multiplier, Amps Per Volt, Amps Offset -->
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto">
+                        <!-- Voltage Multiplier -->
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Classes="FieldLabel" Text="Voltage Multiplier"/>
+                            <NumericUpDown Value="{Binding VoltageMultiplier}"
+                                           Minimum="0"
+                                           Maximum="100"
+                                           Increment="0.01"
+                                           FormatString="F2"/>
+                        </StackPanel>
+                        
+                        <!-- Amps Per Volt -->
+                        <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                            <TextBlock Classes="FieldLabel" Text="Amps Per Volt"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <NumericUpDown Grid.Column="0"
+                                               Value="{Binding AmpsPerVolt}"
+                                               Minimum="0"
+                                               Maximum="1000"
+                                               Increment="0.001"
+                                               FormatString="F3"/>
+                                <TextBlock Grid.Column="1" Classes="UnitLabel" Text="A/V"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <!-- Amps Offset -->
+                        <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                            <TextBlock Classes="FieldLabel" Text="Amps Offset"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <NumericUpDown Grid.Column="0"
+                                               Value="{Binding AmpsOffset}"
+                                               Minimum="-100"
+                                               Maximum="100"
+                                               Increment="0.1"
+                                               FormatString="F1"/>
+                                <TextBlock Grid.Column="1" Classes="UnitLabel" Text="V"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Row 4: Calculate Buttons and Update Button -->
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto" Margin="0,8,0,0">
+                        <!-- Calculate Voltage Button -->
+                        <Button Grid.Column="0" 
+                                Classes="CalculateButton"
+                                Command="{Binding CalculateVoltageCommand}"
+                                Content="Calculate"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,16,0"/>
+                        
+                        <!-- Calculate Current Button -->
+                        <Button Grid.Column="1" 
+                                Classes="CalculateButton"
+                                Command="{Binding CalculateCurrentCommand}"
+                                Content="Calculate"
+                                HorizontalAlignment="Left"
+                                Margin="8,0,8,0"/>
+                        
+                        <!-- Update Button -->
+                        <Button Grid.Column="2" 
+                                Classes="UpdateButton"
+                                Command="{Binding UpdateAllCommand}"
+                                Content="Update"
+                                HorizontalAlignment="Right"
+                                Margin="16,0,0,0"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- Info Panel -->
+            <Border Background="#EFF6FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="??" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#3B82F6">
+                        <Run Text="Power Configuration:"/>
+                        <Run Text=" Select your power sensor preset to auto-fill calibration values, or manually enter the voltage multiplier and amps per volt for accurate battery monitoring."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

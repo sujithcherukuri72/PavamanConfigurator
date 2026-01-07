@@ -56,6 +56,7 @@ public partial class App : Application
         services.AddTransient<ProfilePageViewModel>();
         services.AddTransient<SplashScreenViewModel>();
         services.AddTransient<FlightModePageViewModel>();
+        services.AddTransient<PowerPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }
