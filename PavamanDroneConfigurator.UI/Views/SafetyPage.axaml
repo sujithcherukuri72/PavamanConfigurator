@@ -209,17 +209,17 @@
                         Margin="16,0,12,0">
                     <StackPanel>
                         <TextBlock FontSize="13" FontWeight="Bold" Foreground="White" 
-                                   Text="? Compliant"
+                                   Text=" Compliant"
                                    IsVisible="{Binding !HasValidationWarnings}"/>
                         <TextBlock FontSize="13" FontWeight="Bold" Foreground="White" 
-                                   Text="? Warnings Present"
+                                   Text=" Warnings Present"
                                    IsVisible="{Binding HasValidationWarnings}"/>
                     </StackPanel>
                 </Border>
                 
                 <Button Grid.Column="2" Classes="Secondary" Command="{Binding RefreshAllCommand}" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="?" FontSize="16"/>
+                        <TextBlock Text="" FontSize="16"/>
                         <TextBlock Text="Sync from Drone"/>
                     </StackPanel>
                 </Button>
@@ -245,11 +245,11 @@
                     <StackPanel>
                         <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,12"
                                    Foreground="#1E293B"
-                                   Text="? COMPLIANCE STATUS"
+                                   Text=" COMPLIANCE STATUS"
                                    IsVisible="{Binding !HasValidationWarnings}"/>
                         <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,12"
                                    Foreground="#1E293B"
-                                   Text="? COMPLIANCE ALERTS"
+                                   Text=" COMPLIANCE ALERTS"
                                    IsVisible="{Binding HasValidationWarnings}"/>
                     </StackPanel>
                     
@@ -269,7 +269,7 @@
                     <!-- PRE-FLIGHT ARMING CHECKS -->
                     <Border Classes="SectionCard">
                         <StackPanel>
-                            <TextBlock Classes="SectionTitle" Text="? Pre-Flight Arming Checks"/>
+                            <TextBlock Classes="SectionTitle" Text=" Pre-Flight Arming Checks"/>
                             <TextBlock Classes="SectionSubtitle" Text="Required sensor and system checks before flight"/>
                             
                             <CheckBox Content="All Checks (Master)" 
@@ -328,7 +328,7 @@
                     <!-- BATTERY FAILSAFE -->
                     <Border Classes="SectionCard">
                         <StackPanel>
-                            <TextBlock Classes="SectionTitle" Text="?? Battery Failsafe"/>
+                            <TextBlock Classes="SectionTitle" Text=" Battery Failsafe"/>
                             <TextBlock Classes="SectionSubtitle" Text="Actions when battery reaches critical levels"/>
                             
                             <!-- LOW BATTERY -->
@@ -337,7 +337,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Classes="FieldLabel" Text="LOW BATTERY" FontWeight="Bold" FontSize="14"/>
                                         <Border Grid.Column="1" Classes="BadgeSmall Warning">
-                                            <TextBlock Classes="BadgeText" Text="? Warning"/>
+                                            <TextBlock Classes="BadgeText" Text=" Warning"/>
                                         </Border>
                                     </Grid>
                                     
@@ -364,7 +364,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Classes="FieldLabel" Text="CRITICAL BATTERY" FontWeight="Bold" FontSize="14"/>
                                         <Border Grid.Column="1" Classes="BadgeSmall Danger">
-                                            <TextBlock Classes="BadgeText" Text="?? Critical"/>
+                                            <TextBlock Classes="BadgeText" Text=" Critical"/>
                                         </Border>
                                     </Grid>
                                     
@@ -405,7 +405,7 @@
                     <Border Classes="SectionCard">
                         <StackPanel>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Classes="SectionTitle" Text="?? Geofence"/>
+                                <TextBlock Grid.Column="0" Classes="SectionTitle" Text=" Geofence"/>
                                 <ToggleSwitch Grid.Column="1" IsChecked="{Binding FenceEnabled}"/>
                             </Grid>
                             <TextBlock Classes="SectionSubtitle" Text="Virtual boundary limits for safe operation"/>
@@ -479,7 +479,7 @@
                     <!-- RETURN TO LAUNCH -->
                     <Border Classes="SectionCard">
                         <StackPanel>
-                            <TextBlock Classes="SectionTitle" Text="?? Return To Launch (RTL)"/>
+                            <TextBlock Classes="SectionTitle" Text=" Return To Launch (RTL)"/>
                             <TextBlock Classes="SectionSubtitle" Text="Automatic return to home settings"/>
                             
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
@@ -529,7 +529,7 @@
                     <!-- ADDITIONAL FAILSAFES -->
                     <Border Classes="SectionCard">
                         <StackPanel>
-                            <TextBlock Classes="SectionTitle" Text="? Additional Failsafes"/>
+                            <TextBlock Classes="SectionTitle" Text=" Additional Failsafes"/>
                             <TextBlock Classes="SectionSubtitle" Text="RC, GCS, EKF, and other safety systems"/>
                             
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
@@ -572,7 +572,7 @@
             <!-- FOOTER INFO -->
             <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="??" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock Text="" FontSize="16" VerticalAlignment="Center"/>
                     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
                         <Run Text="Safety Recommendation:"/>
                         <Run Text="Max altitude 120m AGL, maintain visual line of sight, enable geofence for safe operations."/>
