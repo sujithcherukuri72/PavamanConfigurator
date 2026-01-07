@@ -44,6 +44,7 @@ public partial class App : Application
         services.AddSingleton<ISafetyService, SafetyService>();
         services.AddSingleton<IAirframeService, AirframeService>();
         services.AddSingleton<IPersistenceService, PersistenceService>();
+        services.AddSingleton<IFlightModeService, FlightModeService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -54,6 +55,7 @@ public partial class App : Application
         services.AddTransient<SafetyPageViewModel>();
         services.AddTransient<ProfilePageViewModel>();
         services.AddTransient<SplashScreenViewModel>();
+        services.AddTransient<FlightModePageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

@@ -38,6 +38,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     private ConnectionType _currentConnectionType;
 
     private readonly System.Timers.Timer _portScanTimer;
+    private readonly System.Timers.Timer _heartbeatMonitorTimer;
+    private DateTime _lastHeartbeatTime = DateTime.MinValue;
+    private const int HEARTBEAT_TIMEOUT_SECONDS = 5;
+    
     private List<SerialPortInfo> _cachedPorts = new();
 
     public bool IsConnected => _isConnected;
@@ -55,7 +59,29 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _portScanTimer.Elapsed += (_, _) => ScanSerialPorts();
         _portScanTimer.Start();
         
+        // Heartbeat monitor to detect connection loss
+        _heartbeatMonitorTimer = new System.Timers.Timer(2000);
+        _heartbeatMonitorTimer.Elapsed += OnHeartbeatMonitorElapsed;
+        
         ScanSerialPorts();
+    }
+
+    private void OnHeartbeatMonitorElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        if (!_isConnected) return;
+        
+        var timeSinceLastHeartbeat = DateTime.UtcNow - _lastHeartbeatTime;
+        if (timeSinceLastHeartbeat.TotalSeconds > HEARTBEAT_TIMEOUT_SECONDS)
+        {
+            _logger.LogWarning("Heartbeat timeout - connection lost (no heartbeat for {Seconds}s)", 
+                timeSinceLastHeartbeat.TotalSeconds);
+            
+            // Connection lost - disconnect and notify
+            _ = Task.Run(async () =>
+            {
+                await DisconnectAsync();
+            });
+        }
     }
 
     public IEnumerable<SerialPortInfo> GetAvailableSerialPorts()
@@ -197,6 +223,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         if (heartbeatReceived)
         {
             SetConnected(true);
+            StartHeartbeatMonitor();
             _logger.LogInformation("Serial connection established");
             return true;
         }
@@ -225,6 +252,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         if (heartbeatReceived)
         {
             SetConnected(true);
+            StartHeartbeatMonitor();
             _logger.LogInformation("TCP connection established");
             return true;
         }
@@ -248,7 +276,11 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
 
         // For Bluetooth, we use the BluetoothMavConnection's internal MAVLink handling
-        _bluetoothConnection.HeartbeatReceived += (s, e) => HeartbeatReceived?.Invoke(this, EventArgs.Empty);
+        _bluetoothConnection.HeartbeatReceived += (s, e) => 
+        {
+            _lastHeartbeatTime = DateTime.UtcNow;
+            HeartbeatReceived?.Invoke(this, EventArgs.Empty);
+        };
         _bluetoothConnection.ParamValueReceived += (s, e) =>
         {
             var param = new DroneParameter { Name = e.Name, Value = e.Value };
@@ -260,6 +292,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         if (heartbeatReceived)
         {
             SetConnected(true);
+            StartHeartbeatMonitor();
             _logger.LogInformation("Bluetooth connection established");
             return true;
         }
@@ -285,6 +318,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private void OnMavlinkHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
     {
+        _lastHeartbeatTime = DateTime.UtcNow;
         HeartbeatReceived?.Invoke(this, EventArgs.Empty);
     }
 
@@ -322,9 +356,24 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
     }
 
+    private void StartHeartbeatMonitor()
+    {
+        _lastHeartbeatTime = DateTime.UtcNow;
+        _heartbeatMonitorTimer.Start();
+        _logger.LogDebug("Heartbeat monitor started");
+    }
+
+    private void StopHeartbeatMonitor()
+    {
+        _heartbeatMonitorTimer.Stop();
+        _logger.LogDebug("Heartbeat monitor stopped");
+    }
+
     public Task DisconnectAsync()
     {
         _logger.LogInformation("Disconnecting...");
+
+        StopHeartbeatMonitor();
 
         try
         {
@@ -420,6 +469,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         if (_isConnected != connected)
         {
             _isConnected = connected;
+            _logger.LogInformation("Connection state changed: {Connected}", connected);
             ConnectionStateChanged?.Invoke(this, connected);
         }
     }
@@ -431,6 +481,9 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
         _portScanTimer.Stop();
         _portScanTimer.Dispose();
+        
+        _heartbeatMonitorTimer.Stop();
+        _heartbeatMonitorTimer.Dispose();
 
         DisconnectAsync().Wait(TimeSpan.FromSeconds(2));
     }

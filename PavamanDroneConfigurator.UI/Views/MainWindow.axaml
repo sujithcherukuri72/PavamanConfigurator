@@ -119,6 +119,11 @@
                             Click="NavButton_Click" 
                             IsEnabled="{Binding CanAccessAirframe}" />
 
+                    <Button Content="Flight Modes" 
+                            Classes="nav-button"
+                            CommandParameter="{Binding FlightModesPage}" 
+                            Click="NavButton_Click" />
+
                     <Button Content="Advanced Settings" 
                             Classes="nav-button"
                             CommandParameter="{Binding ParametersPage}" 
@@ -151,7 +156,7 @@
                                    FontSize="11" 
                                    Foreground="#E0E7FF"
                                    FontWeight="SemiBold"/>
-                        <TextBlock Text="� 202pavamanam" 
+                        <TextBlock Text="© 2025 pavaman" 
                                    FontSize="10" 
                                    Foreground="#A5B4FC"/>
                     </StackPanel>
@@ -180,6 +185,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:ProfilePageViewModel">
                         <views:ProfilePage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:FlightModePageViewModel">
+                        <views:FlightModesPage />
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

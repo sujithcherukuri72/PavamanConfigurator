@@ -37,6 +37,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public CalibrationPageViewModel CalibrationPage { get; }
     public SafetyPageViewModel SafetyPage { get; }
     public ProfilePageViewModel ProfilePage { get; }
+    public FlightModePageViewModel FlightModesPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -50,6 +51,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CalibrationPageViewModel calibrationPage,
         SafetyPageViewModel safetyPage,
         ProfilePageViewModel profilePage,
+        FlightModePageViewModel flightModesPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -59,6 +61,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CalibrationPage = calibrationPage;
         SafetyPage = safetyPage;
         ProfilePage = profilePage;
+        FlightModesPage = flightModesPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 
