@@ -1,0 +1,271 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="550" d:DesignHeight="500"
+        x:Class="PavamanDroneConfigurator.UI.Views.ImportDialog"
+        x:DataType="vm:ImportDialogViewModel"
+        Title="Import Parameters"
+        Width="550"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SystemDecorations="BorderOnly">
+
+    <Window.Styles>
+        <!-- Card Style -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+        </Style>
+
+        <!-- Primary Button -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#93C5FD"/>
+        </Style>
+
+        <!-- Secondary Button -->
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F3F4F6"/>
+        </Style>
+
+        <!-- Browse Button -->
+        <Style Selector="Button.browse">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.browse:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+
+        <!-- Input TextBox -->
+        <Style Selector="TextBox.input">
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="#F9FAFB"/>
+        </Style>
+
+        <!-- Label -->
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Success Badge -->
+        <Style Selector="Border.success-badge">
+            <Setter Property="Background" Value="#D1FAE5"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+
+        <!-- Warning Badge -->
+        <Style Selector="Border.warning-badge">
+            <Setter Property="Background" Value="#FEF3C7"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+
+        <!-- Error Badge -->
+        <Style Selector="Border.error-badge">
+            <Setter Property="Background" Value="#FEE2E2"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Classes="card" Background="#F9FAFB">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,24">
+                <TextBlock Text="Import Parameters" 
+                           FontSize="22" 
+                           FontWeight="Bold" 
+                           Foreground="#111827"/>
+                <TextBlock Text="Select a parameter file to import into Advanced Settings." 
+                           FontSize="13" 
+                           Foreground="#6B7280"
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Form Fields -->
+            <StackPanel Grid.Row="1" Spacing="20">
+                <!-- File Selection -->
+                <StackPanel>
+                    <TextBlock Text="Parameter File" Classes="label"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding SelectedFilePath}"
+                                 Classes="input"
+                                 IsReadOnly="True"
+                                 Watermark="Click Browse to select a file..."/>
+                        <Button Grid.Column="1" 
+                                Content="Browse..." 
+                                Classes="browse"
+                                Margin="8,0,0,0"
+                                Click="BrowseButton_Click"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Selected File Info -->
+                <Border Background="#EFF6FF" 
+                        CornerRadius="8" 
+                        Padding="12"
+                        IsVisible="{Binding SelectedFileName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Selected File:" 
+                                   FontSize="11" 
+                                   FontWeight="SemiBold"
+                                   Foreground="#3B82F6"/>
+                        <TextBlock Text="{Binding SelectedFileName}" 
+                                   FontSize="14" 
+                                   FontWeight="Medium"
+                                   Foreground="#1E40AF"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Import Options -->
+                <StackPanel IsVisible="{Binding HasValidResult}">
+                    <TextBlock Text="Import Options" Classes="label"/>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <RadioButton Content="Merge with existing parameters" 
+                                     IsChecked="{Binding MergeWithExisting}"
+                                     Foreground="#374151"
+                                     FontSize="13"/>
+                        <RadioButton Content="Replace all parameters" 
+                                     IsChecked="{Binding !MergeWithExisting}"
+                                     Foreground="#374151"
+                                     FontSize="13"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Status Message -->
+                <Border Classes="success-badge" IsVisible="{Binding HasValidResult}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding StatusMessage}" 
+                                   FontSize="13" 
+                                   Foreground="#065F46"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Error Message -->
+                <Border Classes="error-badge" 
+                        IsVisible="{Binding ImportResult.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding StatusMessage}" 
+                               FontSize="13" 
+                               Foreground="#991B1B"
+                               TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- Warnings Section -->
+                <StackPanel IsVisible="{Binding HasWarnings}" Spacing="8">
+                    <TextBlock Text="Warnings" 
+                               FontSize="13" 
+                               FontWeight="SemiBold"
+                               Foreground="#92400E"/>
+                    <Border Classes="warning-badge" MaxHeight="120">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Warnings}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" 
+                                                   FontSize="12" 
+                                                   Foreground="#92400E"
+                                                   Margin="0,2"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+
+                <!-- Loading Indicator -->
+                <StackPanel Orientation="Horizontal" 
+                            Spacing="12"
+                            IsVisible="{Binding IsLoading}"
+                            HorizontalAlignment="Center"
+                            Margin="0,12">
+                    <ProgressBar IsIndeterminate="True" 
+                                 Width="150" 
+                                 Height="4"
+                                 Foreground="#3B82F6"/>
+                    <TextBlock Text="Parsing file..." 
+                               FontSize="13" 
+                               Foreground="#6B7280"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,24,0,0">
+                <!-- Summary when valid -->
+                <StackPanel Grid.Column="0" 
+                            Orientation="Horizontal" 
+                            Spacing="8"
+                            IsVisible="{Binding HasValidResult}"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="Ready to import" 
+                               FontSize="13" 
+                               Foreground="#059669"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"/>
+                    <TextBlock FontSize="13" Foreground="#059669" VerticalAlignment="Center">
+                        <Run Text="{Binding ImportResult.SuccessCount}"/>
+                        <Run Text=" parameters"/>
+                    </TextBlock>
+                </StackPanel>
+
+                <Button Grid.Column="1" 
+                        Content="Cancel" 
+                        Classes="secondary"
+                        Command="{Binding CancelCommand}"
+                        Margin="0,0,12,0"/>
+                <Button Grid.Column="2" 
+                        Content="Import" 
+                        Classes="primary"
+                        Command="{Binding ImportCommand}"
+                        IsEnabled="{Binding CanImport}"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
