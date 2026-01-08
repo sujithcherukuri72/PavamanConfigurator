@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace PavamanDroneConfigurator.Core.Models;
@@ -11,7 +14,11 @@ public class DroneParameter : INotifyPropertyChanged
     private string? _description;
     private float? _minValue;
     private float? _maxValue;
+    private float? _defaultValue;
+    private string? _units;
     private bool _isModified;
+    private ObservableCollection<ParameterOption> _options = new();
+    private ParameterOption? _selectedOption;
 
     public string Name
     {
@@ -31,14 +38,21 @@ public class DroneParameter : INotifyPropertyChanged
         get => _value;
         set
         {
-            if (_value != value)
+            if (System.Math.Abs(_value - value) > 0.0001f)
             {
                 _value = value;
-                IsModified = _value != _originalValue;
+                IsModified = System.Math.Abs(_value - _originalValue) > 0.0001f;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(ValueDisplay));
+                UpdateSelectedOptionFromValue();
             }
         }
     }
+
+    /// <summary>
+    /// Display string for the value (used in grid).
+    /// </summary>
+    public string ValueDisplay => _value.ToString("G");
 
     /// <summary>
     /// The original value from the vehicle. Used to track if the parameter has been modified.
@@ -48,10 +62,48 @@ public class DroneParameter : INotifyPropertyChanged
         get => _originalValue;
         set
         {
-            if (_originalValue != value)
+            if (System.Math.Abs(_originalValue - value) > 0.0001f)
             {
                 _originalValue = value;
-                IsModified = _value != _originalValue;
+                IsModified = System.Math.Abs(_value - _originalValue) > 0.0001f;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Default value from metadata.
+    /// </summary>
+    public float? DefaultValue
+    {
+        get => _defaultValue;
+        set
+        {
+            if (_defaultValue != value)
+            {
+                _defaultValue = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DefaultDisplay));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Display string for the default value.
+    /// </summary>
+    public string DefaultDisplay => _defaultValue?.ToString("G") ?? "NaN";
+
+    /// <summary>
+    /// Units for this parameter (e.g., "cm/s", "deg", "Hz").
+    /// </summary>
+    public string? Units
+    {
+        get => _units;
+        set
+        {
+            if (_units != value)
+            {
+                _units = value;
                 OnPropertyChanged();
             }
         }
@@ -115,6 +167,52 @@ public class DroneParameter : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Available options for enum-type parameters (like Mission Planner).
+    /// </summary>
+    public ObservableCollection<ParameterOption> Options
+    {
+        get => _options;
+        set
+        {
+            if (_options != value)
+            {
+                _options = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasOptions));
+                UpdateSelectedOptionFromValue();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether this parameter has selectable options.
+    /// </summary>
+    public bool HasOptions => _options.Count > 0;
+
+    /// <summary>
+    /// Currently selected option (bound to ComboBox).
+    /// When changed, updates the Value property.
+    /// </summary>
+    public ParameterOption? SelectedOption
+    {
+        get => _selectedOption;
+        set
+        {
+            if (_selectedOption != value)
+            {
+                _selectedOption = value;
+                OnPropertyChanged();
+                
+                // Update Value when option is selected
+                if (value != null)
+                {
+                    Value = value.Value;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets a formatted display string for the parameter's valid range.
     /// Returns "NA" if no min/max values are defined.
     /// </summary>
@@ -124,13 +222,53 @@ public class DroneParameter : INotifyPropertyChanged
         {
             if (!MinValue.HasValue && !MaxValue.HasValue)
             {
-                return "NA";
+                return string.Empty;
             }
             
-            var minStr = MinValue.HasValue ? MinValue.Value.ToString() : "NA";
-            var maxStr = MaxValue.HasValue ? MaxValue.Value.ToString() : "NA";
+            var minStr = MinValue.HasValue ? MinValue.Value.ToString("G") : "";
+            var maxStr = MaxValue.HasValue ? MaxValue.Value.ToString("G") : "";
             
-            return $"Min {minStr} - Max {maxStr}";
+            return $"{minStr} - {maxStr}";
+        }
+    }
+
+    /// <summary>
+    /// Display for the Options column showing range or options list.
+    /// Like Mission Planner shows "-0.5 0.95" or "0:Disabled\n1:Enabled".
+    /// </summary>
+    public string OptionsDisplay
+    {
+        get
+        {
+            if (HasOptions)
+            {
+                // Show first few options like Mission Planner
+                var display = string.Join("\n", Options.Take(4).Select(o => $"{o.Value}:{o.Label}"));
+                if (Options.Count > 4)
+                    display += "\n...";
+                return display;
+            }
+            
+            // Show range if no options
+            if (MinValue.HasValue && MaxValue.HasValue)
+            {
+                return $"{MinValue:G} {MaxValue:G}";
+            }
+            
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Updates the SelectedOption based on current Value.
+    /// </summary>
+    private void UpdateSelectedOptionFromValue()
+    {
+        if (HasOptions)
+        {
+            var intValue = (int)System.Math.Round(_value);
+            _selectedOption = Options.FirstOrDefault(o => o.Value == intValue);
+            OnPropertyChanged(nameof(SelectedOption));
         }
     }
 
@@ -157,4 +295,21 @@ public class DroneParameter : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+}
+
+/// <summary>
+/// Represents a selectable option for enum-type parameters.
+/// Used in the Options ComboBox like Mission Planner.
+/// </summary>
+public class ParameterOption
+{
+    public int Value { get; set; }
+    public string Label { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Display format: "Value:Label" (e.g., "0:Disabled", "1:Enabled")
+    /// </summary>
+    public string Display => $"{Value}:{Label}";
+    
+    public override string ToString() => Display;
 }

@@ -49,6 +49,7 @@ public partial class App : Application
         services.AddSingleton<IExportService, ExportService>();
         services.AddSingleton<IImportService, ImportService>();
         services.AddSingleton<IPidTuningService, PidTuningService>();
+        services.AddSingleton<IParameterMetadataService, ParameterMetadataService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
