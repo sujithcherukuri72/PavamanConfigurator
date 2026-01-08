@@ -46,6 +46,8 @@ public partial class App : Application
         services.AddSingleton<IPersistenceService, PersistenceService>();
         services.AddSingleton<IFlightModeService, FlightModeService>();
         services.AddSingleton<IMotorEscService, MotorEscService>();
+        services.AddSingleton<IExportService, ExportService>();
+        services.AddSingleton<IImportService, ImportService>();
         services.AddSingleton<IPidTuningService, PidTuningService>();
         services.AddSingleton<ISerialConfigService, SerialConfigService>();
         services.AddSingleton<IRcCalibrationService, RcCalibrationService>();
@@ -75,12 +77,12 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             DisableAvaloniaDataAnnotationValidation();
-            
+
             var splashScreen = new SplashScreenWindow
             {
                 DataContext = Services!.GetRequiredService<SplashScreenViewModel>()
             };
-            
+
             splashScreen.Show();
 
             Task.Run(async () =>

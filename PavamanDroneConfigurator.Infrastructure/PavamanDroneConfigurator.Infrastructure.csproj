@@ -26,6 +26,9 @@
     <!-- JSON Serialization -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     
+    <!-- YAML Serialization -->
+    <PackageReference Include="YamlDotNet" Version="16.2.1" />
+    
     <!-- Reactive Extensions -->
     <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
