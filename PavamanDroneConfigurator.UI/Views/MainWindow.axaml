@@ -129,6 +129,11 @@
                             CommandParameter="{Binding MotorEscPage}" 
                             Click="NavButton_Click" />
 
+                    <Button Content="PID Tuning" 
+                            Classes="nav-button"
+                            CommandParameter="{Binding PidTuningPage}" 
+                            Click="NavButton_Click" />
+
                     <Button Content="Power" 
                             Classes="nav-button"
                             CommandParameter="{Binding PowerPage}" 
@@ -204,6 +209,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:MotorEscPageViewModel">
                         <views:MotorEscPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:PidTuningPageViewModel">
+                        <views:PidTuningPage />
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

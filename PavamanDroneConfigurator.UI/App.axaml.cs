@@ -46,7 +46,11 @@ public partial class App : Application
         services.AddSingleton<IPersistenceService, PersistenceService>();
         services.AddSingleton<IFlightModeService, FlightModeService>();
         services.AddSingleton<IMotorEscService, MotorEscService>();
+<<<<<<< HEAD
         services.AddSingleton<IExportService, ExportService>();
+=======
+        services.AddSingleton<IPidTuningService, PidTuningService>();
+>>>>>>> 33067c8aff98e9a7d119d20a880f54e770c15cef
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -60,6 +64,7 @@ public partial class App : Application
         services.AddTransient<FlightModePageViewModel>();
         services.AddTransient<PowerPageViewModel>();
         services.AddTransient<MotorEscPageViewModel>();
+        services.AddTransient<PidTuningPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }
