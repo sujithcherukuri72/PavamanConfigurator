@@ -238,6 +238,40 @@ public class BluetoothMavConnection : IDisposable
     }
 
     /// <summary>
+    /// Send MAV_CMD_PREFLIGHT_CALIBRATION command to drone
+    /// </summary>
+    public async Task SendPreflightCalibrationAsync(int gyro, int mag, int groundPressure, 
+        int airspeed, int accel, CancellationToken ct = default)
+    {
+        if (!_isConnected || _mavlinkWrapper == null)
+            throw new InvalidOperationException("Bluetooth connection is not active");
+
+        await _mavlinkWrapper.SendPreflightCalibrationAsync(gyro, mag, groundPressure, airspeed, accel, ct);
+    }
+
+    /// <summary>
+    /// Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN command to drone
+    /// </summary>
+    public async Task SendPreflightRebootAsync(int autopilot, int companion, CancellationToken ct = default)
+    {
+        if (!_isConnected || _mavlinkWrapper == null)
+            throw new InvalidOperationException("Bluetooth connection is not active");
+
+        await _mavlinkWrapper.SendPreflightRebootAsync(autopilot, companion, ct);
+    }
+
+    /// <summary>
+    /// Send MAV_CMD_COMPONENT_ARM_DISARM command to drone
+    /// </summary>
+    public async Task SendArmDisarmAsync(bool arm, bool force = false, CancellationToken ct = default)
+    {
+        if (!_isConnected || _mavlinkWrapper == null)
+            throw new InvalidOperationException("Bluetooth connection is not active");
+
+        await _mavlinkWrapper.SendArmDisarmAsync(arm, force, ct);
+    }
+
+    /// <summary>
     /// Discover available Bluetooth devices
     /// </summary>
     public async Task<IEnumerable<CoreBluetoothDeviceInfo>> DiscoverDevicesAsync()

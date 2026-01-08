@@ -50,6 +50,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     public event EventHandler<IEnumerable<SerialPortInfo>>? AvailableSerialPortsChanged;
     public event EventHandler<MavlinkParamValueEventArgs>? ParamValueReceived;
     public event EventHandler? HeartbeatReceived;
+    public event EventHandler<HeartbeatDataEventArgs>? HeartbeatDataReceived;
+    public event EventHandler<StatusTextEventArgs>? StatusTextReceived;
+    public event EventHandler<RcChannelsEventArgs>? RcChannelsReceived;
+    public event EventHandler<CommandAckEventArgs>? CommandAckReceived;
 
     public ConnectionService(ILogger<ConnectionService> logger)
     {
@@ -267,39 +271,53 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _logger.LogInformation("Connecting to Bluetooth device {Address}", settings.BluetoothDeviceAddress);
 
         _bluetoothConnection = new BluetoothMavConnection(_logger);
-        var success = await _bluetoothConnection.ConnectAsync(settings.BluetoothDeviceAddress ?? string.Empty);
-
-        if (!success)
+        
+        try
         {
-            _logger.LogWarning("Failed to connect to Bluetooth device");
+            var success = await _bluetoothConnection.ConnectAsync(settings.BluetoothDeviceAddress ?? string.Empty);
+
+            if (!success)
+            {
+                _logger.LogWarning("Failed to connect to Bluetooth device");
+                _bluetoothConnection.Dispose();
+                _bluetoothConnection = null;
+                return false;
+            }
+
+            // For Bluetooth, we use the BluetoothMavConnection's internal MAVLink handling
+            _bluetoothConnection.HeartbeatReceived += (s, e) => 
+            {
+                _lastHeartbeatTime = DateTime.UtcNow;
+                HeartbeatReceived?.Invoke(this, EventArgs.Empty);
+            };
+            _bluetoothConnection.ParamValueReceived += (s, e) =>
+            {
+                var param = new DroneParameter { Name = e.Name, Value = e.Value };
+                ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(param, e.Index, e.Count));
+            };
+            
+            var heartbeatReceived = await WaitForHeartbeatAsync(TimeSpan.FromSeconds(15));
+            
+            if (heartbeatReceived)
+            {
+                SetConnected(true);
+                StartHeartbeatMonitor();
+                _logger.LogInformation("Bluetooth connection established");
+                return true;
+            }
+
+            _logger.LogWarning("No heartbeat received on Bluetooth connection");
+            _bluetoothConnection.Dispose();
+            _bluetoothConnection = null;
             return false;
         }
-
-        // For Bluetooth, we use the BluetoothMavConnection's internal MAVLink handling
-        _bluetoothConnection.HeartbeatReceived += (s, e) => 
+        catch (Exception ex)
         {
-            _lastHeartbeatTime = DateTime.UtcNow;
-            HeartbeatReceived?.Invoke(this, EventArgs.Empty);
-        };
-        _bluetoothConnection.ParamValueReceived += (s, e) =>
-        {
-            var param = new DroneParameter { Name = e.Name, Value = e.Value };
-            ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(param, e.Index, e.Count));
-        };
-        
-        var heartbeatReceived = await WaitForHeartbeatAsync(TimeSpan.FromSeconds(15));
-        
-        if (heartbeatReceived)
-        {
-            SetConnected(true);
-            StartHeartbeatMonitor();
-            _logger.LogInformation("Bluetooth connection established");
-            return true;
+            _logger.LogError(ex, "Bluetooth connection failed");
+            _bluetoothConnection?.Dispose();
+            _bluetoothConnection = null;
+            throw;
         }
-
-        _logger.LogWarning("No heartbeat received on Bluetooth connection");
-        await DisconnectAsync();
-        return false;
     }
 
     private void InitializeMavlink()
@@ -313,6 +331,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _mavlink = new AsvMavlinkWrapper(_logger);
         _mavlink.HeartbeatReceived += OnMavlinkHeartbeat;
         _mavlink.ParamValueReceived += OnMavlinkParamValue;
+        _mavlink.HeartbeatDataReceived += OnMavlinkHeartbeatData;
+        _mavlink.StatusTextReceived += OnMavlinkStatusText;
+        _mavlink.RcChannelsReceived += OnMavlinkRcChannels;
+        _mavlink.CommandAckReceived += OnMavlinkCommandAck;
         _mavlink.Initialize(_inputStream, _outputStream);
     }
 
@@ -331,6 +353,56 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         };
         
         ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(param, e.Index, e.Count));
+    }
+
+    private void OnMavlinkHeartbeatData(object? sender, HeartbeatData e)
+    {
+        HeartbeatDataReceived?.Invoke(this, new HeartbeatDataEventArgs
+        {
+            SystemId = e.SystemId,
+            ComponentId = e.ComponentId,
+            CustomMode = e.CustomMode,
+            VehicleType = e.VehicleType,
+            Autopilot = e.Autopilot,
+            BaseMode = e.BaseMode,
+            IsArmed = e.IsArmed
+        });
+    }
+
+    private void OnMavlinkStatusText(object? sender, (byte Severity, string Text) e)
+    {
+        _logger.LogInformation("StatusText [{Severity}]: {Text}", e.Severity, e.Text);
+        StatusTextReceived?.Invoke(this, new StatusTextEventArgs
+        {
+            Severity = e.Severity,
+            Text = e.Text
+        });
+    }
+
+    private void OnMavlinkRcChannels(object? sender, RcChannelsData e)
+    {
+        RcChannelsReceived?.Invoke(this, new RcChannelsEventArgs
+        {
+            Channel1 = e.Channel1,
+            Channel2 = e.Channel2,
+            Channel3 = e.Channel3,
+            Channel4 = e.Channel4,
+            Channel5 = e.Channel5,
+            Channel6 = e.Channel6,
+            Channel7 = e.Channel7,
+            Channel8 = e.Channel8,
+            ChannelCount = e.ChannelCount,
+            Rssi = e.Rssi
+        });
+    }
+
+    private void OnMavlinkCommandAck(object? sender, (ushort Command, byte Result) e)
+    {
+        CommandAckReceived?.Invoke(this, new CommandAckEventArgs
+        {
+            Command = e.Command,
+            Result = e.Result
+        });
     }
 
     private async Task<bool> WaitForHeartbeatAsync(TimeSpan timeout)
@@ -479,6 +551,57 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
 
         _ = _mavlink.SendMotorTestAsync(motorInstance, throttleType, throttleValue, timeout, motorCount, testOrder);
+    }
+
+    public void SendPreflightCalibration(int gyro, int mag, int groundPressure, int airspeed, int accel)
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            _ = _bluetoothConnection.SendPreflightCalibrationAsync(gyro, mag, groundPressure, airspeed, accel);
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send MAV_CMD_PREFLIGHT_CALIBRATION - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendPreflightCalibrationAsync(gyro, mag, groundPressure, airspeed, accel);
+    }
+
+    public void SendPreflightReboot(int autopilot, int companion)
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            _ = _bluetoothConnection.SendPreflightRebootAsync(autopilot, companion);
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendPreflightRebootAsync(autopilot, companion);
+    }
+
+    public void SendArmDisarm(bool arm, bool force = false)
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            _ = _bluetoothConnection.SendArmDisarmAsync(arm, force);
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send MAV_CMD_COMPONENT_ARM_DISARM - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendArmDisarmAsync(arm, force);
     }
 
     private void SetConnected(bool connected)

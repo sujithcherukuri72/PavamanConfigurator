@@ -1,8 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             xmlns:converters="using:PavamanDroneConfigurator.UI.Converters"
              x:Class="PavamanDroneConfigurator.UI.Views.FlightModesPage"
              x:DataType="vm:FlightModePageViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToActiveBackgroundConverter x:Key="BoolToActiveBackgroundConverter"/>
+        <converters:BoolToActiveBorderConverter x:Key="BoolToActiveBorderConverter"/>
+    </UserControl.Resources>
 
     <UserControl.Styles>
         <!-- Aviation-Grade Color System -->
@@ -224,62 +230,60 @@
                     <Grid ColumnDefinitions="*,16,*,16,*" Margin="0,0,0,16">
                         
                         <!-- Mode 1 -->
-                        <Border Grid.Column="0" Classes="ModeCard">
+                        <Border Grid.Column="0" Classes="ModeCard" 
+                                Background="{Binding IsSlot1Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot1Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 1" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 1" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot1Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode1}"
                                           DisplayMemberBinding="{Binding Label}"/>
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange1}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple1}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                         
                         <!-- Mode 2 -->
-                        <Border Grid.Column="2" Classes="ModeCard">
+                        <Border Grid.Column="2" Classes="ModeCard"
+                                Background="{Binding IsSlot2Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot2Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 2" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 2" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot2Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode2}"
                                           DisplayMemberBinding="{Binding Label}"/>
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange2}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple2}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                         
                         <!-- Mode 3 -->
-                        <Border Grid.Column="4" Classes="ModeCard">
+                        <Border Grid.Column="4" Classes="ModeCard"
+                                Background="{Binding IsSlot3Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot3Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 3" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 3" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot3Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode3}"
                                           DisplayMemberBinding="{Binding Label}"/>
+
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange3}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple3}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -288,62 +292,59 @@
                     <Grid ColumnDefinitions="*,16,*,16,*">
                         
                         <!-- Mode 4 -->
-                        <Border Grid.Column="0" Classes="ModeCard">
+                        <Border Grid.Column="0" Classes="ModeCard"
+                                Background="{Binding IsSlot4Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot4Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 4" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 4" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot4Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode4}"
                                           DisplayMemberBinding="{Binding Label}"/>
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange4}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple4}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                         
                         <!-- Mode 5 -->
-                        <Border Grid.Column="2" Classes="ModeCard">
+                        <Border Grid.Column="2" Classes="ModeCard"
+                                Background="{Binding IsSlot5Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot5Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 5" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 5" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot5Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode5}"
                                           DisplayMemberBinding="{Binding Label}"/>
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange5}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple5}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                         
                         <!-- Mode 6 -->
-                        <Border Grid.Column="4" Classes="ModeCard">
+                        <Border Grid.Column="4" Classes="ModeCard"
+                                Background="{Binding IsSlot6Active, Converter={StaticResource BoolToActiveBackgroundConverter}, FallbackValue=#F8FAFC}"
+                                BorderBrush="{Binding IsSlot6Active, Converter={StaticResource BoolToActiveBorderConverter}, FallbackValue=#E2E8F0}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flight Mode 6" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Flight Mode 6" FontWeight="Bold" FontSize="14" Foreground="#0B5ED7"/>
+                                    <Border Grid.Column="1" IsVisible="{Binding IsSlot6Active}" 
+                                            Background="#1E9E6A" CornerRadius="10" Padding="8,4">
+                                        <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                </Grid>
                                 <ComboBox ItemsSource="{Binding FlightModeOptions}"
                                           SelectedItem="{Binding SelectedMode6}"
                                           DisplayMemberBinding="{Binding Label}"/>
                                 <TextBlock Classes="PwmLabel" Text="{Binding PwmRange6}"/>
-                                
-                                <Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Simple:" FontSize="12"/>
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding SimpleModeOptions}"
-                                              SelectedItem="{Binding SelectedSimple6}"
-                                              DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="100"/>
-                                </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>

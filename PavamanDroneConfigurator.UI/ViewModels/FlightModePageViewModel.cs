@@ -90,6 +90,24 @@ public partial class FlightModePageViewModel : ViewModelBase
     [ObservableProperty]
     private string _selectedModeDescription = string.Empty;
 
+    [ObservableProperty]
+    private bool _isSlot1Active;
+
+    [ObservableProperty]
+    private bool _isSlot2Active;
+
+    [ObservableProperty]
+    private bool _isSlot3Active;
+
+    [ObservableProperty]
+    private bool _isSlot4Active;
+
+    [ObservableProperty]
+    private bool _isSlot5Active;
+
+    [ObservableProperty]
+    private bool _isSlot6Active;
+
     #endregion
 
     #region Collections
@@ -201,7 +219,18 @@ public partial class FlightModePageViewModel : ViewModelBase
     {
         CurrentPwm = pwm;
         ActiveSlot = FlightModeSettings.GetActiveModeSlot(pwm);
+        UpdateActiveSlotIndicators();
         UpdateCurrentModeDisplay();
+    }
+
+    private void UpdateActiveSlotIndicators()
+    {
+        IsSlot1Active = ActiveSlot == 1;
+        IsSlot2Active = ActiveSlot == 2;
+        IsSlot3Active = ActiveSlot == 3;
+        IsSlot4Active = ActiveSlot == 4;
+        IsSlot5Active = ActiveSlot == 5;
+        IsSlot6Active = ActiveSlot == 6;
     }
 
     private void UpdateFromSettings(FlightModeSettings settings)
@@ -417,6 +446,17 @@ public partial class FlightModePageViewModel : ViewModelBase
     }
 
     #endregion
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connectionService.ConnectionStateChanged -= OnConnectionStateChanged;
+            _flightModeService.FlightModeSettingsChanged -= OnFlightModeSettingsChanged;
+            _flightModeService.ModeChannelPwmChanged -= OnModeChannelPwmChanged;
+        }
+        base.Dispose(disposing);
+    }
 }
 
 #region Option Classes

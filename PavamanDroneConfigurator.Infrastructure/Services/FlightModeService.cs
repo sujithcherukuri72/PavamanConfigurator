@@ -8,6 +8,7 @@ namespace PavamanDroneConfigurator.Infrastructure.Services;
 /// <summary>
 /// Service implementation for managing flight mode configuration.
 /// Reads/writes FLTMODE parameters via MAVLink.
+/// Monitors real-time flight mode from HEARTBEAT and RC_CHANNELS.
 /// 
 /// ArduPilot Parameters:
 /// - FLTMODE_CH: Flight mode channel (5-12)
@@ -27,6 +28,9 @@ public class FlightModeService : IFlightModeService
     private readonly IConnectionService _connectionService;
 
     private FlightModeSettings? _cachedSettings;
+    private FlightMode _currentFlightMode = FlightMode.Stabilize;
+    private int _currentModeChannelPwm;
+    private FlightModeChannel _modeChannel = FlightModeChannel.Channel5;
 
     // Parameter names
     private const string PARAM_FLTMODE_CH = "FLTMODE_CH";
@@ -54,6 +58,10 @@ public class FlightModeService : IFlightModeService
 
         // Subscribe to parameter changes
         _parameterService.ParameterUpdated += OnParameterUpdated;
+        
+        // Subscribe to real-time telemetry
+        _connectionService.HeartbeatDataReceived += OnHeartbeatDataReceived;
+        _connectionService.RcChannelsReceived += OnRcChannelsReceived;
     }
 
     private void OnParameterUpdated(object? sender, string paramName)
@@ -62,6 +70,52 @@ public class FlightModeService : IFlightModeService
         if (paramName.StartsWith("FLTMODE") || paramName == PARAM_SIMPLE || paramName == PARAM_SUPER_SIMPLE)
         {
             _logger.LogDebug("Flight mode parameter changed: {Name}", paramName);
+            
+            // Update mode channel if it changed
+            if (paramName == PARAM_FLTMODE_CH)
+            {
+                _ = UpdateModeChannelAsync();
+            }
+        }
+    }
+
+    private async Task UpdateModeChannelAsync()
+    {
+        var param = await _parameterService.GetParameterAsync(PARAM_FLTMODE_CH);
+        if (param != null)
+        {
+            _modeChannel = (FlightModeChannel)(int)param.Value;
+            _logger.LogDebug("Flight mode channel updated to: {Channel}", _modeChannel);
+        }
+    }
+
+    private void OnHeartbeatDataReceived(object? sender, HeartbeatDataEventArgs e)
+    {
+        // Custom mode contains the flight mode for ArduPilot
+        // For Copter: custom_mode = flight_mode number
+        var newMode = (FlightMode)e.CustomMode;
+        
+        if (newMode != _currentFlightMode)
+        {
+            var oldMode = _currentFlightMode;
+            _currentFlightMode = newMode;
+            
+            _logger.LogInformation("Flight mode changed: {Old} -> {New}", oldMode, newMode);
+            CurrentModeChanged?.Invoke(this, newMode);
+        }
+    }
+
+    private void OnRcChannelsReceived(object? sender, RcChannelsEventArgs e)
+    {
+        // Get PWM value from the configured mode channel
+        int channelNumber = (int)_modeChannel;
+        ushort pwm = e.GetChannel(channelNumber);
+        
+        if (pwm != _currentModeChannelPwm && pwm > 0)
+        {
+            _currentModeChannelPwm = pwm;
+            _logger.LogDebug("Mode channel {Channel} PWM: {Pwm}", channelNumber, pwm);
+            ModeChannelPwmChanged?.Invoke(this, pwm);
         }
     }
 

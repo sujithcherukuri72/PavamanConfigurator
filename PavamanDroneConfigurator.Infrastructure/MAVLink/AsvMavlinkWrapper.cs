@@ -45,10 +45,14 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte MAVLINK_MSG_ID_PARAM_SET = 23;
         private const byte MAVLINK_MSG_ID_COMMAND_LONG = 76;
         private const ushort MAVLINK_MSG_ID_COMMAND_ACK = 77;
+        private const byte MAVLINK_MSG_ID_STATUSTEXT = 253;
+        private const byte MAVLINK_MSG_ID_RC_CHANNELS = 65;
 
         // MAV_CMD IDs
         private const ushort MAV_CMD_DO_MOTOR_TEST = 209;
         private const ushort MAV_CMD_PREFLIGHT_CALIBRATION = 241;
+        private const ushort MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246;
+        private const ushort MAV_CMD_COMPONENT_ARM_DISARM = 400;
 
         // CRC extras from MAVLink message definitions
         private const byte CRC_EXTRA_HEARTBEAT = 50;
@@ -58,10 +62,15 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte CRC_EXTRA_PARAM_SET = 168;
         private const byte CRC_EXTRA_COMMAND_LONG = 152;
         private const byte CRC_EXTRA_COMMAND_ACK = 143;
+        private const byte CRC_EXTRA_STATUSTEXT = 83;
+        private const byte CRC_EXTRA_RC_CHANNELS = 118;
 
         public event EventHandler<(byte SystemId, byte ComponentId)>? HeartbeatReceived;
         public event EventHandler<(string Name, float Value, ushort Index, ushort Count)>? ParamValueReceived;
         public event EventHandler<(ushort Command, byte Result)>? CommandAckReceived;
+        public event EventHandler<(byte Severity, string Text)>? StatusTextReceived;
+        public event EventHandler<HeartbeatData>? HeartbeatDataReceived;
+        public event EventHandler<RcChannelsData>? RcChannelsReceived;
 
         public AsvMavlinkWrapper(ILogger logger)
         {
@@ -275,7 +284,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             switch (msgId)
             {
                 case MAVLINK_MSG_ID_HEARTBEAT:
-                    HandleHeartbeat(sysId, compId);
+                    HandleHeartbeat(sysId, compId, payload);
                     break;
 
                 case MAVLINK_MSG_ID_PARAM_VALUE:
@@ -285,10 +294,18 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 case (byte)MAVLINK_MSG_ID_COMMAND_ACK:
                     HandleCommandAck(payload);
                     break;
+
+                case MAVLINK_MSG_ID_STATUSTEXT:
+                    HandleStatusText(payload);
+                    break;
+
+                case MAVLINK_MSG_ID_RC_CHANNELS:
+                    HandleRcChannels(payload);
+                    break;
             }
         }
 
-        private void HandleHeartbeat(byte sysId, byte compId)
+        private void HandleHeartbeat(byte sysId, byte compId, byte[] payload)
         {
             // Skip GCS heartbeats
             if (compId == GCS_COMPONENT_ID || sysId == 0)
@@ -299,6 +316,34 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             
             _logger.LogDebug("Heartbeat: sysid={SysId} compid={CompId}", sysId, compId);
             HeartbeatReceived?.Invoke(this, (sysId, compId));
+
+            // Parse heartbeat payload for flight mode info
+            // HEARTBEAT payload:
+            // [0-3] custom_mode (uint32)
+            // [4]   type (uint8)
+            // [5]   autopilot (uint8)
+            // [6]   base_mode (uint8)
+            // [7-10] Not used here
+            if (payload.Length >= 7)
+            {
+                uint customMode = BitConverter.ToUInt32(payload, 0);
+                byte vehicleType = payload[4];
+                byte autopilot = payload[5];
+                byte baseMode = payload[6];
+                
+                var heartbeatData = new HeartbeatData
+                {
+                    SystemId = sysId,
+                    ComponentId = compId,
+                    CustomMode = customMode,
+                    VehicleType = vehicleType,
+                    Autopilot = autopilot,
+                    BaseMode = baseMode,
+                    IsArmed = (baseMode & 0x80) != 0 // MAV_MODE_FLAG_SAFETY_ARMED
+                };
+                
+                HeartbeatDataReceived?.Invoke(this, heartbeatData);
+            }
         }
 
         private void HandleParamValue(byte[] payload)
@@ -346,6 +391,51 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
             _logger.LogDebug("COMMAND_ACK: cmd={Command} result={Result}", command, result);
             CommandAckReceived?.Invoke(this, (command, result));
+        }
+
+        private void HandleStatusText(byte[] payload)
+        {
+            // STATUSTEXT payload:
+            // [0]     severity (uint8)
+            // [1-50]  text (char[50])
+            if (payload.Length < 2)
+                return;
+
+            byte severity = payload[0];
+            string text = System.Text.Encoding.ASCII.GetString(payload, 1, Math.Min(50, payload.Length - 1)).TrimEnd('\0');
+
+            _logger.LogDebug("STATUSTEXT: severity={Severity} text={Text}", severity, text);
+            StatusTextReceived?.Invoke(this, (severity, text));
+        }
+
+        private void HandleRcChannels(byte[] payload)
+        {
+            // RC_CHANNELS payload (42 bytes):
+            // [0-3]   time_boot_ms (uint32)
+            // [4-5]   chan1_raw (uint16)
+            // [6-7]   chan2_raw (uint16)
+            // ... up to chan18
+            // [38]    chancount (uint8)
+            // [39]    rssi (uint8)
+            if (payload.Length < 40)
+                return;
+
+            var rcData = new RcChannelsData
+            {
+                TimeBootMs = BitConverter.ToUInt32(payload, 0),
+                Channel1 = BitConverter.ToUInt16(payload, 4),
+                Channel2 = BitConverter.ToUInt16(payload, 6),
+                Channel3 = BitConverter.ToUInt16(payload, 8),
+                Channel4 = BitConverter.ToUInt16(payload, 10),
+                Channel5 = BitConverter.ToUInt16(payload, 12),
+                Channel6 = BitConverter.ToUInt16(payload, 14),
+                Channel7 = BitConverter.ToUInt16(payload, 16),
+                Channel8 = BitConverter.ToUInt16(payload, 18),
+                ChannelCount = payload[38],
+                Rssi = payload[39]
+            };
+
+            RcChannelsReceived?.Invoke(this, rcData);
         }
 
         public async Task SendParamRequestListAsync(CancellationToken ct = default)
@@ -547,8 +637,67 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             MAVLINK_MSG_ID_PARAM_VALUE => CRC_EXTRA_PARAM_VALUE,
             MAVLINK_MSG_ID_PARAM_SET => CRC_EXTRA_PARAM_SET,
             MAVLINK_MSG_ID_COMMAND_LONG => CRC_EXTRA_COMMAND_LONG,
+            (byte)MAVLINK_MSG_ID_COMMAND_ACK => CRC_EXTRA_COMMAND_ACK,
+            MAVLINK_MSG_ID_STATUSTEXT => CRC_EXTRA_STATUSTEXT,
+            MAVLINK_MSG_ID_RC_CHANNELS => CRC_EXTRA_RC_CHANNELS,
             _ => 0
         };
+
+        public async Task SendPreflightCalibrationAsync(
+            int gyro = 0,
+            int mag = 0,
+            int groundPressure = 0,
+            int airspeed = 0,
+            int accel = 0,
+            CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_CALIBRATION: gyro={Gyro} mag={Mag} baro={Baro} airspeed={Airspeed} accel={Accel}",
+                gyro, mag, groundPressure, airspeed, accel);
+
+            await SendCommandLongAsync(
+                MAV_CMD_PREFLIGHT_CALIBRATION,
+                gyro,           // param1: gyroscope
+                mag,            // param2: magnetometer
+                groundPressure, // param3: ground pressure / barometer
+                airspeed,       // param4: radio / airspeed
+                accel,          // param5: accelerometer
+                0,              // param6: compmot / none
+                0,              // param7: none
+                ct);
+        }
+
+        /// <summary>
+        /// Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN command
+        /// </summary>
+        /// <param name="autopilot">0=do nothing, 1=reboot autopilot, 2=shutdown autopilot, 3=reboot to bootloader</param>
+        /// <param name="companion">0=do nothing, 1=reboot companion, 2=shutdown companion</param>
+        public async Task SendPreflightRebootAsync(int autopilot = 1, int companion = 0, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN: autopilot={Autopilot} companion={Companion}",
+                autopilot, companion);
+
+            await SendCommandLongAsync(
+                MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
+                autopilot,  // param1: autopilot
+                companion,  // param2: companion
+                0, 0, 0, 0, 0,
+                ct);
+        }
+
+        /// <summary>
+        /// Send arm/disarm command
+        /// </summary>
+        public async Task SendArmDisarmAsync(bool arm, bool force = false, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_COMPONENT_ARM_DISARM: arm={Arm} force={Force}", arm, force);
+
+            await SendCommandLongAsync(
+                MAV_CMD_COMPONENT_ARM_DISARM,
+                arm ? 1 : 0,        // param1: 1=arm, 0=disarm
+                force ? 21196 : 0,  // param2: 21196=force arm/disarm
+                0, 0, 0, 0, 0,
+                ct);
+        }
 
         public void Dispose()
         {
@@ -569,4 +718,49 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             _outputStream = null;
         }
    }
+
+    /// <summary>
+    /// Heartbeat data with flight mode information
+    /// </summary>
+    public class HeartbeatData
+    {
+        public byte SystemId { get; set; }
+        public byte ComponentId { get; set; }
+        public uint CustomMode { get; set; }
+        public byte VehicleType { get; set; }
+        public byte Autopilot { get; set; }
+        public byte BaseMode { get; set; }
+        public bool IsArmed { get; set; }
+    }
+
+    /// <summary>
+    /// RC channel data for flight mode switch monitoring
+    /// </summary>
+    public class RcChannelsData
+    {
+        public uint TimeBootMs { get; set; }
+        public ushort Channel1 { get; set; }
+        public ushort Channel2 { get; set; }
+        public ushort Channel3 { get; set; }
+        public ushort Channel4 { get; set; }
+        public ushort Channel5 { get; set; }
+        public ushort Channel6 { get; set; }
+        public ushort Channel7 { get; set; }
+        public ushort Channel8 { get; set; }
+        public byte ChannelCount { get; set; }
+        public byte Rssi { get; set; }
+        
+        public ushort GetChannel(int channelNumber) => channelNumber switch
+        {
+            1 => Channel1,
+            2 => Channel2,
+            3 => Channel3,
+            4 => Channel4,
+            5 => Channel5,
+            6 => Channel6,
+            7 => Channel7,
+            8 => Channel8,
+            _ => 0
+        };
+    }
 }

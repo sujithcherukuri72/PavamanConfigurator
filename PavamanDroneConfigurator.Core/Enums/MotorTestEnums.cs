@@ -33,7 +33,7 @@ public enum MotorTestOrder
 }
 
 /// <summary>
-/// ESC calibration mode
+/// ESC calibration mode - matches ArduPilot ESC_CALIBRATION parameter
 /// </summary>
 public enum EscCalibrationMode
 {
@@ -41,10 +41,13 @@ public enum EscCalibrationMode
     Disabled = 0,
     
     /// <summary>Power cycle to start calibration</summary>
-    PowerCycle = 1,
+    PowerCycleToStart = 1,
     
-    /// <summary>Automatic calibration on next boot</summary>
-    AutoCalibrate = 2
+    /// <summary>Automatic calibration (unused)</summary>
+    Auto = 2,
+    
+    /// <summary>Calibrate on next boot - pass-through mode</summary>
+    PassthroughOnNextBoot = 3
 }
 
 /// <summary>

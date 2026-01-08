@@ -50,7 +50,7 @@ public class MotorEscService : IMotorEscService
     public event EventHandler<EscTelemetry>? EscTelemetryReceived;
     public event EventHandler<(int MotorNumber, bool Success, string Message)>? MotorTestCompleted;
 
-    public bool IsSafeToTest => _safetyAcknowledged && !_connectionService.IsConnected == false;
+    public bool IsSafeToTest => _safetyAcknowledged && _connectionService.IsConnected;
     public bool SafetyAcknowledged => _safetyAcknowledged;
 
     public MotorEscService(
@@ -388,10 +388,10 @@ public class MotorEscService : IMotorEscService
 
         try
         {
-            _logger.LogInformation("Starting ESC calibration - setting ESC_CALIBRATION to 3");
+            _logger.LogInformation("Starting ESC calibration - setting ESC_CALIBRATION to PassthroughOnNextBoot");
             
-            // ESC_CALIBRATION = 3 means calibration will happen on next power cycle
-            var success = await _parameterService.SetParameterAsync(PARAM_ESC_CALIBRATION, 3);
+            // ESC_CALIBRATION = 3 (PassthroughOnNextBoot) means calibration will happen on next power cycle
+            var success = await _parameterService.SetParameterAsync(PARAM_ESC_CALIBRATION, (float)EscCalibrationMode.PassthroughOnNextBoot);
             
             if (success)
             {
@@ -430,16 +430,21 @@ public class MotorEscService : IMotorEscService
 
         return (int)frameClass.Value switch
         {
+            0 => 4,  // Undefined - default to quad
             1 => 4,  // Quad
             2 => 6,  // Hexa
             3 => 8,  // Octa
             4 => 8,  // OctaQuad
-            5 => 2,  // Y6
-            6 => 6,  // Heli (single)
+            5 => 6,  // Y6 (has 6 motors)
+            6 => 1,  // Heli (single rotor)
             7 => 3,  // Tri
-            10 => 1, // SingleCopter
-            11 => 2, // CoaxCopter
+            8 => 1,  // SingleCopter
+            9 => 2,  // CoaxCopter
+            10 => 2, // BiCopter
+            11 => 2, // Heli_Dual
+            12 => 12,// DodecaHexa (12 motors)
             13 => 4, // HeliQuad
+            14 => 10,// Deca (10 motors)
             _ => 4   // Default quad
         };
     }
