@@ -53,6 +53,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const ushort MAV_CMD_PREFLIGHT_CALIBRATION = 241;
         private const ushort MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246;
         private const ushort MAV_CMD_COMPONENT_ARM_DISARM = 400;
+        private const ushort MAV_CMD_ACCELCAL_VEHICLE_POS = 42429;  // ArduPilot specific command for accel cal position
 
         // CRC extras from MAVLink message definitions
         private const byte CRC_EXTRA_HEARTBEAT = 50;
@@ -696,6 +697,23 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 arm ? 1 : 0,        // param1: 1=arm, 0=disarm
                 force ? 21196 : 0,  // param2: 21196=force arm/disarm
                 0, 0, 0, 0, 0,
+                ct);
+        }
+
+        /// <summary>
+        /// Send MAV_CMD_ACCELCAL_VEHICLE_POS to tell FC the vehicle is in position for accelerometer calibration.
+        /// This is an ArduPilot-specific command that tells the FC to sample the current position.
+        /// Position values: 1=Level, 2=Left, 3=Right, 4=NoseDown, 5=NoseUp, 6=Back (upside down)
+        /// </summary>
+        /// <param name="position">Position number (1-6) matching the calibration step</param>
+        public async Task SendAccelCalVehiclePosAsync(int position, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_ACCELCAL_VEHICLE_POS: position={Position}", position);
+
+            await SendCommandLongAsync(
+                MAV_CMD_ACCELCAL_VEHICLE_POS,
+                position,   // param1: position (1=level, 2=left, 3=right, 4=nose down, 5=nose up, 6=back)
+                0, 0, 0, 0, 0, 0,
                 ct);
         }
 

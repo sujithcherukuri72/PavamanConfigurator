@@ -570,6 +570,23 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _ = _mavlink.SendPreflightCalibrationAsync(gyro, mag, groundPressure, airspeed, accel);
     }
 
+    public void SendAccelCalVehiclePos(int position)
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            _ = _bluetoothConnection.SendAccelCalVehiclePosAsync(position);
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send MAV_CMD_ACCELCAL_VEHICLE_POS - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendAccelCalVehiclePosAsync(position);
+    }
+
     public void SendPreflightReboot(int autopilot, int companion)
     {
         if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)

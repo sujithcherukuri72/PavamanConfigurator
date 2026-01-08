@@ -272,6 +272,17 @@ public class BluetoothMavConnection : IDisposable
     }
 
     /// <summary>
+    /// Send MAV_CMD_ACCELCAL_VEHICLE_POS command to tell FC the vehicle is in position
+    /// </summary>
+    public async Task SendAccelCalVehiclePosAsync(int position, CancellationToken ct = default)
+    {
+        if (!_isConnected || _mavlinkWrapper == null)
+            throw new InvalidOperationException("Bluetooth connection is not active");
+
+        await _mavlinkWrapper.SendAccelCalVehiclePosAsync(position, ct);
+    }
+
+    /// <summary>
     /// Discover available Bluetooth devices
     /// </summary>
     public async Task<IEnumerable<CoreBluetoothDeviceInfo>> DiscoverDevicesAsync()

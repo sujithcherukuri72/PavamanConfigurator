@@ -41,6 +41,10 @@ public interface IConnectionService
     // Calibration command (MAV_CMD_PREFLIGHT_CALIBRATION = 241)
     void SendPreflightCalibration(int gyro, int mag, int groundPressure, int airspeed, int accel);
     
+    // Accelerometer calibration position acknowledgment (MAV_CMD_ACCELCAL_VEHICLE_POS = 42429)
+    // This tells the FC that the vehicle is in position and ready for sampling
+    void SendAccelCalVehiclePos(int position);
+    
     // Reboot command (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246)
     void SendPreflightReboot(int autopilot, int companion);
     

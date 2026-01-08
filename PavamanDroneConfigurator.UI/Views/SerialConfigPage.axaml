@@ -1,0 +1,357 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             x:Class="PavamanDroneConfigurator.UI.Views.SerialConfigPage"
+             x:DataType="vm:SerialConfigPageViewModel">
+
+    <UserControl.Styles>
+        <!-- Aviation-Grade Color System -->
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+        </Style>
+        
+        <Style Selector="TextBlock.PageSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        
+        <Style Selector="TextBlock.PortLabel">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Width" Value="80"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#084298"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#6C757D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#5A6268"/>
+        </Style>
+        
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        
+        <Style Selector="Border.PortRow">
+            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="16,16"/>
+        </Style>
+        
+        <Style Selector="Border.PortRow:pointerover">
+            <Setter Property="Background" Value="#F1F5F9"/>
+        </Style>
+        
+        <Style Selector="Border.AlertPanel">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="Border.AlertPanel.Success">
+            <Setter Property="Background" Value="#D1FAE5"/>
+            <Setter Property="BorderBrush" Value="#1E9E6A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        
+        <Style Selector="Border.AlertPanel.Warning">
+            <Setter Property="Background" Value="#FFF3CD"/>
+            <Setter Property="BorderBrush" Value="#FDB022"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="1200">
+            
+            <!-- HEADER SECTION -->
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Classes="PageTitle" Text="Serial Configuration"/>
+                    <TextBlock Classes="PageSubtitle" Text="Configure serial port protocols and baud rates"/>
+                </StackPanel>
+                
+                <Button Grid.Column="1" Classes="Secondary" Command="{Binding RefreshCommand}" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="?" FontSize="16"/>
+                        <TextBlock Text="Refresh"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Grid.Column="2" Classes="Secondary" Command="{Binding ApplyDefaultsCommand}" Margin="0,0,8,0">
+                    <TextBlock Text="Apply Defaults"/>
+                </Button>
+                
+                <Button Grid.Column="3" Classes="Primary" Command="{Binding UpdateCommand}">
+                    <TextBlock Text="Update"/>
+                </Button>
+            </Grid>
+
+            <!-- STATUS BAR -->
+            <Border Background="#F5F5F5" CornerRadius="6" Padding="12" Margin="0,0,0,16" IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- VALIDATION ALERTS -->
+            <Border Classes="AlertPanel"
+                    Classes.Success="{Binding !HasValidationWarnings}"
+                    Classes.Warning="{Binding HasValidationWarnings}"
+                    Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,8"
+                               Foreground="#1E293B"
+                               Text="? Configuration Valid"
+                               IsVisible="{Binding !HasValidationWarnings}"/>
+                    <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,8"
+                               Foreground="#1E293B"
+                               Text="? Configuration Warnings"
+                               IsVisible="{Binding HasValidationWarnings}"/>
+                    <TextBlock Text="{Binding ValidationMessage}" 
+                               TextWrapping="Wrap" 
+                               FontSize="13"
+                               Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- SERIAL PORTS CONFIGURATION -->
+            <Border Classes="SectionCard">
+                <StackPanel>
+                    <TextBlock Classes="SectionTitle" Text="Serial Port Configuration"/>
+                    <TextBlock Classes="SectionSubtitle" Text="Configure protocol and baud rate for each serial port"/>
+                    
+                    <!-- Serial2 (TELEM2) -->
+                    <Border Classes="PortRow" CornerRadius="8,8,0,0">
+                        <Grid ColumnDefinitions="80,*,20,*">
+                            <TextBlock Grid.Column="0" Classes="PortLabel" Text="Serial2"/>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="Telem2 Baudrate"/>
+                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                          SelectedItem="{Binding Serial2BaudRate}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Classes="FieldLabel" Text="Telem2 Protocol"/>
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Serial2Protocol}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Serial3 (GPS) -->
+                    <Border Classes="PortRow">
+                        <Grid ColumnDefinitions="80,*,20,*">
+                            <TextBlock Grid.Column="0" Classes="PortLabel" Text="Serial3"/>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="GPS Baudrate"/>
+                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                          SelectedItem="{Binding Serial3BaudRate}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Classes="FieldLabel" Text="GPS Protocol"/>
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Serial3Protocol}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Serial4 (GPS2) -->
+                    <Border Classes="PortRow">
+                        <Grid ColumnDefinitions="80,*,20,*">
+                            <TextBlock Grid.Column="0" Classes="PortLabel" Text="Serial4"/>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="Serial4 Baudrate"/>
+                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                          SelectedItem="{Binding Serial4BaudRate}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Classes="FieldLabel" Text="Serial4 Protocol"/>
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Serial4Protocol}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Serial5 -->
+                    <Border Classes="PortRow">
+                        <Grid ColumnDefinitions="80,*,20,*">
+                            <TextBlock Grid.Column="0" Classes="PortLabel" Text="Serial5"/>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="Serial5 Baudrate"/>
+                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                          SelectedItem="{Binding Serial5BaudRate}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Classes="FieldLabel" Text="Serial5 Protocol"/>
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Serial5Protocol}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Serial6 -->
+                    <Border Classes="PortRow" CornerRadius="0,0,8,8" BorderThickness="0">
+                        <Grid ColumnDefinitions="80,*,20,*">
+                            <TextBlock Grid.Column="0" Classes="PortLabel" Text="Serial6"/>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="Serial6 Baudrate"/>
+                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                          SelectedItem="{Binding Serial6BaudRate}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Classes="FieldLabel" Text="Serial6 Protocol"/>
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Serial6Protocol}"
+                                          DisplayMemberBinding="{Binding Label}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- PROTOCOL REFERENCE -->
+            <Border Classes="SectionCard">
+                <StackPanel>
+                    <TextBlock Classes="SectionTitle" Text="Protocol Reference"/>
+                    <TextBlock Classes="SectionSubtitle" Text="Common protocol configurations"/>
+                    
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+                        <StackPanel Grid.Column="0" Grid.Row="0" Margin="0,0,16,12">
+                            <TextBlock Text="MAVLink2" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="Telemetry radios, companion computers" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 57600 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="GPS" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="GNSS receivers (auto-detect)" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 115200 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,0,16,12">
+                            <TextBlock Text="Rangefinder" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="LiDAR/Sonar sensors" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 115200 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,0,0,12">
+                            <TextBlock Text="FrSky SPort" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="FrSky Smart Port telemetry" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 57600 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="0" Grid.Row="2" Margin="0,0,16,12">
+                            <TextBlock Text="ESC Telemetry" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="BLHeli/DShot ESC data" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 115200 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Grid.Row="2" Margin="0,0,0,12">
+                            <TextBlock Text="MSP" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="MultiWii Serial Protocol" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 115200 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="0" Grid.Row="3" Margin="0,0,16,0">
+                            <TextBlock Text="CRSF" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="TBS Crossfire protocol" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 416000 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Grid.Row="3">
+                            <TextBlock Text="DJI FPV" FontWeight="Bold" Foreground="#0B5ED7"/>
+                            <TextBlock Text="DJI FPV OSD system" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Recommended: 115200 baud" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- FOOTER INFO -->
+            <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="?" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
+                        <Run Text="PDRL Compliance:"/>
+                        <Run Text="At least one GPS port and one MAVLink telemetry port must be configured for safe flight operations."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

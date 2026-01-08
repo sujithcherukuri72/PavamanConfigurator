@@ -47,13 +47,15 @@ public partial class App : Application
         services.AddSingleton<IFlightModeService, FlightModeService>();
         services.AddSingleton<IMotorEscService, MotorEscService>();
         services.AddSingleton<IPidTuningService, PidTuningService>();
+        services.AddSingleton<ISerialConfigService, SerialConfigService>();
+        services.AddSingleton<IRcCalibrationService, RcCalibrationService>();
+        services.AddSingleton<ISensorConfigService, SensorConfigService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<ConnectionPageViewModel>();
         services.AddTransient<AirframePageViewModel>();
         services.AddTransient<ParametersPageViewModel>();
-        services.AddTransient<CalibrationPageViewModel>();
         services.AddTransient<SafetyPageViewModel>();
         services.AddTransient<ProfilePageViewModel>();
         services.AddTransient<SplashScreenViewModel>();
@@ -61,6 +63,9 @@ public partial class App : Application
         services.AddTransient<PowerPageViewModel>();
         services.AddTransient<MotorEscPageViewModel>();
         services.AddTransient<PidTuningPageViewModel>();
+        services.AddTransient<SerialConfigPageViewModel>();
+        services.AddTransient<RcCalibrationPageViewModel>();
+        services.AddTransient<SensorsCalibrationPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

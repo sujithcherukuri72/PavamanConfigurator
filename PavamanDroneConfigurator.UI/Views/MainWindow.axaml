@@ -81,9 +81,9 @@
     <Grid ColumnDefinitions="260,*">
         <!-- Modern Navigation Sidebar -->
         <Border Grid.Column="0" Classes="sidebar">
-            <StackPanel Spacing="4" Margin="16,24">
-                <!-- App Branding -->
-                <StackPanel Spacing="4" Margin="0,0,0,24">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- App Branding (Fixed at top) -->
+                <StackPanel Grid.Row="0" Spacing="4" Margin="16,24,16,0">
                     <!-- Logo -->
                     <Border Width="48" 
                             Height="48" 
@@ -100,72 +100,90 @@
                     <TextBlock Text="Drone Configurator" Classes="sidebar-subtitle"/>
                 </StackPanel>
 
-                <!-- Navigation Menu -->
-                <TextBlock Text="NAVIGATION" 
-                           FontSize="10" 
-                           FontWeight="Bold" 
-                           Foreground="#A5B4FC" 
-                           Margin="12,8,0,8"/>
+                <!-- Scrollable Navigation Menu -->
+                <ScrollViewer Grid.Row="1" 
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Margin="0,8,0,8">
+                    <StackPanel Margin="16,0">
+                        <TextBlock Text="NAVIGATION" 
+                                   FontSize="10" 
+                                   FontWeight="Bold" 
+                                   Foreground="#A5B4FC" 
+                                   Margin="12,8,0,8"/>
 
-                <StackPanel x:Name="NavigationMenu" Spacing="4">
-                    <Button Content="Connection" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding ConnectionPage}" 
-                            Click="NavButton_Click" />
+                        <StackPanel x:Name="NavigationMenu" Spacing="4">
+                            <Button Content="Connection" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding ConnectionPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Airframe" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding AirframePage}" 
-                            Click="NavButton_Click" 
-                            IsEnabled="{Binding CanAccessAirframe}" />
+                            <Button Content="Airframe" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding AirframePage}" 
+                                    Click="NavButton_Click" 
+                                    IsEnabled="{Binding CanAccessAirframe}" />
 
-                    <Button Content="Flight Modes" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding FlightModesPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="Flight Modes" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding FlightModesPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Motor &amp; ESC" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding MotorEscPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="Motor and ESC" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding MotorEscPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="PID Tuning" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding PidTuningPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="PID Tuning" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding PidTuningPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Power" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding PowerPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="Serial Config" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding SerialConfigPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Advanced Settings" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding ParametersPage}" 
-                            Click="NavButton_Click" 
-                            IsEnabled="{Binding CanAccessParameters}" />
+                            <Button Content="RC Calibration" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding RcCalibrationPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Calibration" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding CalibrationPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="Sensors" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding SensorsCalibrationPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Safety" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding SafetyPage}" 
-                            Click="NavButton_Click" />
+                            <Button Content="Power" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding PowerPage}" 
+                                    Click="NavButton_Click" />
 
-                    <Button Content="Profiles" 
-                            Classes="nav-button"
-                            CommandParameter="{Binding ProfilePage}" 
-                            Click="NavButton_Click" />
-                </StackPanel>
+                            <Button Content="Advanced Settings" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding ParametersPage}" 
+                                    Click="NavButton_Click" 
+                                    IsEnabled="{Binding CanAccessParameters}" />
 
-                <!-- Version Info -->
-                <Border Background="#20FFFFFF" 
+                            <Button Content="Safety" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding SafetyPage}" 
+                                    Click="NavButton_Click" />
+
+                            <Button Content="Profiles" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding ProfilePage}" 
+                                    Click="NavButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Version Info (Fixed at bottom) -->
+                <Border Grid.Row="2"
+                        Background="#20FFFFFF" 
                         CornerRadius="8" 
                         Padding="12" 
-                        Margin="8,24,8,0">
+                        Margin="24,8,24,24">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Version 1.0.0" 
                                    FontSize="11" 
@@ -176,7 +194,7 @@
                                    Foreground="#A5B4FC"/>
                     </StackPanel>
                 </Border>
-            </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Content Area with modern background -->
@@ -191,9 +209,6 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:AirframePageViewModel">
                         <views:AirframePage />
-                    </DataTemplate>
-                    <DataTemplate DataType="vm:CalibrationPageViewModel">
-                        <views:CalibrationPage />
                     </DataTemplate>
                     <DataTemplate DataType="vm:SafetyPageViewModel">
                         <views:SafetyPage />
@@ -212,6 +227,15 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:PidTuningPageViewModel">
                         <views:PidTuningPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:SerialConfigPageViewModel">
+                        <views:SerialConfigPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:RcCalibrationPageViewModel">
+                        <views:RcCalibrationPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:SensorsCalibrationPageViewModel">
+                        <views:SensorsCalibrationPage />
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

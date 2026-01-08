@@ -1,0 +1,645 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             xmlns:converters="using:PavamanDroneConfigurator.UI.Converters"
+             x:Class="PavamanDroneConfigurator.UI.Views.SensorsCalibrationPage"
+             x:DataType="vm:SensorsCalibrationPageViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToSensorStatusColorConverter x:Key="SensorStatusColorConverter"/>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#22D3EE"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style Selector="TextBlock.StatusText">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Foreground" Value="#22D3EE"/>
+            <Setter Property="Margin" Value="0,16,0,8"/>
+        </Style>
+        
+        <Style Selector="TextBlock.InstructionsLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,8,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.Instructions">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.CompassTitle">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#22D3EE"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        
+        <Style Selector="Border.TabBar">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="CornerRadius" Value="25"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+        
+        <Style Selector="Button.TabButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MinWidth" Value="120"/>
+        </Style>
+        
+        <Style Selector="Button.TabButton:pointerover">
+            <Setter Property="Background" Value="#E2E8F0"/>
+        </Style>
+        
+        <Style Selector="Button.TabButtonActive">
+            <Setter Property="Background" Value="#22D3EE"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MinWidth" Value="120"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#22D3EE"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#06B6D4"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:disabled">
+            <Setter Property="Background" Value="#94A3B8"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#084298"/>
+        </Style>
+        
+        <Style Selector="Button.Danger">
+            <Setter Property="Background" Value="#EF4444"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Danger:pointerover">
+            <Setter Property="Background" Value="#DC2626"/>
+        </Style>
+        
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="140"/>
+        </Style>
+        
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+        
+        <Style Selector="Border.CompassRow">
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="0,16"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24" MaxWidth="1200">
+                
+                <!-- HEADER with Debug Toggle -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Classes="PageTitle" Text="SENSORS"/>
+                    <Button Grid.Column="1" Content="Show Logs" Command="{Binding ToggleDebugLogsCommand}" 
+                            Background="Transparent" Foreground="#64748B" Padding="8,4"/>
+                </Grid>
+
+                <!-- SENSOR STATUS PANEL -->
+                <Border Background="#F8FAFC" CornerRadius="8" Padding="16" Margin="0,0,0,16" IsVisible="{Binding IsConnected}">
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8" Fill="{Binding IsAccelerometerAvailable, Converter={StaticResource SensorStatusColorConverter}}"/>
+                                <TextBlock Text="Accelerometer" FontWeight="Medium" FontSize="12"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding AccelSensorStatus}" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8" Fill="{Binding IsGyroscopeAvailable, Converter={StaticResource SensorStatusColorConverter}}"/>
+                                <TextBlock Text="Gyroscope" FontWeight="Medium" FontSize="12"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding GyroSensorStatus}" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8" Fill="{Binding IsCompassAvailable, Converter={StaticResource SensorStatusColorConverter}}"/>
+                                <TextBlock Text="Compass" FontWeight="Medium" FontSize="12"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding CompassSensorStatus}" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8" Fill="{Binding IsBarometerAvailable, Converter={StaticResource SensorStatusColorConverter}}"/>
+                                <TextBlock Text="Barometer" FontWeight="Medium" FontSize="12"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding BaroSensorStatus}" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- TAB BAR -->
+                <Border Classes="TabBar">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                            <Button Classes.TabButtonActive="{Binding IsAccelerometerTabSelected}"
+                                    Classes.TabButton="{Binding !IsAccelerometerTabSelected}"
+                                    Content="ACCELEROMETER"
+                                    Command="{Binding SelectAccelerometerTabCommand}"/>
+                            
+                            <Button Classes.TabButtonActive="{Binding IsCompassTabSelected}"
+                                    Classes.TabButton="{Binding !IsCompassTabSelected}"
+                                    Content="COMPASS"
+                                    Command="{Binding SelectCompassTabCommand}"/>
+                            
+                            <Button Classes.TabButtonActive="{Binding IsLevelHorizonTabSelected}"
+                                    Classes.TabButton="{Binding !IsLevelHorizonTabSelected}"
+                                    Content="LEVEL HORIZON"
+                                    Command="{Binding SelectLevelHorizonTabCommand}"/>
+                            
+                            <Button Classes.TabButtonActive="{Binding IsPressureTabSelected}"
+                                    Classes.TabButton="{Binding !IsPressureTabSelected}"
+                                    Content="PRESSURE"
+                                    Command="{Binding SelectPressureTabCommand}"/>
+                            
+                            <Button Classes.TabButtonActive="{Binding IsFlowTabSelected}"
+                                    Classes.TabButton="{Binding !IsFlowTabSelected}"
+                                    Content="FLOW"
+                                    Command="{Binding SelectFlowTabCommand}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- ACCELEROMETER TAB -->
+                <Border Classes="SectionCard" IsVisible="{Binding IsAccelerometerTabSelected}">
+                    <StackPanel>
+                        <!-- Sensor Not Available Warning -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
+                                IsVisible="{Binding !IsAccelerometerAvailable}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="?" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="Accelerometer sensor not detected. Check hardware connections." 
+                                           Foreground="#DC2626" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <TextBlock Classes="StatusText" Text="{Binding AccelCalibrationStatus}"/>
+                        
+                        <TextBlock Classes="InstructionsLabel" Text="FOLLOW THE INSTRUCTIONS"/>
+                        <TextBlock Classes="Instructions" Text="{Binding AccelInstructions}" Margin="0,0,0,16"/>
+                        
+                        <!-- Current Calibration Image -->
+                        <Border Background="#F8FAFC" CornerRadius="12" Padding="16" Margin="0,0,0,16" 
+                                HorizontalAlignment="Center" IsVisible="{Binding IsCalibrating}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Image Source="{Binding CurrentCalibrationImage}" 
+                                       Width="200" Height="150" 
+                                       Stretch="Uniform"/>
+                                <TextBlock Text="{Binding AccelCurrentStep}" 
+                                           HorizontalAlignment="Center" 
+                                           FontWeight="Bold" 
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- 6-Axis Position Indicators -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,16,0,24">
+                                <!-- Step 1: Level -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step1BackgroundColor}"
+                                        BorderBrush="{Binding Step1BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="LEVEL" FontWeight="Bold" HorizontalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Text="Step 1" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Level.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Step 2: Left -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step2BackgroundColor}"
+                                        BorderBrush="{Binding Step2BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="LEFT" FontWeight="Bold" HorizontalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Text="Step 2" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Left-Side.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Step 3: Right -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step3BackgroundColor}"
+                                        BorderBrush="{Binding Step3BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="RIGHT" FontWeight="Bold" HorizontalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Text="Step 3" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Right-Side.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Step 4: Nose Down -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step4BackgroundColor}"
+                                        BorderBrush="{Binding Step4BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="NOSE DOWN" FontWeight="Bold" HorizontalAlignment="Center" FontSize="10"/>
+                                        <TextBlock Text="Step 4" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Nose-Down.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Step 5: Nose Up -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step5BackgroundColor}"
+                                        BorderBrush="{Binding Step5BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="NOSE UP" FontWeight="Bold" HorizontalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Text="Step 5" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Nose-Up.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Step 6: Back -->
+                                <Border Width="100" Height="90" CornerRadius="12" Padding="8"
+                                        Background="{Binding Step6BackgroundColor}"
+                                        BorderBrush="{Binding Step6BorderColor}"
+                                        BorderThickness="3">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="BACK" FontWeight="Bold" HorizontalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Text="Step 6" FontSize="10" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                        <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Back-Side.png" 
+                                               Width="50" Height="35" Stretch="Uniform" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                        
+                        <!-- Color Legend -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="24" Margin="0,0,0,16">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="16" Height="16" CornerRadius="4" Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="2"/>
+                                <TextBlock Text="Waiting (Place drone)" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="16" Height="16" CornerRadius="4" Background="#D1FAE5" BorderBrush="#10B981" BorderThickness="2"/>
+                                <TextBlock Text="Complete" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="16" Height="16" CornerRadius="4" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="2"/>
+                                <TextBlock Text="Pending" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                        
+                        <!-- Progress bar -->
+                        <Grid Margin="0,8,0,0" IsVisible="{Binding IsCalibrating}">
+                            <ProgressBar Value="{Binding AccelCalibrationProgress}" 
+                                         Maximum="100" Height="8"
+                                         Foreground="#22D3EE" Background="#E2E8F0"/>
+                        </Grid>
+                        
+                        <!-- Buttons - Hide Calibrate if sensor unavailable -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
+                            <Button Classes="Primary" 
+                                    Content="Calibrate" 
+                                    Command="{Binding CalibrateAccelerometerCommand}"
+                                    IsVisible="{Binding CanCalibrateAccelerometer}"/>
+                            
+                            <!-- Button to confirm drone is in position - FC will validate -->
+                            <Button Classes="Primary" Content="Click When In Position" 
+                                    Command="{Binding NextAccelStepCommand}"
+                                    IsVisible="{Binding IsCalibrating}"
+                                    ToolTip.Tip="Click this after placing the drone in the shown position. The flight controller will verify the orientation."/>
+                            
+                            <Button Classes="Danger" Content="Cancel" 
+                                    Command="{Binding CancelCalibrationCommand}"
+                                    IsVisible="{Binding IsCalibrating}"/>
+                            
+                            <Button Classes="Secondary" Content="Reboot" 
+                                    Command="{Binding RebootCommand}"
+                                    IsEnabled="{Binding IsConnected}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- COMPASS TAB -->
+                <Border Classes="SectionCard" IsVisible="{Binding IsCompassTabSelected}">
+                    <StackPanel>
+                        <!-- Sensor Not Available Warning -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
+                                IsVisible="{Binding !IsCompassAvailable}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="?" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="No compass sensor detected. Check hardware connections." 
+                                           Foreground="#DC2626" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <TextBlock Classes="SectionTitle" Text="Available Compass"/>
+                        
+                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Compasses}" Margin="0,16,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Classes="CompassRow">
+                                            <Grid ColumnDefinitions="Auto,80,80,120,140,Auto,Auto,Auto">
+                                                <TextBlock Grid.Column="0" Classes="CompassTitle" Text="{Binding DisplayName}" VerticalAlignment="Center" Width="120"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="ID" FontSize="11" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding DeviceId}" FontSize="13"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="BUS" FontSize="11" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding BusTypeName}" FontSize="13"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="Status" FontSize="11" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="13"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                                                    <TextBlock Text="Use compass" FontSize="13" VerticalAlignment="Center"/>
+                                                    <CheckBox IsChecked="{Binding IsEnabled}"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="5" Text="Set Priority" FontSize="13" VerticalAlignment="Center" Margin="16,0"/>
+                                                <Button Grid.Column="6" Content="^" FontSize="14" Padding="8,4" Background="Transparent"
+                                                        Command="{Binding $parent[ItemsControl].((vm:SensorsCalibrationPageViewModel)DataContext).MoveCompassUpCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Button Grid.Column="7" Content="v" FontSize="14" Padding="8,4" Background="Transparent"
+                                                        Command="{Binding $parent[ItemsControl].((vm:SensorsCalibrationPageViewModel)DataContext).MoveCompassDownCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        
+                        <TextBlock Text="No compass sensors detected" FontSize="14" Foreground="#64748B" Margin="0,16,0,0"
+                                   IsVisible="{Binding !IsCompassAvailable}"/>
+                        
+                        <Border Background="#FEF3C7" CornerRadius="8" Padding="16" Margin="0,16,0,0" IsVisible="{Binding IsCalibrating}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding CompassInstructions}" FontWeight="Bold" Foreground="#92400E"/>
+                                <ProgressBar Value="{Binding CompassCalibrationProgress}" Maximum="100" Height="8" Margin="0,8,0,0" Foreground="#F59E0B"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
+                            <Button Classes="Danger" Content="Cancel" Command="{Binding CancelCalibrationCommand}" IsVisible="{Binding IsCalibrating}"/>
+                            <Button Classes="Secondary" Content="Reboot" Command="{Binding RebootCommand}" IsEnabled="{Binding IsConnected}"/>
+                            <Button Classes="Primary" Content="Calibrate" Command="{Binding CalibrateCompassCommand}" 
+                                    IsVisible="{Binding CanCalibrateCompass}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- LEVEL HORIZON TAB -->
+                <Border Classes="SectionCard" IsVisible="{Binding IsLevelHorizonTabSelected}">
+                    <StackPanel>
+                        <!-- Sensor Not Available Warning -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
+                                IsVisible="{Binding !IsAccelerometerAvailable}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="?" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="Accelerometer required for level horizon calibration." 
+                                           Foreground="#DC2626" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <TextBlock Classes="StatusText" Text="{Binding LevelCalibrationStatus}"/>
+                        <TextBlock Classes="InstructionsLabel" Text="DETAILS"/>
+                        <TextBlock Classes="Instructions" Text="{Binding LevelInstructions}"/>
+                        
+                        <Border Background="#F8FAFC" CornerRadius="12" Padding="24" Margin="0,16,0,0" HorizontalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Image Source="avares://PavamanDroneConfigurator.UI/Assets/Images/Caliberation-images/Level.png" 
+                                       Width="150" Height="100" Stretch="Uniform"/>
+                                <TextBlock Text="Place on level surface" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
+                            <Button Classes="Primary" Content="Calibrate" Command="{Binding CalibrateLevelHorizonCommand}" 
+                                    IsVisible="{Binding CanCalibrateLevelHorizon}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- PRESSURE TAB -->
+                <Border Classes="SectionCard" IsVisible="{Binding IsPressureTabSelected}">
+                    <StackPanel>
+                        <!-- Sensor Not Available Warning -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
+                                IsVisible="{Binding !IsBarometerAvailable}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="?" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="Barometer sensor not detected. Check hardware connections." 
+                                           Foreground="#DC2626" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <TextBlock Classes="StatusText" Text="{Binding PressureCalibrationStatus}"/>
+                        <TextBlock Classes="InstructionsLabel" Text="DETAILS"/>
+                        <TextBlock Classes="Instructions" Text="{Binding PressureInstructions}"/>
+                        
+                        <Border Background="#F8FAFC" CornerRadius="12" Padding="24" Margin="0,16,0,0" HorizontalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Ellipse Width="60" Height="60" Stroke="#3B82F6" StrokeThickness="4" Fill="White"/>
+                                <TextBlock Text="Barometer Calibration" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
+                            <Button Classes="Primary" Content="Calibrate" Command="{Binding CalibratePressureCommand}" 
+                                    IsVisible="{Binding CanCalibrateBarometer}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- FLOW TAB -->
+                <Border Classes="SectionCard" IsVisible="{Binding IsFlowTabSelected}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Classes="SectionTitle" Text="Flow Settings"/>
+                            
+                            <Grid ColumnDefinitions="*,24,*" RowDefinitions="Auto,16,Auto" Margin="0,16,0,0">
+                                <StackPanel Grid.Column="0" Grid.Row="0">
+                                    <TextBlock Classes="FieldLabel" Text="Enable"/>
+                                    <ComboBox ItemsSource="{Binding FlowTypeOptions}" SelectedItem="{Binding SelectedFlowType}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2" Grid.Row="0">
+                                    <TextBlock Classes="FieldLabel" Text="X axis Optical Scale Factor"/>
+                                    <TextBox Text="{Binding FlowXAxisScale}"/>
+                                    <TextBlock Text="[Min -200 - Max 200]" FontSize="11" Foreground="#94A3B8"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="0" Grid.Row="2">
+                                    <TextBlock Classes="FieldLabel" Text="Sensor Yaw Alignment"/>
+                                    <TextBox Text="{Binding FlowYawAlignment}"/>
+                                    <TextBlock Text="[Min -180 - Max 180]" FontSize="11" Foreground="#94A3B8"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2" Grid.Row="2">
+                                    <TextBlock Classes="FieldLabel" Text="Y axis Optical Scale Factor"/>
+                                    <TextBox Text="{Binding FlowYAxisScale}"/>
+                                    <TextBlock Text="[Min -200 - Max 200]" FontSize="11" Foreground="#94A3B8"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                                <Button Classes="Secondary" Content="Update" Command="{Binding UpdateFlowSettingsCommand}" IsEnabled="{Binding IsConnected}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- DEBUG LOGS PANEL -->
+                <Border Classes="SectionCard" IsVisible="{Binding ShowDebugLogs}">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="SectionTitle" Text="Debug Logs"/>
+                            <Button Grid.Column="1" Content="Clear" Command="{Binding ClearDebugLogsCommand}" 
+                                    Background="Transparent" Foreground="#64748B" Padding="8,4"/>
+                        </Grid>
+                        
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,8,0,0">
+                            <ScrollViewer Height="200" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding DebugLogs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="#10B981" Margin="0,2"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- STATUS BAR -->
+                <Border Background="#F1F5F9" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <Ellipse Width="10" Height="10" Fill="{Binding ConnectionStatusColor}"/>
+                            <TextBlock Text="{Binding ConnectionStatusText}" FontSize="13" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#64748B"/>
+                        
+                        <ProgressBar Grid.Column="2" Width="100" Height="4" IsIndeterminate="True" IsVisible="{Binding IsBusy}" Foreground="#3B82F6"/>
+                    </Grid>
+                </Border>
+
+                <!-- INFO FOOTER -->
+                <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock FontWeight="Bold" Foreground="#0B5ED7" Margin="0,0,0,8">PDRL Compliance Notes:</TextBlock>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#1E40AF">1. Accelerometer calibration is REQUIRED before flight - ensures accurate attitude estimation.</TextBlock>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#1E40AF">2. Compass calibration is REQUIRED - must be done away from metal objects and magnetic interference.</TextBlock>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#1E40AF">3. Level horizon calibration is RECOMMENDED - ensures the drone knows what level is.</TextBlock>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#1E40AF">4. Reboot is required after calibration to apply changes.</TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- ERROR DIALOG OVERLAY -->
+        <Border Background="#80000000" IsVisible="{Binding ShowErrorDialog}" IsHitTestVisible="{Binding ShowErrorDialog}">
+            <Border Background="White" CornerRadius="16" Padding="24" 
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MinWidth="400" MaxWidth="500" BoxShadow="0 10 40 0 #60000000">
+                <StackPanel Spacing="16">
+                    <!-- Error Icon -->
+                    <Border Width="64" Height="64" CornerRadius="32" Background="#FEE2E2" HorizontalAlignment="Center">
+                        <TextBlock Text="!" FontSize="32" FontWeight="Bold" Foreground="#EF4444" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    
+                    <TextBlock Text="{Binding ErrorDialogTitle}" FontSize="20" FontWeight="Bold" 
+                               HorizontalAlignment="Center" Foreground="#111827"/>
+                    
+                    <TextBlock Text="{Binding ErrorDialogMessage}" FontSize="14" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" Foreground="#6B7280" TextAlignment="Center"/>
+                    
+                    <Button Content="OK" Classes="Primary" HorizontalAlignment="Center" MinWidth="120"
+                            Command="{Binding CloseErrorDialogCommand}"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

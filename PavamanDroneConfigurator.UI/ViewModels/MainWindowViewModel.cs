@@ -34,13 +34,15 @@ public partial class MainWindowViewModel : ViewModelBase
     public ConnectionPageViewModel ConnectionPage { get; }
     public AirframePageViewModel AirframePage { get; }
     public ParametersPageViewModel ParametersPage { get; }
-    public CalibrationPageViewModel CalibrationPage { get; }
     public SafetyPageViewModel SafetyPage { get; }
     public ProfilePageViewModel ProfilePage { get; }
     public FlightModePageViewModel FlightModesPage { get; }
     public PowerPageViewModel PowerPage { get; }
     public MotorEscPageViewModel MotorEscPage { get; }
     public PidTuningPageViewModel PidTuningPage { get; }
+    public SerialConfigPageViewModel SerialConfigPage { get; }
+    public RcCalibrationPageViewModel RcCalibrationPage { get; }
+    public SensorsCalibrationPageViewModel SensorsCalibrationPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -51,26 +53,30 @@ public partial class MainWindowViewModel : ViewModelBase
         ConnectionPageViewModel connectionPage,
         AirframePageViewModel airframePage,
         ParametersPageViewModel parametersPage,
-        CalibrationPageViewModel calibrationPage,
         SafetyPageViewModel safetyPage,
         ProfilePageViewModel profilePage,
         FlightModePageViewModel flightModesPage,
         PowerPageViewModel powerPage,
         MotorEscPageViewModel motorEscPage,
         PidTuningPageViewModel pidTuningPage,
+        SerialConfigPageViewModel serialConfigPage,
+        RcCalibrationPageViewModel rcCalibrationPage,
+        SensorsCalibrationPageViewModel sensorsCalibrationPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
         ConnectionPage = connectionPage;
         AirframePage = airframePage;
         ParametersPage = parametersPage;
-        CalibrationPage = calibrationPage;
         SafetyPage = safetyPage;
         ProfilePage = profilePage;
         FlightModesPage = flightModesPage;
         PowerPage = powerPage;
         MotorEscPage = motorEscPage;
         PidTuningPage = pidTuningPage;
+        SerialConfigPage = serialConfigPage;
+        RcCalibrationPage = rcCalibrationPage;
+        SensorsCalibrationPage = sensorsCalibrationPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 
@@ -156,8 +162,19 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         ParameterDownloadReceived = _parameterService.ReceivedParameterCount;
         ParameterDownloadExpected = _parameterService.ExpectedParameterCount;
-        var expectedText = ParameterDownloadExpected.HasValue ? ParameterDownloadExpected.Value.ToString() : "?";
-        ParameterDownloadStatusText = $"{ParameterDownloadReceived}/{expectedText}";
+
+        if (ParameterDownloadExpected.HasValue && ParameterDownloadExpected.Value > 0)
+        {
+            ParameterDownloadStatusText = $"{ParameterDownloadReceived} / {ParameterDownloadExpected.Value}";
+        }
+        else if (ParameterDownloadReceived > 0)
+        {
+            ParameterDownloadStatusText = $"{ParameterDownloadReceived} parameters received...";
+        }
+        else
+        {
+            ParameterDownloadStatusText = "Requesting parameters...";
+        }
     }
 
     private void UpdateAccessPermissions()
