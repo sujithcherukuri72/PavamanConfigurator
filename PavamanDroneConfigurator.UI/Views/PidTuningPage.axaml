@@ -1,0 +1,534 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             x:Class="PavamanDroneConfigurator.UI.Views.PidTuningPage"
+             x:DataType="vm:PidTuningPageViewModel">
+
+    <UserControl.Styles>
+        <!-- Aviation-Grade Color System -->
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+        </Style>
+        
+        <Style Selector="TextBlock.PageSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionSubtitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style Selector="TextBlock.HelpText">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#EF4444"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        
+        <Style Selector="TextBlock.RangeText">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#084298"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#6C757D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#5A6268"/>
+        </Style>
+        
+        <!-- Tab Button Styles -->
+        <Style Selector="Button.TabButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MinWidth" Value="140"/>
+        </Style>
+        
+        <Style Selector="Button.TabButton:pointerover">
+            <Setter Property="Background" Value="#E2E8F0"/>
+        </Style>
+        
+        <Style Selector="Button.TabButtonActive">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MinWidth" Value="140"/>
+        </Style>
+        
+        <!-- Axis Toggle Styles -->
+        <Style Selector="RadioButton.AxisToggle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+        
+        <Style Selector="RadioButton.AxisToggle:checked">
+            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        
+        <Style Selector="Slider">
+            <Setter Property="MinWidth" Value="300"/>
+        </Style>
+        
+        <Style Selector="NumericUpDown">
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="150"/>
+        </Style>
+        
+        <Style Selector="CheckBox">
+            <Setter Property="Margin" Value="0,0,16,0"/>
+        </Style>
+        
+        <Style Selector="Border.SummaryCard">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="MinWidth" Value="280"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="1600">
+            
+            <!-- HEADER SECTION -->
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Classes="PageTitle" Text="PID TUNING"/>
+                    <TextBlock Classes="PageSubtitle" Text="Configure flight controller PID gains"/>
+                </StackPanel>
+                
+                <Button Grid.Column="1" Classes="Secondary" Command="{Binding RefreshCommand}" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="?" FontSize="16"/>
+                        <TextBlock Text="Refresh"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Grid.Column="2" Classes="Primary" Command="{Binding UpdateCommand}">
+                    <TextBlock Text="Update"/>
+                </Button>
+            </Grid>
+
+            <!-- STATUS BAR -->
+            <Border Background="#F5F5F5" CornerRadius="6" Padding="12" Margin="0,0,0,16" IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- TAB SELECTOR -->
+            <Border Background="#F1F5F9" CornerRadius="28" Padding="4" Margin="0,0,0,24" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Classes.TabButtonActive="{Binding IsBasicTuningSelected}"
+                            Classes.TabButton="{Binding !IsBasicTuningSelected}"
+                            Command="{Binding SelectBasicTuningCommand}"
+                            Content="BASIC TUNING"/>
+                    <Button Classes.TabButtonActive="{Binding IsAdvancedTuningSelected}"
+                            Classes.TabButton="{Binding !IsAdvancedTuningSelected}"
+                            Command="{Binding SelectAdvancedTuningCommand}"
+                            Content="ADVANCED TUNING"/>
+                    <Button Classes.TabButtonActive="{Binding IsAutoTuningSelected}"
+                            Classes.TabButton="{Binding !IsAutoTuningSelected}"
+                            Command="{Binding SelectAutoTuningCommand}"
+                            Content="AUTO TUNING"/>
+                </StackPanel>
+            </Border>
+
+            <!-- MAIN CONTENT AREA -->
+            <Grid ColumnDefinitions="*,20,Auto">
+                
+                <!-- LEFT: TUNING CONTROLS -->
+                <StackPanel Grid.Column="0">
+                    
+                    <!-- BASIC TUNING TAB -->
+                    <StackPanel IsVisible="{Binding IsBasicTuningSelected}">
+                        
+                        <!-- RC Feel Roll/Pitch -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="RC Feel Roll/Pitch"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0" Maximum="1" 
+                                            Value="{Binding RcFeelRollPitch}"
+                                            TickFrequency="0.1"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding RcFeelRollPitch}"
+                                                   Minimum="0" Maximum="1"
+                                                   Increment="0.01"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.00"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Classes="HelpText" Text="Slide left : Softer response, Slide right : Crisper response"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Roll/Pitch Sensitivity -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Roll/Pitch Sensitivity"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0.01" Maximum="0.5" 
+                                            Value="{Binding RollPitchSensitivity}"
+                                            TickFrequency="0.05"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding RollPitchSensitivity}"
+                                                   Minimum="0.01" Maximum="0.5"
+                                                   Increment="0.001"
+                                                   FormatString="F3"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Classes="HelpText" Text="Slide left:Copter is twitchy, Slide right: Copter is sluggish"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Climb Sensitivity -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Climb Sensitivity"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0.3" Maximum="1" 
+                                            Value="{Binding ClimbSensitivity}"
+                                            TickFrequency="0.1"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding ClimbSensitivity}"
+                                                   Minimum="0.3" Maximum="1"
+                                                   Increment="0.01"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.3"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Classes="HelpText" Text="Slide left: Climb more gently, Slide right: Climb more aggressively"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Spin While Armed -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Spin While Armed"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0" Maximum="1" 
+                                            Value="{Binding SpinWhileArmed}"
+                                            TickFrequency="0.1"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding SpinWhileArmed}"
+                                                   Minimum="0" Maximum="1"
+                                                   Increment="0.01"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.0"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Classes="HelpText" Foreground="#64748B" Text="Adjust the motors spin for arming status"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ADVANCED TUNING TAB -->
+                    <StackPanel IsVisible="{Binding IsAdvancedTuningSelected}">
+                        
+                        <!-- Axis Selector -->
+                        <Border Background="#F1F5F9" CornerRadius="20" Padding="4" Margin="0,0,0,20" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <RadioButton Content="Roll" 
+                                             IsChecked="{Binding IsRollSelected}"
+                                             GroupName="AxisGroup"
+                                             Classes="AxisToggle"/>
+                                <RadioButton Content="Pitch" 
+                                             IsChecked="{Binding IsPitchSelected}"
+                                             GroupName="AxisGroup"
+                                             Classes="AxisToggle"/>
+                                <RadioButton Content="Yaw" 
+                                             IsChecked="{Binding IsYawSelected}"
+                                             GroupName="AxisGroup"
+                                             Classes="AxisToggle"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Angle Controller P Gain -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Roll Axis Angle Controller P Gain"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="3" Maximum="12" 
+                                            Value="{Binding AngleP}"
+                                            TickFrequency="1"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding AngleP}"
+                                                   Minimum="3" Maximum="12"
+                                                   Increment="0.1"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="3"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="12" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Rate Controller P Gain -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller P Gain"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0.01" Maximum="0.5" 
+                                            Value="{Binding RateP}"
+                                            TickFrequency="0.05"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding RateP}"
+                                                   Minimum="0.01" Maximum="0.5"
+                                                   Increment="0.001"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Rate Controller I Gain -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller I Gain"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0.01" Maximum="2" 
+                                            Value="{Binding RateI}"
+                                            TickFrequency="0.2"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding RateI}"
+                                                   Minimum="0.01" Maximum="2"
+                                                   Increment="0.001"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="2" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Rate Controller D Gain -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller D Gain"/>
+                                <Grid ColumnDefinitions="*,120">
+                                    <Slider Grid.Column="0" 
+                                            Minimum="0" Maximum="0.5" 
+                                            Value="{Binding RateD}"
+                                            TickFrequency="0.05"/>
+                                    <NumericUpDown Grid.Column="1" 
+                                                   Value="{Binding RateD}"
+                                                   Minimum="0" Maximum="0.5"
+                                                   Increment="0.0001"
+                                                   FormatString="F4"
+                                                   Margin="12,0,0,0"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.0"/>
+                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- AUTO TUNING TAB -->
+                    <StackPanel IsVisible="{Binding IsAutoTuningSelected}">
+                        
+                        <!-- Axes to AutoTune -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="SectionTitle" Text="Axes to AutoTune:"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <CheckBox Content="Roll" IsChecked="{Binding AutoTuneRoll}"/>
+                                    <CheckBox Content="Pitch" IsChecked="{Binding AutoTunePitch}"/>
+                                    <CheckBox Content="Yaw" IsChecked="{Binding AutoTuneYaw}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Channel for AutoTune Switch -->
+                        <Border Classes="SectionCard">
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                                <StackPanel Grid.Column="0" Grid.Row="0">
+                                    <TextBlock Classes="FieldLabel" Text="Channel for AutoTune switch"/>
+                                    <ComboBox ItemsSource="{Binding AutoTuneChannelOptions}"
+                                              SelectedItem="{Binding SelectedAutoTuneChannel}"
+                                              DisplayMemberBinding="{Binding Label}"
+                                              MinWidth="180"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Grid.Row="0" Margin="24,0,0,0">
+                                    <TextBlock Classes="FieldLabel" Text="None"/>
+                                    <NumericUpDown Value="0" 
+                                                   IsEnabled="False"
+                                                   MinWidth="100"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- In Flight Tuning Section -->
+                        <Border Classes="SectionCard">
+                            <StackPanel>
+                                <TextBlock Classes="SectionTitle" Text="In Flight Tuning"/>
+                                <TextBlock Classes="SectionSubtitle" Text="Configure real-time parameter adjustment via RC transmitter"/>
+                                
+                                <Grid ColumnDefinitions="*,*,*" Margin="0,12,0,0">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Classes="FieldLabel" Text="RC Channel 6 Option (Tuning)"/>
+                                        <ComboBox ItemsSource="{Binding InFlightTuningOptions}"
+                                                  SelectedItem="{Binding SelectedTuneOption}"
+                                                  DisplayMemberBinding="{Binding Label}"
+                                                  MinWidth="180"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="24,0,0,0">
+                                        <TextBlock Classes="FieldLabel" Text="Min"/>
+                                        <NumericUpDown Value="{Binding TuneMin}"
+                                                       Minimum="0" Maximum="1000"
+                                                       Increment="0.01"
+                                                       FormatString="F2"
+                                                       MinWidth="100"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="24,0,0,0">
+                                        <TextBlock Classes="FieldLabel" Text="Max"/>
+                                        <NumericUpDown Value="{Binding TuneMax}"
+                                                       Minimum="0" Maximum="1000"
+                                                       Increment="0.01"
+                                                       FormatString="F2"
+                                                       MinWidth="100"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- RIGHT: SUMMARY PANEL -->
+                <Border Grid.Column="2" Classes="SummaryCard" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="Summary" 
+                                   FontSize="16" 
+                                   FontWeight="Bold" 
+                                   Foreground="#1E293B"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,16"/>
+                        
+                        <TextBlock Text="{Binding SummaryTitle}" 
+                                   FontSize="14" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#0B5ED7"
+                                   Margin="0,0,0,12"/>
+                        
+                        <ItemsControl ItemsSource="{Binding SummaryItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,4,0,0">
+                                        <Run Text="{Binding Parameter}" FontWeight="Medium" Foreground="#475569"/>
+                                        <Run Text=": "/>
+                                        <Run Text="{Binding Value}" Foreground="#1E293B"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- FOOTER INFO -->
+            <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="?" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
+                        <Run Text="Tip:"/>
+                        <Run Text="Use AutoTune for automatic PID optimization. Ensure stable hover before initiating. Advanced tuning should be done incrementally."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

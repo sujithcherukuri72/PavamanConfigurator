@@ -40,6 +40,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public FlightModePageViewModel FlightModesPage { get; }
     public PowerPageViewModel PowerPage { get; }
     public MotorEscPageViewModel MotorEscPage { get; }
+    public PidTuningPageViewModel PidTuningPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -56,6 +57,7 @@ public partial class MainWindowViewModel : ViewModelBase
         FlightModePageViewModel flightModesPage,
         PowerPageViewModel powerPage,
         MotorEscPageViewModel motorEscPage,
+        PidTuningPageViewModel pidTuningPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -68,6 +70,7 @@ public partial class MainWindowViewModel : ViewModelBase
         FlightModesPage = flightModesPage;
         PowerPage = powerPage;
         MotorEscPage = motorEscPage;
+        PidTuningPage = pidTuningPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 
