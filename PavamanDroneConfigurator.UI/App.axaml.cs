@@ -46,6 +46,7 @@ public partial class App : Application
         services.AddSingleton<IPersistenceService, PersistenceService>();
         services.AddSingleton<IFlightModeService, FlightModeService>();
         services.AddSingleton<IMotorEscService, MotorEscService>();
+        services.AddSingleton<IExportService, ExportService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

@@ -1,0 +1,223 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+        x:Class="PavamanDroneConfigurator.UI.Views.ExportDialog"
+        x:DataType="vm:ExportDialogViewModel"
+        Title="Export Parameters"
+        Width="500"
+        Height="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SystemDecorations="BorderOnly">
+
+    <Window.Styles>
+        <!-- Card Style -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+        </Style>
+
+        <!-- Primary Button -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#93C5FD"/>
+        </Style>
+
+        <!-- Secondary Button -->
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F3F4F6"/>
+        </Style>
+
+        <!-- Browse Button -->
+        <Style Selector="Button.browse">
+            <Setter Property="Background" Value="#F3F4F6"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.browse:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E5E7EB"/>
+        </Style>
+
+        <!-- Input TextBox -->
+        <Style Selector="TextBox.input">
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style Selector="TextBox.input:focus">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+        </Style>
+
+        <!-- ComboBox -->
+        <Style Selector="ComboBox.dropdown">
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <!-- Label -->
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Error Message -->
+        <Style Selector="TextBlock.error">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#EF4444"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Classes="card" Background="#F9FAFB">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,24">
+                <TextBlock Text="Export Parameters" 
+                           FontSize="22" 
+                           FontWeight="Bold" 
+                           Foreground="#111827"/>
+                <TextBlock Text="Choose a file name, format, and location for your export." 
+                           FontSize="13" 
+                           Foreground="#6B7280"
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Form Fields -->
+            <StackPanel Grid.Row="1" Spacing="20">
+                <!-- File Name -->
+                <StackPanel>
+                    <TextBlock Text="File Name" Classes="label"/>
+                    <TextBox Text="{Binding FileName, Mode=TwoWay}"
+                             Classes="input"
+                             Watermark="Enter file name without extension"/>
+                    <TextBlock Text="{Binding ValidationMessage}" 
+                               Classes="error"
+                               IsVisible="{Binding HasValidationError}"/>
+                </StackPanel>
+
+                <!-- File Format -->
+                <StackPanel>
+                    <TextBlock Text="File Format" Classes="label"/>
+                    <ComboBox ItemsSource="{Binding FileFormats}"
+                              SelectedItem="{Binding SelectedFormat}"
+                              Classes="dropdown"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Save Location -->
+                <StackPanel>
+                    <TextBlock Text="Save Location" Classes="label"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding SelectedFilePath, Mode=TwoWay}"
+                                 Classes="input"
+                                 IsReadOnly="True"
+                                 Watermark="Click Browse to select location"/>
+                        <Button Grid.Column="1" 
+                                Content="Browse..." 
+                                Classes="browse"
+                                Margin="8,0,0,0"
+                                Click="BrowseButton_Click"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Full Path Preview -->
+                <Border Background="#EFF6FF" 
+                        CornerRadius="8" 
+                        Padding="12"
+                        IsVisible="{Binding SelectedFilePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Export Path:" 
+                                   FontSize="11" 
+                                   FontWeight="SemiBold"
+                                   Foreground="#3B82F6"/>
+                        <TextBlock Text="{Binding FullFilePath}" 
+                                   FontSize="12" 
+                                   Foreground="#1E40AF"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,24,0,0">
+                <!-- Exporting indicator -->
+                <StackPanel Grid.Column="0" 
+                            Orientation="Horizontal" 
+                            Spacing="8"
+                            IsVisible="{Binding IsExporting}"
+                            VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" 
+                                 Width="100" 
+                                 Height="4"
+                                 Foreground="#3B82F6"/>
+                    <TextBlock Text="Exporting..." 
+                               FontSize="13" 
+                               Foreground="#6B7280"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Button Grid.Column="1" 
+                        Content="Cancel" 
+                        Classes="secondary"
+                        Command="{Binding CancelCommand}"
+                        Margin="0,0,12,0"/>
+                <Button Grid.Column="2" 
+                        Content="Export" 
+                        Classes="primary"
+                        Command="{Binding ExportCommand}"
+                        IsEnabled="{Binding CanExport}"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
