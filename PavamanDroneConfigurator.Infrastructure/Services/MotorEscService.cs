@@ -47,7 +47,6 @@ public class MotorEscService : IMotorEscService
 
     public event EventHandler<MotorEscSettings>? SettingsChanged;
     public event EventHandler<MotorStatus>? MotorStatusChanged;
-    public event EventHandler<EscTelemetry>? EscTelemetryReceived;
     public event EventHandler<(int MotorNumber, bool Success, string Message)>? MotorTestCompleted;
 
     public bool IsSafeToTest => _safetyAcknowledged && _connectionService.IsConnected;

@@ -20,11 +20,6 @@ public interface IMotorEscService
     event EventHandler<MotorStatus>? MotorStatusChanged;
 
     /// <summary>
-    /// Event raised when ESC telemetry is received
-    /// </summary>
-    event EventHandler<EscTelemetry>? EscTelemetryReceived;
-
-    /// <summary>
     /// Event raised when motor test completes
     /// </summary>
     event EventHandler<(int MotorNumber, bool Success, string Message)>? MotorTestCompleted;

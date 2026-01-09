@@ -3,10 +3,6 @@ using PavamanDroneConfigurator.Core.Models;
 
 namespace PavamanDroneConfigurator.Core.Interfaces;
 
-/// <summary>
-/// Service interface for sensor configuration and extended calibration operations.
-/// Handles compass detection, optical flow settings, and sensor status.
-/// </summary>
 public interface ISensorConfigService
 {
     #region Events
@@ -15,11 +11,6 @@ public interface ISensorConfigService
     /// Fired when sensor configuration is updated
     /// </summary>
     event EventHandler<SensorCalibrationConfiguration>? ConfigurationChanged;
-
-    /// <summary>
-    /// Fired when a compass status changes
-    /// </summary>
-    event EventHandler<CompassInfo>? CompassStatusChanged;
 
     #endregion
 

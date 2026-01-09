@@ -22,6 +22,7 @@ public partial class ParametersPageViewModel : ViewModelBase
     private readonly IConnectionService _connectionService;
     private readonly IExportService _exportService;
     private readonly IImportService _importService;
+    private readonly IParameterMetadataService _metadataService;
     
     // Track original values for change detection
     private readonly Dictionary<string, float> _originalValues = new();
@@ -65,18 +66,51 @@ public partial class ParametersPageViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isRefreshing;
 
+    // Selected parameter details for the detail panel (like Mission Planner)
+    [ObservableProperty]
+    private string _selectedParamName = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamDisplayName = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamDescription = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamRange = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamUnits = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamDefault = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedParamGroup = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<ParameterValueOption> _selectedParamOptions = new();
+
+    [ObservableProperty]
+    private bool _hasSelectedParameter;
+
+    [ObservableProperty]
+    private bool _hasParamOptions;
+
     public bool HasStatusMessage => !string.IsNullOrEmpty(StatusMessage);
 
     public ParametersPageViewModel(
         IParameterService parameterService, 
         IConnectionService connectionService, 
         IExportService exportService,
-        IImportService importService)
+        IImportService importService,
+        IParameterMetadataService metadataService)
     {
         _parameterService = parameterService;
         _connectionService = connectionService;
         _exportService = exportService;
         _importService = importService;
+        _metadataService = metadataService;
 
         // Subscribe to all relevant events
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
@@ -88,6 +122,76 @@ public partial class ParametersPageViewModel : ViewModelBase
         if (_connectionService.IsConnected && _parameterService.IsParameterDownloadComplete)
         {
             _ = LoadParametersIntoGridAsync();
+        }
+    }
+
+    partial void OnSelectedParameterChanged(DroneParameter? value)
+    {
+        UpdateSelectedParameterDetails(value);
+    }
+
+    private void UpdateSelectedParameterDetails(DroneParameter? param)
+    {
+        HasSelectedParameter = param != null;
+        SelectedParamOptions.Clear();
+        HasParamOptions = false;
+
+        if (param == null)
+        {
+            SelectedParamName = string.Empty;
+            SelectedParamDisplayName = string.Empty;
+            SelectedParamDescription = string.Empty;
+            SelectedParamRange = string.Empty;
+            SelectedParamUnits = string.Empty;
+            SelectedParamDefault = string.Empty;
+            SelectedParamGroup = string.Empty;
+            return;
+        }
+
+        SelectedParamName = param.Name;
+        
+        // Get metadata for this parameter
+        var meta = _metadataService.GetMetadata(param.Name);
+        
+        if (meta != null)
+        {
+            SelectedParamDisplayName = meta.DisplayName;
+            SelectedParamDescription = meta.Description;
+            SelectedParamRange = meta.MinValue.HasValue && meta.MaxValue.HasValue 
+                ? $"{meta.MinValue} to {meta.MaxValue}" 
+                : "Not specified";
+            SelectedParamUnits = meta.Units ?? "None";
+            SelectedParamDefault = meta.DefaultValue?.ToString() ?? "Not specified";
+            SelectedParamGroup = meta.Group ?? "General";
+
+            // Add value options if available
+            if (meta.Values != null && meta.Values.Count > 0)
+            {
+                foreach (var kvp in meta.Values.OrderBy(x => x.Key))
+                {
+                    SelectedParamOptions.Add(new ParameterValueOption
+                    {
+                        Value = kvp.Key,
+                        Label = kvp.Value
+                    });
+                }
+                HasParamOptions = true;
+            }
+
+            // Update the parameter's description and range from metadata
+            param.Description = meta.Description;
+            param.MinValue = meta.MinValue;
+            param.MaxValue = meta.MaxValue;
+        }
+        else
+        {
+            // No metadata found - use defaults
+            SelectedParamDisplayName = param.Name;
+            SelectedParamDescription = param.Description ?? "No description available for this parameter.";
+            SelectedParamRange = param.RangeDisplay;
+            SelectedParamUnits = "Not specified";
+            SelectedParamDefault = "Not specified";
+            SelectedParamGroup = "Unknown";
         }
     }
 
@@ -109,6 +213,7 @@ public partial class ParametersPageViewModel : ViewModelBase
                 CanEditParameters = false;
                 IsRefreshing = false;
                 _parametersLoaded = false;
+                SelectedParameter = null;
                 StatusMessage = "Disconnected - Connect to your drone to load parameters";
             }
             else
@@ -133,6 +238,7 @@ public partial class ParametersPageViewModel : ViewModelBase
             LoadedParameterCount = 0;
             ModifiedParameterCount = 0;
             HasUnsavedChanges = false;
+            SelectedParameter = null;
             StatusMessage = "Downloading parameters from drone...";
         });
     }
@@ -148,7 +254,7 @@ public partial class ParametersPageViewModel : ViewModelBase
                 await LoadParametersIntoGridAsync();
                 CanEditParameters = true;
                 _parametersLoaded = true;
-                StatusMessage = $"Successfully loaded {Parameters.Count} parameters - Edit values to update vehicle";
+                StatusMessage = $"Successfully loaded {Parameters.Count} parameters - Select a parameter to see details";
             }
             else
             {
@@ -196,6 +302,9 @@ public partial class ParametersPageViewModel : ViewModelBase
             
             foreach (var p in allParams)
             {
+                // Enrich parameter with metadata
+                _metadataService.EnrichParameter(p);
+                
                 _originalValues[p.Name] = p.Value;
                 p.OriginalValue = p.Value;
                 p.PropertyChanged += OnParameterPropertyChanged;
@@ -276,6 +385,15 @@ public partial class ParametersPageViewModel : ViewModelBase
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    [RelayCommand]
+    private void SetParameterValue(int value)
+    {
+        if (SelectedParameter != null)
+        {
+            SelectedParameter.Value = value;
         }
     }
 
@@ -386,6 +504,7 @@ public partial class ParametersPageViewModel : ViewModelBase
                     OriginalValue = value,
                     Description = "Imported parameter"
                 };
+                _metadataService.EnrichParameter(newParam);
                 newParam.PropertyChanged += OnParameterPropertyChanged;
                 Parameters.Add(newParam);
                 _originalValues[name] = value;
@@ -515,4 +634,14 @@ public partial class ParametersPageViewModel : ViewModelBase
         }
         base.Dispose(disposing);
     }
+}
+
+/// <summary>
+/// Represents a selectable value option for enum-type parameters.
+/// </summary>
+public class ParameterValueOption
+{
+    public int Value { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string Display => $"{Value}: {Label}";
 }

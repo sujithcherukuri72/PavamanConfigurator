@@ -32,6 +32,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _canAccessAirframe;
 
     public ConnectionPageViewModel ConnectionPage { get; }
+    public DroneDetailsPageViewModel DroneDetailsPage { get; }
     public AirframePageViewModel AirframePage { get; }
     public ParametersPageViewModel ParametersPage { get; }
     public SafetyPageViewModel SafetyPage { get; }
@@ -51,6 +52,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel(
         ConnectionPageViewModel connectionPage,
+        DroneDetailsPageViewModel droneDetailsPage,
         AirframePageViewModel airframePage,
         ParametersPageViewModel parametersPage,
         SafetyPageViewModel safetyPage,
@@ -66,6 +68,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IConnectionService connectionService)
     {
         ConnectionPage = connectionPage;
+        DroneDetailsPage = droneDetailsPage;
         AirframePage = airframePage;
         ParametersPage = parametersPage;
         SafetyPage = safetyPage;

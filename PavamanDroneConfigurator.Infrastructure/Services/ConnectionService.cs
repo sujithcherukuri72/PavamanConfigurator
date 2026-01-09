@@ -15,10 +15,6 @@ using System.Threading.Tasks;
 
 namespace PavamanDroneConfigurator.Infrastructure.Services;
 
-/// <summary>
-/// Service for managing drone connections via Serial, TCP, or Bluetooth.
-/// Handles MAVLink communication and parameter transfer.
-/// </summary>
 public sealed class ConnectionService : IConnectionService, IDisposable
 {
     private readonly ILogger<ConnectionService> _logger;
@@ -35,14 +31,16 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     
     private bool _isConnected;
     private bool _disposed;
+    private bool _isDisconnecting;
     private ConnectionType _currentConnectionType;
 
     private readonly System.Timers.Timer _portScanTimer;
-    private readonly System.Timers.Timer _heartbeatMonitorTimer;
-    private DateTime _lastHeartbeatTime = DateTime.MinValue;
-    private const int HEARTBEAT_TIMEOUT_SECONDS = 5;
+    private readonly System.Timers.Timer _connectionMonitorTimer;
     
     private List<SerialPortInfo> _cachedPorts = new();
+    private DateTime _lastDataReceivedTime;
+    private const int CONNECTION_MONITOR_INTERVAL_MS = 5000;
+    private const int CONNECTION_TIMEOUT_SECONDS = 30;
 
     public bool IsConnected => _isConnected;
 
@@ -62,30 +60,40 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _portScanTimer = new System.Timers.Timer(3000);
         _portScanTimer.Elapsed += (_, _) => ScanSerialPorts();
         _portScanTimer.Start();
-        
-        // Heartbeat monitor to detect connection loss
-        _heartbeatMonitorTimer = new System.Timers.Timer(2000);
-        _heartbeatMonitorTimer.Elapsed += OnHeartbeatMonitorElapsed;
+
+        _connectionMonitorTimer = new System.Timers.Timer(CONNECTION_MONITOR_INTERVAL_MS);
+        _connectionMonitorTimer.Elapsed += MonitorConnection;
         
         ScanSerialPorts();
     }
 
-    private void OnHeartbeatMonitorElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    private void MonitorConnection(object? sender, System.Timers.ElapsedEventArgs e)
     {
-        if (!_isConnected) return;
-        
-        var timeSinceLastHeartbeat = DateTime.UtcNow - _lastHeartbeatTime;
-        if (timeSinceLastHeartbeat.TotalSeconds > HEARTBEAT_TIMEOUT_SECONDS)
+        if (!_isConnected || _isDisconnecting)
+            return;
+
+        try
         {
-            _logger.LogWarning("Heartbeat timeout - connection lost (no heartbeat for {Seconds}s)", 
-                timeSinceLastHeartbeat.TotalSeconds);
-            
-            // Connection lost - disconnect and notify
-            _ = Task.Run(async () =>
+            var timeSinceLastData = DateTime.UtcNow - _lastDataReceivedTime;
+            if (timeSinceLastData.TotalSeconds > CONNECTION_TIMEOUT_SECONDS)
             {
-                await DisconnectAsync();
-            });
+                _logger.LogWarning("Connection timeout - no MAVLink data received for {Seconds}s", timeSinceLastData.TotalSeconds);
+                _ = Task.Run(async () => await HandleConnectionLostAsync());
+            }
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in connection monitor");
+        }
+    }
+
+    private async Task HandleConnectionLostAsync()
+    {
+        if (_isDisconnecting)
+            return;
+
+        _logger.LogWarning("Handling connection loss");
+        await DisconnectAsync();
     }
 
     public IEnumerable<SerialPortInfo> GetAvailableSerialPorts()
@@ -146,7 +154,6 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
         catch
         {
-            // WMI not available
         }
         
         return portName;
@@ -175,6 +182,8 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         {
             await DisconnectAsync();
         }
+
+        _isDisconnecting = false;
 
         try
         {
@@ -219,15 +228,14 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _inputStream = _serialPort.BaseStream;
         _outputStream = _serialPort.BaseStream;
 
+        var heartbeatTask = WaitForHeartbeatAsync(TimeSpan.FromSeconds(10));
         InitializeMavlink();
-        
-        // Wait for heartbeat
-        var heartbeatReceived = await WaitForHeartbeatAsync(TimeSpan.FromSeconds(10));
+        var heartbeatReceived = await heartbeatTask;
         
         if (heartbeatReceived)
         {
             SetConnected(true);
-            StartHeartbeatMonitor();
+            _connectionMonitorTimer.Start();
             _logger.LogInformation("Serial connection established");
             return true;
         }
@@ -242,28 +250,77 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _logger.LogInformation("Connecting to TCP {Host}:{Port}", 
             settings.IpAddress, settings.Port);
 
-        _tcpClient = new TcpClient();
-        await _tcpClient.ConnectAsync(settings.IpAddress ?? "127.0.0.1", settings.Port);
-        _networkStream = _tcpClient.GetStream();
-        
-        _inputStream = _networkStream;
-        _outputStream = _networkStream;
-
-        InitializeMavlink();
-        
-        var heartbeatReceived = await WaitForHeartbeatAsync(TimeSpan.FromSeconds(10));
-        
-        if (heartbeatReceived)
+        try
         {
-            SetConnected(true);
-            StartHeartbeatMonitor();
-            _logger.LogInformation("TCP connection established");
-            return true;
-        }
+            _tcpClient = new TcpClient
+            {
+                NoDelay = true,
+                ReceiveTimeout = 30000,
+                SendTimeout = 5000,
+                ReceiveBufferSize = 8192,
+                SendBufferSize = 8192
+            };
 
-        _logger.LogWarning("No heartbeat received on TCP connection");
-        await DisconnectAsync();
-        return false;
+            var connectTask = _tcpClient.ConnectAsync(settings.IpAddress ?? "127.0.0.1", settings.Port);
+            var timeoutTask = Task.Delay(10000);
+            
+            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                _tcpClient?.Close();
+                _tcpClient?.Dispose();
+                _tcpClient = null;
+                throw new TimeoutException("TCP connection timed out after 10 seconds");
+            }
+
+            if (!_tcpClient.Connected)
+            {
+                throw new SocketException((int)SocketError.ConnectionRefused);
+            }
+
+            _tcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            _tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 5);
+            _tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 1);
+            _tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+
+            _networkStream = _tcpClient.GetStream();
+            
+            if (_networkStream == null)
+            {
+                throw new IOException("Failed to get network stream from TCP client");
+            }
+
+            _networkStream.ReadTimeout = 30000;
+            _networkStream.WriteTimeout = 5000;
+            
+            _inputStream = _networkStream;
+            _outputStream = _networkStream;
+
+            _logger.LogInformation("TCP socket connected, initializing MAVLink");
+
+            var heartbeatTask = WaitForHeartbeatAsync(TimeSpan.FromSeconds(15));
+            InitializeMavlink();
+            var heartbeatReceived = await heartbeatTask;
+            
+            if (heartbeatReceived)
+            {
+                SetConnected(true);
+                _connectionMonitorTimer.Start();
+                _logger.LogInformation("TCP connection established and verified");
+                return true;
+            }
+
+            _logger.LogWarning("No heartbeat received on TCP connection within 15 seconds");
+            await DisconnectAsync();
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "TCP connection failed");
+            await DisconnectAsync();
+            throw;
+        }
     }
 
     private async Task<bool> ConnectBluetoothAsync(ConnectionSettings settings)
@@ -284,24 +341,15 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 return false;
             }
 
-            // For Bluetooth, we use the BluetoothMavConnection's internal MAVLink handling
-            _bluetoothConnection.HeartbeatReceived += (s, e) => 
-            {
-                _lastHeartbeatTime = DateTime.UtcNow;
-                HeartbeatReceived?.Invoke(this, EventArgs.Empty);
-            };
-            _bluetoothConnection.ParamValueReceived += (s, e) =>
-            {
-                var param = new DroneParameter { Name = e.Name, Value = e.Value };
-                ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(param, e.Index, e.Count));
-            };
+            _bluetoothConnection.HeartbeatReceived += OnBluetoothHeartbeat;
+            _bluetoothConnection.ParamValueReceived += OnBluetoothParamValue;
             
             var heartbeatReceived = await WaitForHeartbeatAsync(TimeSpan.FromSeconds(15));
             
             if (heartbeatReceived)
             {
                 SetConnected(true);
-                StartHeartbeatMonitor();
+                _connectionMonitorTimer.Start();
                 _logger.LogInformation("Bluetooth connection established");
                 return true;
             }
@@ -336,16 +384,20 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _mavlink.RcChannelsReceived += OnMavlinkRcChannels;
         _mavlink.CommandAckReceived += OnMavlinkCommandAck;
         _mavlink.Initialize(_inputStream, _outputStream);
+        
+        _lastDataReceivedTime = DateTime.UtcNow;
+        _logger.LogDebug("MAVLink initialized successfully");
     }
 
     private void OnMavlinkHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
     {
-        _lastHeartbeatTime = DateTime.UtcNow;
+        _lastDataReceivedTime = DateTime.UtcNow;
         HeartbeatReceived?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnMavlinkParamValue(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
     {
+        _lastDataReceivedTime = DateTime.UtcNow;
         var param = new DroneParameter
         {
             Name = e.Name,
@@ -357,6 +409,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private void OnMavlinkHeartbeatData(object? sender, HeartbeatData e)
     {
+        _lastDataReceivedTime = DateTime.UtcNow;
         HeartbeatDataReceived?.Invoke(this, new HeartbeatDataEventArgs
         {
             SystemId = e.SystemId,
@@ -371,6 +424,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private void OnMavlinkStatusText(object? sender, (byte Severity, string Text) e)
     {
+        _lastDataReceivedTime = DateTime.UtcNow;
         _logger.LogInformation("StatusText [{Severity}]: {Text}", e.Severity, e.Text);
         StatusTextReceived?.Invoke(this, new StatusTextEventArgs
         {
@@ -381,6 +435,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private void OnMavlinkRcChannels(object? sender, RcChannelsData e)
     {
+        _lastDataReceivedTime = DateTime.UtcNow;
         RcChannelsReceived?.Invoke(this, new RcChannelsEventArgs
         {
             Channel1 = e.Channel1,
@@ -398,11 +453,25 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private void OnMavlinkCommandAck(object? sender, (ushort Command, byte Result) e)
     {
+        _lastDataReceivedTime = DateTime.UtcNow;
         CommandAckReceived?.Invoke(this, new CommandAckEventArgs
         {
             Command = e.Command,
             Result = e.Result
         });
+    }
+
+    private void OnBluetoothHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
+    {
+        _lastDataReceivedTime = DateTime.UtcNow;
+        HeartbeatReceived?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnBluetoothParamValue(object? sender, (string Name, float Value, ushort Index, ushort Count) e)
+    {
+        _lastDataReceivedTime = DateTime.UtcNow;
+        var param = new DroneParameter { Name = e.Name, Value = e.Value };
+        ParamValueReceived?.Invoke(this, new MavlinkParamValueEventArgs(param, e.Index, e.Count));
     }
 
     private async Task<bool> WaitForHeartbeatAsync(TimeSpan timeout)
@@ -428,24 +497,15 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
     }
 
-    private void StartHeartbeatMonitor()
+    public async Task DisconnectAsync()
     {
-        _lastHeartbeatTime = DateTime.UtcNow;
-        _heartbeatMonitorTimer.Start();
-        _logger.LogDebug("Heartbeat monitor started");
-    }
+        if (_isDisconnecting)
+            return;
 
-    private void StopHeartbeatMonitor()
-    {
-        _heartbeatMonitorTimer.Stop();
-        _logger.LogDebug("Heartbeat monitor stopped");
-    }
-
-    public Task DisconnectAsync()
-    {
+        _isDisconnecting = true;
         _logger.LogInformation("Disconnecting...");
 
-        StopHeartbeatMonitor();
+        _connectionMonitorTimer.Stop();
 
         try
         {
@@ -453,20 +513,31 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             {
                 _mavlink.HeartbeatReceived -= OnMavlinkHeartbeat;
                 _mavlink.ParamValueReceived -= OnMavlinkParamValue;
+                _mavlink.HeartbeatDataReceived -= OnMavlinkHeartbeatData;
+                _mavlink.StatusTextReceived -= OnMavlinkStatusText;
+                _mavlink.RcChannelsReceived -= OnMavlinkRcChannels;
+                _mavlink.CommandAckReceived -= OnMavlinkCommandAck;
                 _mavlink.Dispose();
                 _mavlink = null;
             }
 
-            _bluetoothConnection?.Dispose();
-            _bluetoothConnection = null;
+            if (_bluetoothConnection != null)
+            {
+                _bluetoothConnection.HeartbeatReceived -= OnBluetoothHeartbeat;
+                _bluetoothConnection.ParamValueReceived -= OnBluetoothParamValue;
+                _bluetoothConnection.Dispose();
+                _bluetoothConnection = null;
+            }
 
-            _networkStream?.Dispose();
+            try { await (_networkStream?.DisposeAsync() ?? ValueTask.CompletedTask); } catch { }
             _networkStream = null;
 
-            _tcpClient?.Dispose();
+            try { _tcpClient?.Close(); } catch { }
+            try { _tcpClient?.Dispose(); } catch { }
             _tcpClient = null;
 
-            _serialPort?.Dispose();
+            try { _serialPort?.Close(); } catch { }
+            try { _serialPort?.Dispose(); } catch { }
             _serialPort = null;
 
             _inputStream = null;
@@ -478,9 +549,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
 
         SetConnected(false);
+        _isDisconnecting = false;
         _logger.LogInformation("Disconnected");
         
-        return Task.CompletedTask;
+        await Task.CompletedTask;
     }
 
     public Stream? GetTransportStream() => _inputStream;
@@ -638,9 +710,9 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
         _portScanTimer.Stop();
         _portScanTimer.Dispose();
-        
-        _heartbeatMonitorTimer.Stop();
-        _heartbeatMonitorTimer.Dispose();
+
+        _connectionMonitorTimer.Stop();
+        _connectionMonitorTimer.Dispose();
 
         DisconnectAsync().Wait(TimeSpan.FromSeconds(2));
     }
@@ -653,7 +725,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             if (x == null || y == null) return false;
             return x.PortName == y.PortName && x.FriendlyName == y.FriendlyName;
         }
-
+                        
         public int GetHashCode(SerialPortInfo obj)
         {
             return HashCode.Combine(obj.PortName, obj.FriendlyName);

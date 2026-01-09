@@ -44,7 +44,6 @@ public class CalibrationService : ICalibrationService
     private readonly object _lock = new();
     
     // Timeouts
-    private CancellationTokenSource? _timeoutCts;
     private const int COMMAND_ACK_TIMEOUT_MS = 5000;
     private const int POSITION_SAMPLE_TIMEOUT_MS = 30000;
     private const int CALIBRATION_TIMEOUT_MS = 300000; // 5 minutes max
@@ -841,8 +840,6 @@ public class CalibrationService : ICalibrationService
 
     private void FinishCalibration(CalibrationResult result, string message)
     {
-        _timeoutCts?.Cancel();
-        
         var finalState = result switch
         {
             CalibrationResult.Success => CalibrationStateMachine.Completed,

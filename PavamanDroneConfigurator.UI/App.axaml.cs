@@ -52,6 +52,8 @@ public partial class App : Application
         services.AddSingleton<ISerialConfigService, SerialConfigService>();
         services.AddSingleton<IRcCalibrationService, RcCalibrationService>();
         services.AddSingleton<ISensorConfigService, SensorConfigService>();
+        services.AddSingleton<IParameterMetadataService, ParameterMetadataService>();
+        services.AddSingleton<IDroneInfoService, DroneInfoService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -68,6 +70,7 @@ public partial class App : Application
         services.AddTransient<SerialConfigPageViewModel>();
         services.AddTransient<RcCalibrationPageViewModel>();
         services.AddTransient<SensorsCalibrationPageViewModel>();
+        services.AddTransient<DroneDetailsPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

@@ -5,184 +5,252 @@
              x:DataType="vm:PidTuningPageViewModel">
 
     <UserControl.Styles>
-        <!-- Aviation-Grade Color System -->
+        <!-- Modern Color System -->
         <Style Selector="TextBlock.PageTitle">
-            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontSize" Value="32"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#0B5ED7"/>
+            <Setter Property="Foreground" Value="#3B82F6"/>
         </Style>
         
         <Style Selector="TextBlock.PageSubtitle">
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="#64748B"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
         </Style>
         
-        <Style Selector="Border.SectionCard">
+        <!-- Modern Card Style with Shadow -->
+        <Style Selector="Border.TuningCard">
             <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="24"/>
-            <Setter Property="Margin" Value="0,0,0,20"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,24"/>
+            <Setter Property="BoxShadow" Value="0 2 8 0 #10000000, 0 1 3 0 #10000000"/>
         </Style>
         
-        <Style Selector="TextBlock.SectionTitle">
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#0B5ED7"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+        <Style Selector="Border.TuningCard:pointerover">
+            <Setter Property="BoxShadow" Value="0 4 12 0 #15000000, 0 2 6 0 #10000000"/>
         </Style>
         
-        <Style Selector="TextBlock.SectionSubtitle">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="#64748B"/>
-            <Setter Property="Margin" Value="0,0,0,16"/>
-        </Style>
-        
-        <Style Selector="TextBlock.FieldLabel">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="Foreground" Value="#0B5ED7"/>
+        <Style Selector="TextBlock.CardLabel">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#111827"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         
-        <Style Selector="TextBlock.HelpText">
+        <Style Selector="TextBlock.CardDescription">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        
+        <Style Selector="TextBlock.RangeLabel">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#EF4444"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
         </Style>
         
-        <Style Selector="TextBlock.RangeText">
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
+        <!-- Enhanced Slider Style -->
+        <Style Selector="Slider">
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="MinWidth" Value="300"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         
-        <Style Selector="Button.Primary">
-            <Setter Property="Background" Value="#0B5ED7"/>
-            <Setter Property="Foreground" Value="White"/>
+        <Style Selector="Slider /template/ Track#PART_Track">
+            <Setter Property="Height" Value="6"/>
+        </Style>
+        
+        <Style Selector="Slider /template/ Thumb">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Slider /template/ Thumb:pointerover">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+        
+        <!-- Enhanced NumericUpDown Style -->
+        <Style Selector="NumericUpDown">
+            <Setter Property="MinWidth" Value="140"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        
+        <!-- Center align the TextBox inside NumericUpDown -->
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        
+        <Style Selector="NumericUpDown:focus">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        
+        <!-- Larger Spinner Buttons -->
+        <Style Selector="NumericUpDown /template/ RepeatButton">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="FontSize" Value="18"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         
-        <Style Selector="Button.Primary:pointerover">
-            <Setter Property="Background" Value="#084298"/>
-        </Style>
-        
-        <Style Selector="Button.Secondary">
-            <Setter Property="Background" Value="#6C757D"/>
+        <!-- Primary Button -->
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#3B82F6"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
-        <Style Selector="Button.Secondary:pointerover">
-            <Setter Property="Background" Value="#5A6268"/>
+        <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+        
+        <!-- Secondary Button -->
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F9FAFB"/>
         </Style>
         
         <!-- Tab Button Styles -->
         <Style Selector="Button.TabButton">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="24,12"/>
-            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="28,14"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="MinWidth" Value="140"/>
+            <Setter Property="MinWidth" Value="160"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
-        <Style Selector="Button.TabButton:pointerover">
-            <Setter Property="Background" Value="#E2E8F0"/>
+        <Style Selector="Button.TabButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F3F4F6"/>
         </Style>
         
         <Style Selector="Button.TabButtonActive">
-            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Padding" Value="24,12"/>
-            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="28,14"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="MinWidth" Value="140"/>
+            <Setter Property="MinWidth" Value="160"/>
         </Style>
         
         <!-- Axis Toggle Styles -->
         <Style Selector="RadioButton.AxisToggle">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#64748B"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="CornerRadius" Value="16"/>
-            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="2"/>
         </Style>
         
         <Style Selector="RadioButton.AxisToggle:checked">
-            <Setter Property="Background" Value="#0B5ED7"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
         </Style>
         
-        <Style Selector="Slider">
-            <Setter Property="MinWidth" Value="300"/>
-        </Style>
-        
-        <Style Selector="NumericUpDown">
-            <Setter Property="MinWidth" Value="100"/>
-            <Setter Property="CornerRadius" Value="8"/>
-        </Style>
-        
-        <Style Selector="ComboBox">
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="MinWidth" Value="150"/>
-        </Style>
-        
-        <Style Selector="CheckBox">
-            <Setter Property="Margin" Value="0,0,16,0"/>
-        </Style>
-        
+        <!-- Summary Card -->
         <Style Selector="Border.SummaryCard">
-            <Setter Property="Background" Value="#F8FAFC"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="Background" Value="#F9FAFB"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="20"/>
-            <Setter Property="MinWidth" Value="280"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="MinWidth" Value="320"/>
+            <Setter Property="BoxShadow" Value="0 2 8 0 #10000000"/>
         </Style>
     </UserControl.Styles>
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24" MaxWidth="1600">
+        <StackPanel Margin="32,24" MaxWidth="1600">
             
             <!-- HEADER SECTION -->
-            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,24">
                 <StackPanel Grid.Column="0">
                     <TextBlock Classes="PageTitle" Text="PID TUNING"/>
                     <TextBlock Classes="PageSubtitle" Text="Configure flight controller PID gains"/>
                 </StackPanel>
                 
-                <Button Grid.Column="1" Classes="Secondary" Command="{Binding RefreshCommand}" Margin="0,0,8,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="?" FontSize="16"/>
+                <Button Grid.Column="1" Classes="Secondary" Command="{Binding RefreshCommand}" Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="??" FontSize="18"/>
                         <TextBlock Text="Refresh"/>
                     </StackPanel>
                 </Button>
                 
                 <Button Grid.Column="2" Classes="Primary" Command="{Binding UpdateCommand}">
-                    <TextBlock Text="Update"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="??" FontSize="18"/>
+                        <TextBlock Text="Update"/>
+                    </StackPanel>
                 </Button>
             </Grid>
 
             <!-- STATUS BAR -->
-            <Border Background="#F5F5F5" CornerRadius="6" Padding="12" Margin="0,0,0,16" IsVisible="{Binding IsBusy}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
-                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+            <Border Background="#EFF6FF" 
+                    BorderBrush="#BFDBFE" 
+                    BorderThickness="1"
+                    CornerRadius="12" 
+                    Padding="16" 
+                    Margin="0,0,0,24" 
+                    IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ProgressBar Width="24" Height="24" IsIndeterminate="True" Foreground="#3B82F6"/>
+                    <TextBlock Text="{Binding StatusMessage}" 
+                               VerticalAlignment="Center" 
+                               Foreground="#1E40AF"
+                               FontSize="14"
+                               FontWeight="Medium"/>
                 </StackPanel>
             </Border>
 
             <!-- TAB SELECTOR -->
-            <Border Background="#F1F5F9" CornerRadius="28" Padding="4" Margin="0,0,0,24" HorizontalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+            <Border Background="#F9FAFB" 
+                    CornerRadius="16" 
+                    Padding="8" 
+                    Margin="0,0,0,32" 
+                    HorizontalAlignment="Center"
+                    BoxShadow="inset 0 2 4 0 #10000000">
+                <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button Classes.TabButtonActive="{Binding IsBasicTuningSelected}"
                             Classes.TabButton="{Binding !IsBasicTuningSelected}"
                             Command="{Binding SelectBasicTuningCommand}"
@@ -199,7 +267,7 @@
             </Border>
 
             <!-- MAIN CONTENT AREA -->
-            <Grid ColumnDefinitions="*,20,Auto">
+            <Grid ColumnDefinitions="*,32,Auto">
                 
                 <!-- LEFT: TUNING CONTROLS -->
                 <StackPanel Grid.Column="0">
@@ -208,98 +276,134 @@
                     <StackPanel IsVisible="{Binding IsBasicTuningSelected}">
                         
                         <!-- RC Feel Roll/Pitch -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="RC Feel Roll/Pitch"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0" Maximum="1" 
+                                <TextBlock Classes="CardLabel" Text="RC Feel Roll/Pitch"/>
+                                <TextBlock Classes="CardDescription" Text="Slide left: Softer response, Slide right: Crisper response"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.00"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0" 
+                                            Maximum="1" 
                                             Value="{Binding RcFeelRollPitch}"
-                                            TickFrequency="0.1"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.01"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding RcFeelRollPitch}"
-                                                   Minimum="0" Maximum="1"
+                                                   Minimum="0" 
+                                                   Maximum="1"
                                                    Increment="0.01"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F2"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.00"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <TextBlock Classes="HelpText" Text="Slide left : Softer response, Slide right : Crisper response"/>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="1.0" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Roll/Pitch Sensitivity -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Roll/Pitch Sensitivity"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0.01" Maximum="0.5" 
+                                <TextBlock Classes="CardLabel" Text="Roll/Pitch Sensitivity"/>
+                                <TextBlock Classes="CardDescription" Text="Slide left: Copter is twitchy, Slide right: Copter is sluggish"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.01"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0.01" 
+                                            Maximum="0.5" 
                                             Value="{Binding RollPitchSensitivity}"
-                                            TickFrequency="0.05"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.01"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding RollPitchSensitivity}"
-                                                   Minimum="0.01" Maximum="0.5"
+                                                   Minimum="0.01" 
+                                                   Maximum="0.5"
                                                    Increment="0.001"
-                                                   FormatString="F3"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F3"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <TextBlock Classes="HelpText" Text="Slide left:Copter is twitchy, Slide right: Copter is sluggish"/>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="0.5" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Climb Sensitivity -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Climb Sensitivity"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0.3" Maximum="1" 
+                                <TextBlock Classes="CardLabel" Text="Climb Sensitivity"/>
+                                <TextBlock Classes="CardDescription" Text="Slide left: Climb more gently, Slide right: Climb more aggressively"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.3"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0.3" 
+                                            Maximum="1" 
                                             Value="{Binding ClimbSensitivity}"
-                                            TickFrequency="0.1"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.01"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding ClimbSensitivity}"
-                                                   Minimum="0.3" Maximum="1"
+                                                   Minimum="0.3" 
+                                                   Maximum="1"
                                                    Increment="0.01"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F2"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.3"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <TextBlock Classes="HelpText" Text="Slide left: Climb more gently, Slide right: Climb more aggressively"/>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="1.0" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Spin While Armed -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Spin While Armed"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0" Maximum="1" 
+                                <TextBlock Classes="CardLabel" Text="Spin While Armed"/>
+                                <TextBlock Classes="CardDescription" Text="Adjust the motors spin for arming status"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.0"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0" 
+                                            Maximum="1" 
                                             Value="{Binding SpinWhileArmed}"
-                                            TickFrequency="0.1"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.01"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding SpinWhileArmed}"
-                                                   Minimum="0" Maximum="1"
+                                                   Minimum="0" 
+                                                   Maximum="1"
                                                    Increment="0.01"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F2"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.0"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="1.0" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <TextBlock Classes="HelpText" Foreground="#64748B" Text="Adjust the motors spin for arming status"/>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="1.0" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -308,8 +412,13 @@
                     <StackPanel IsVisible="{Binding IsAdvancedTuningSelected}">
                         
                         <!-- Axis Selector -->
-                        <Border Background="#F1F5F9" CornerRadius="20" Padding="4" Margin="0,0,0,20" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Background="#F9FAFB" 
+                                CornerRadius="12" 
+                                Padding="8" 
+                                Margin="0,0,0,24" 
+                                HorizontalAlignment="Left"
+                                BoxShadow="inset 0 2 4 0 #10000000">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
                                 <RadioButton Content="Roll" 
                                              IsChecked="{Binding IsRollSelected}"
                                              GroupName="AxisGroup"
@@ -326,94 +435,134 @@
                         </Border>
                         
                         <!-- Angle Controller P Gain -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Roll Axis Angle Controller P Gain"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="3" Maximum="12" 
+                                <TextBlock Classes="CardLabel" Text="Angle Controller P Gain"/>
+                                <TextBlock Classes="CardDescription" Text="Stabilize mode responsiveness"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="3"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="3" 
+                                            Maximum="12" 
                                             Value="{Binding AngleP}"
-                                            TickFrequency="1"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.1"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding AngleP}"
-                                                   Minimum="3" Maximum="12"
+                                                   Minimum="3" 
+                                                   Maximum="12"
                                                    Increment="0.1"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F1"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="3"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="12" HorizontalAlignment="Right"/>
-                                </Grid>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="12" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Rate Controller P Gain -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller P Gain"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0.01" Maximum="0.5" 
+                                <TextBlock Classes="CardLabel" Text="Rate Controller P Gain"/>
+                                <TextBlock Classes="CardDescription" Text="Proportional gain for rate control"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.01"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0.01" 
+                                            Maximum="0.5" 
                                             Value="{Binding RateP}"
-                                            TickFrequency="0.05"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.001"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding RateP}"
-                                                   Minimum="0.01" Maximum="0.5"
+                                                   Minimum="0.01" 
+                                                   Maximum="0.5"
                                                    Increment="0.001"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F3"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
-                                </Grid>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="0.5" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Rate Controller I Gain -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller I Gain"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0.01" Maximum="2" 
+                                <TextBlock Classes="CardLabel" Text="Rate Controller I Gain"/>
+                                <TextBlock Classes="CardDescription" Text="Integral gain for steady-state error"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.01"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0.01" 
+                                            Maximum="2" 
                                             Value="{Binding RateI}"
-                                            TickFrequency="0.2"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.01"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding RateI}"
-                                                   Minimum="0.01" Maximum="2"
+                                                   Minimum="0.01" 
+                                                   Maximum="2"
                                                    Increment="0.001"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F3"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.01"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="2" HorizontalAlignment="Right"/>
-                                </Grid>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="2.0" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                         
                         <!-- Rate Controller D Gain -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="FieldLabel" Text="Roll Axis Rate Controller D Gain"/>
-                                <Grid ColumnDefinitions="*,120">
-                                    <Slider Grid.Column="0" 
-                                            Minimum="0" Maximum="0.5" 
+                                <TextBlock Classes="CardLabel" Text="Rate Controller D Gain"/>
+                                <TextBlock Classes="CardDescription" Text="Derivative gain for dampening"/>
+                                
+                                <Grid ColumnDefinitions="80,*,140" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" 
+                                               Classes="RangeLabel" 
+                                               Text="0.0"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Left"/>
+                                    <Slider Grid.Column="1" 
+                                            Minimum="0" 
+                                            Maximum="0.5" 
                                             Value="{Binding RateD}"
-                                            TickFrequency="0.05"/>
-                                    <NumericUpDown Grid.Column="1" 
+                                            TickFrequency="0.0001"
+                                            VerticalAlignment="Center"/>
+                                    <NumericUpDown Grid.Column="2" 
                                                    Value="{Binding RateD}"
-                                                   Minimum="0" Maximum="0.5"
+                                                   Minimum="0" 
+                                                   Maximum="0.5"
                                                    Increment="0.0001"
-                                                   FormatString="F4"
-                                                   Margin="12,0,0,0"/>
+                                                   FormatString="F4"/>
                                 </Grid>
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-                                    <TextBlock Grid.Column="0" Classes="RangeText" Text="0.0"/>
-                                    <TextBlock Grid.Column="1" Classes="RangeText" Text="0.5" HorizontalAlignment="Right"/>
-                                </Grid>
+                                
+                                <TextBlock Classes="RangeLabel" 
+                                           Text="0.5" 
+                                           HorizontalAlignment="Right"
+                                           Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -422,65 +571,93 @@
                     <StackPanel IsVisible="{Binding IsAutoTuningSelected}">
                         
                         <!-- Axes to AutoTune -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="SectionTitle" Text="Axes to AutoTune:"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                    <CheckBox Content="Roll" IsChecked="{Binding AutoTuneRoll}"/>
-                                    <CheckBox Content="Pitch" IsChecked="{Binding AutoTunePitch}"/>
-                                    <CheckBox Content="Yaw" IsChecked="{Binding AutoTuneYaw}"/>
+                                <TextBlock Classes="CardLabel" Text="Axes to AutoTune"/>
+                                <TextBlock Classes="CardDescription" Text="Select which axes to automatically tune"/>
+                                <StackPanel Orientation="Horizontal" Spacing="20" Margin="0,8,0,0">
+                                    <CheckBox Content="Roll" IsChecked="{Binding AutoTuneRoll}" FontSize="14" FontWeight="Medium"/>
+                                    <CheckBox Content="Pitch" IsChecked="{Binding AutoTunePitch}" FontSize="14" FontWeight="Medium"/>
+                                    <CheckBox Content="Yaw" IsChecked="{Binding AutoTuneYaw}" FontSize="14" FontWeight="Medium"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
                         
                         <!-- Channel for AutoTune Switch -->
-                        <Border Classes="SectionCard">
-                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-                                <StackPanel Grid.Column="0" Grid.Row="0">
-                                    <TextBlock Classes="FieldLabel" Text="Channel for AutoTune switch"/>
+                        <Border Classes="TuningCard">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="CardLabel" Text="AutoTune Switch Channel"/>
+                                    <TextBlock Classes="CardDescription" Text="RC channel to trigger AutoTune" Margin="0,0,0,12"/>
                                     <ComboBox ItemsSource="{Binding AutoTuneChannelOptions}"
                                               SelectedItem="{Binding SelectedAutoTuneChannel}"
                                               DisplayMemberBinding="{Binding Label}"
-                                              MinWidth="180"/>
+                                              Height="48"
+                                              CornerRadius="12"
+                                              BorderThickness="2"
+                                              FontSize="14"
+                                              MinWidth="200"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Grid.Row="0" Margin="24,0,0,0">
-                                    <TextBlock Classes="FieldLabel" Text="None"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Classes="CardLabel" Text="Channel Value"/>
+                                    <TextBlock Classes="CardDescription" Text="Current channel reading" Margin="0,0,0,12"/>
                                     <NumericUpDown Value="0" 
                                                    IsEnabled="False"
-                                                   MinWidth="100"/>
+                                                   Height="48"
+                                                   MinWidth="140"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
                         
                         <!-- In Flight Tuning Section -->
-                        <Border Classes="SectionCard">
+                        <Border Classes="TuningCard">
                             <StackPanel>
-                                <TextBlock Classes="SectionTitle" Text="In Flight Tuning"/>
-                                <TextBlock Classes="SectionSubtitle" Text="Configure real-time parameter adjustment via RC transmitter"/>
+                                <TextBlock Classes="CardLabel" Text="In-Flight Tuning"/>
+                                <TextBlock Classes="CardDescription" Text="Configure real-time parameter adjustment via RC transmitter" Margin="0,0,0,16"/>
                                 
-                                <Grid ColumnDefinitions="*,*,*" Margin="0,12,0,0">
+                                <Grid ColumnDefinitions="2*,*,*" ColumnSpacing="20">
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Classes="FieldLabel" Text="RC Channel 6 Option (Tuning)"/>
+                                        <TextBlock Text="RC Channel 6 Option" 
+                                                   FontSize="13" 
+                                                   FontWeight="Medium" 
+                                                   Foreground="#6B7280"
+                                                   Margin="0,0,0,8"/>
                                         <ComboBox ItemsSource="{Binding InFlightTuningOptions}"
                                                   SelectedItem="{Binding SelectedTuneOption}"
                                                   DisplayMemberBinding="{Binding Label}"
-                                                  MinWidth="180"/>
+                                                  Height="48"
+                                                  CornerRadius="12"
+                                                  BorderThickness="2"
+                                                  FontSize="14"
+                                                  MinWidth="220"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="24,0,0,0">
-                                        <TextBlock Classes="FieldLabel" Text="Min"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Min" 
+                                                   FontSize="13" 
+                                                   FontWeight="Medium" 
+                                                   Foreground="#6B7280"
+                                                   Margin="0,0,0,8"/>
                                         <NumericUpDown Value="{Binding TuneMin}"
-                                                       Minimum="0" Maximum="1000"
+                                                       Minimum="0" 
+                                                       Maximum="1000"
                                                        Increment="0.01"
                                                        FormatString="F2"
-                                                       MinWidth="100"/>
+                                                       Height="48"
+                                                       MinWidth="120"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2" Margin="24,0,0,0">
-                                        <TextBlock Classes="FieldLabel" Text="Max"/>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Max" 
+                                                   FontSize="13" 
+                                                   FontWeight="Medium" 
+                                                   Foreground="#6B7280"
+                                                   Margin="0,0,0,8"/>
                                         <NumericUpDown Value="{Binding TuneMax}"
-                                                       Minimum="0" Maximum="1000"
+                                                       Minimum="0" 
+                                                       Maximum="1000"
                                                        Increment="0.01"
                                                        FormatString="F2"
-                                                       MinWidth="100"/>
+                                                       Height="48"
+                                                       MinWidth="120"/>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
@@ -491,27 +668,41 @@
                 <!-- RIGHT: SUMMARY PANEL -->
                 <Border Grid.Column="2" Classes="SummaryCard" VerticalAlignment="Top">
                     <StackPanel>
-                        <TextBlock Text="Summary" 
-                                   FontSize="16" 
+                        <TextBlock Text="?? Summary" 
+                                   FontSize="18" 
                                    FontWeight="Bold" 
-                                   Foreground="#1E293B"
+                                   Foreground="#111827"
                                    HorizontalAlignment="Center"
-                                   Margin="0,0,0,16"/>
+                                   Margin="0,0,0,20"/>
                         
                         <TextBlock Text="{Binding SummaryTitle}" 
                                    FontSize="14" 
                                    FontWeight="SemiBold" 
-                                   Foreground="#0B5ED7"
-                                   Margin="0,0,0,12"/>
+                                   Foreground="#3B82F6"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,16"/>
                         
                         <ItemsControl ItemsSource="{Binding SummaryItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Margin="0,4,0,0">
-                                        <Run Text="{Binding Parameter}" FontWeight="Medium" Foreground="#475569"/>
-                                        <Run Text=": "/>
-                                        <Run Text="{Binding Value}" Foreground="#1E293B"/>
-                                    </TextBlock>
+                                    <Border Background="White" 
+                                            BorderBrush="#E5E7EB" 
+                                            BorderThickness="1"
+                                            CornerRadius="8" 
+                                            Padding="12" 
+                                            Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Parameter}" 
+                                                       FontSize="12" 
+                                                       FontWeight="Medium" 
+                                                       Foreground="#6B7280"/>
+                                            <TextBlock Text="{Binding Value}" 
+                                                       FontSize="16" 
+                                                       FontWeight="SemiBold" 
+                                                       Foreground="#111827"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -520,11 +711,16 @@
             </Grid>
 
             <!-- FOOTER INFO -->
-            <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,8,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="?" FontSize="16" VerticalAlignment="Center"/>
-                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#0B5ED7">
-                        <Run Text="Tip:"/>
+            <Border Background="#EFF6FF" 
+                    BorderBrush="#BFDBFE"
+                    BorderThickness="1"
+                    CornerRadius="12" 
+                    Padding="20" 
+                    Margin="0,16,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="??" FontSize="20" VerticalAlignment="Top"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#1E40AF" LineHeight="20">
+                        <Run Text="Tip:" FontWeight="Bold"/>
                         <Run Text="Use AutoTune for automatic PID optimization. Ensure stable hover before initiating. Advanced tuning should be done incrementally."/>
                     </TextBlock>
                 </StackPanel>

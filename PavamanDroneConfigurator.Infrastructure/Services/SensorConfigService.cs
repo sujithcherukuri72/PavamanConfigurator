@@ -16,7 +16,6 @@ public class SensorConfigService : ISensorConfigService
     private readonly IConnectionService _connectionService;
 
     public event EventHandler<SensorCalibrationConfiguration>? ConfigurationChanged;
-    public event EventHandler<CompassInfo>? CompassStatusChanged;
 
     // ArduPilot parameter names
     private static class Parameters
