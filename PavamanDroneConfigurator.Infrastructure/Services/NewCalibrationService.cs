@@ -17,16 +17,22 @@ public class NewCalibrationService : INewCalibrationService
 {
     private readonly ILogger<NewCalibrationService> _logger;
     private readonly IConnectionService _connectionService;
+    private readonly CalibrationTelemetryMonitor _telemetryMonitor;
+    private readonly CalibrationParameterHelper _parameterHelper;
     
     private readonly Dictionary<SensorCategory, Category> _categories;
     private readonly Dictionary<SensorCategory, int> _currentStepIndex;
 
     public NewCalibrationService(
         ILogger<NewCalibrationService> logger,
-        IConnectionService connectionService)
+        IConnectionService connectionService,
+        CalibrationTelemetryMonitor telemetryMonitor,
+        CalibrationParameterHelper parameterHelper)
     {
         _logger = logger;
         _connectionService = connectionService;
+        _telemetryMonitor = telemetryMonitor;
+        _parameterHelper = parameterHelper;
         
         _categories = InitializeCategories();
         _currentStepIndex = new Dictionary<SensorCategory, int>();
@@ -244,6 +250,9 @@ public class NewCalibrationService : INewCalibrationService
             throw new InvalidOperationException("Not connected to drone");
         }
 
+        // Start telemetry monitoring
+        _telemetryMonitor.StartMonitoring(category);
+
         // Reset step index
         _currentStepIndex[category] = 0;
 
@@ -362,6 +371,9 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
+        // Stop telemetry monitoring
+        _telemetryMonitor.StopMonitoring(category);
+
         // Send abort command (all params = 0 aborts calibration)
         _connectionService.SendPreflightCalibration(
             gyro: 0, mag: 0, groundPressure: 0, airspeed: 0, accel: 0);
@@ -389,6 +401,17 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
+        // Stop telemetry monitoring
+        _telemetryMonitor.StopMonitoring(category);
+
+        // Verify calibration if possible
+        bool verified = await VerifyCalibrationAsync(category, ct);
+        
+        if (!verified)
+        {
+            _logger.LogWarning("Calibration verification failed for {Category}", category);
+        }
+
         // Mark as complete
         cat.Status = Status.Complete;
         foreach (var step in cat.CalibrationSteps)
@@ -396,8 +419,33 @@ public class NewCalibrationService : INewCalibrationService
             step.StepStatus = Status.Complete;
         }
 
-        _logger.LogInformation("Calibration committed for {Category}", category);
+        _logger.LogInformation("Calibration committed for {Category} (Verified: {Verified})", 
+            category, verified);
         await Task.CompletedTask;
+    }
+
+    private async Task<bool> VerifyCalibrationAsync(SensorCategory category, CancellationToken ct)
+    {
+        try
+        {
+            switch (category)
+            {
+                case SensorCategory.Accelerometer:
+                    return await _parameterHelper.VerifyAccelCalibrationAsync(ct);
+                    
+                case SensorCategory.Compass:
+                    return await _parameterHelper.VerifyCompassCalibrationAsync(1, ct);
+                    
+                default:
+                    _logger.LogInformation("No verification available for {Category}", category);
+                    return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying calibration for {Category}", category);
+            return false;
+        }
     }
 
     public Category GetCategoryState(SensorCategory category)
