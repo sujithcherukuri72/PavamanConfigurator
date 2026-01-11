@@ -365,12 +365,26 @@
                             </StackPanel>
                         </StackPanel>
                         
-                        <!-- Progress bar -->
-                        <Grid Margin="0,8,0,0" IsVisible="{Binding IsAccelCalibrationActive}">
-                            <ProgressBar Value="{Binding AccelCalibrationProgress}" 
-                                         Maximum="100" Height="8"
-                                         Foreground="#22D3EE" Background="#E2E8F0"/>
-                        </Grid>
+                        <!-- Progress bar with percentage -->
+                        <Border Background="#E7F3FF" CornerRadius="8" Padding="12" Margin="0,8,0,0" 
+                                IsVisible="{Binding IsAccelCalibrationActive}">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" 
+                                               Text="Calibration Progress" 
+                                               FontWeight="Medium" 
+                                               Foreground="#0B5ED7"/>
+                                    <TextBlock Grid.Column="1" 
+                                               Text="{Binding AccelCalibrationProgress, StringFormat='{}{0}%'}" 
+                                               FontWeight="Bold" 
+                                               FontSize="16"
+                                               Foreground="#0B5ED7"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding AccelCalibrationProgress}" 
+                                             Maximum="100" Height="8"
+                                             Foreground="#22D3EE" Background="#CBD5E1"/>
+                            </StackPanel>
+                        </Border>
                         
                         <!-- Buttons - Hide Calibrate if sensor unavailable -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
@@ -451,10 +465,27 @@
                         <TextBlock Text="No compass sensors detected" FontSize="14" Foreground="#64748B" Margin="0,16,0,0"
                                    IsVisible="{Binding !IsCompassAvailable}"/>
                         
+                        <!-- Compass calibration progress -->
                         <Border Background="#FEF3C7" CornerRadius="8" Padding="16" Margin="0,16,0,0" IsVisible="{Binding IsCompassCalibrationActive}">
-                            <StackPanel>
-                                <TextBlock Text="{Binding CompassInstructions}" FontWeight="Bold" Foreground="#92400E"/>
-                                <ProgressBar Value="{Binding CompassCalibrationProgress}" Maximum="100" Height="8" Margin="0,8,0,0" Foreground="#F59E0B"/>
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" 
+                                               Text="{Binding CompassInstructions}" 
+                                               FontWeight="Bold" 
+                                               Foreground="#92400E"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="1" 
+                                               Text="{Binding CompassCalibrationProgress, StringFormat='{}{0}%'}" 
+                                               FontWeight="Bold" 
+                                               FontSize="16"
+                                               Foreground="#92400E"
+                                               Margin="8,0,0,0"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding CompassCalibrationProgress}" 
+                                             Maximum="100" 
+                                             Height="8" 
+                                             Foreground="#F59E0B"
+                                             Background="#FDE68A"/>
                             </StackPanel>
                         </Border>
                         
@@ -506,25 +537,79 @@
                         <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
                                 IsVisible="{Binding !IsBarometerAvailable}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="?" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="⚠" FontSize="16" Foreground="#DC2626"/>
                                 <TextBlock Text="Barometer sensor not detected. Check hardware connections." 
                                            Foreground="#DC2626" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         
                         <TextBlock Classes="StatusText" Text="{Binding PressureCalibrationStatus}"/>
-                        <TextBlock Classes="InstructionsLabel" Text="DETAILS"/>
-                        <TextBlock Classes="Instructions" Text="{Binding PressureInstructions}"/>
+                        <TextBlock Classes="InstructionsLabel" Text="CALIBRATION INFO"/>
+                        <TextBlock Classes="Instructions" Text="{Binding PressureInstructions}" Margin="0,0,0,16"/>
                         
-                        <Border Background="#F8FAFC" CornerRadius="12" Padding="24" Margin="0,16,0,0" HorizontalAlignment="Center">
-                            <StackPanel HorizontalAlignment="Center">
-                                <Ellipse Width="60" Height="60" Stroke="#3B82F6" StrokeThickness="4" Fill="White"/>
-                                <TextBlock Text="Barometer Calibration" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                        <!-- Barometer visualization with better styling -->
+                        <Border Background="#F8FAFC" CornerRadius="12" Padding="32" Margin="0,0,0,16" HorizontalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center" Spacing="12">
+                                <!-- Barometer icon -->
+                                <Border Width="80" Height="80" CornerRadius="40" 
+                                        Background="White" 
+                                        BorderBrush="#3B82F6" 
+                                        BorderThickness="4"
+                                        HorizontalAlignment="Center">
+                                    <TextBlock Text="⏱" FontSize="36" 
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="Barometer Sensor" 
+                                           FontSize="14" 
+                                           FontWeight="Bold"
+                                           Foreground="#1E293B" 
+                                           HorizontalAlignment="Center"/>
+                                <TextBlock Text="Measures atmospheric pressure for altitude" 
+                                           FontSize="12" 
+                                           Foreground="#64748B" 
+                                           HorizontalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           MaxWidth="300"
+                                           TextAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
-                            <Button Classes="Primary" Content="Calibrate" Command="{Binding CalibratePressureCommand}" 
+                        <!-- Progress bar and percentage - visible during calibration -->
+                        <Border Background="#E7F3FF" CornerRadius="8" Padding="16" Margin="0,0,0,16" 
+                                IsVisible="{Binding IsPressureCalibrationActive}">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" 
+                                               Text="Calibrating barometer..." 
+                                               FontWeight="Bold" 
+                                               Foreground="#0B5ED7"/>
+                                    <TextBlock Grid.Column="1" 
+                                               Text="{Binding PressureCalibrationProgress, StringFormat='{}{0}%'}" 
+                                               FontWeight="Bold" 
+                                               FontSize="16"
+                                               Foreground="#0B5ED7"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding PressureCalibrationProgress}" 
+                                             Maximum="100" 
+                                             Height="8"
+                                             Foreground="#3B82F6" 
+                                             Background="#CBD5E1"/>
+                                <TextBlock Text="Please keep the vehicle still during calibration" 
+                                           FontSize="12" 
+                                           Foreground="#475569"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,8,0,0">
+                            <Button Classes="Danger" 
+                                    Content="Cancel" 
+                                    Command="{Binding CancelCalibrationCommand}"
+                                    IsVisible="{Binding IsPressureCalibrationActive}"/>
+                            <Button Classes="Primary" 
+                                    Content="Calibrate" 
+                                    Command="{Binding CalibratePressureCommand}" 
                                     IsVisible="{Binding CanCalibrateBarometer}"/>
                         </StackPanel>
                     </StackPanel>

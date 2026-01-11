@@ -197,6 +197,9 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
     [ObservableProperty] private string _step6BorderColor = "#E2E8F0";
     [ObservableProperty] private string _step6BackgroundColor = "#F8FAFC";
 
+    // Track which steps have been validated/completed by FC
+    private readonly HashSet<int> _validatedSteps = new();
+
     #endregion
 
     #region Compass Properties
@@ -241,6 +244,9 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _pressureInstructions = "To calibrate pressure/barometer please click on Calibrate button";
+
+    [ObservableProperty]
+    private int _pressureCalibrationProgress;
 
     #endregion
 
@@ -407,23 +413,30 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
         UpdateSensorAvailability();
     }
 
-    private void UpdateStepIndicators(int step)
+    private void UpdateStepIndicators(int step, bool markCurrentAsComplete = false)
     {
         AccelStepNumber = step;
         
-        // Update active states
+        // Mark previous step as complete if requested (when FC validates it)
+        if (markCurrentAsComplete && step >= 1 && step <= 6)
+        {
+            _validatedSteps.Add(step);
+            AddDebugLog($"Step {step} validated and marked complete by FC");
+        }
+        
+        // Update active and complete states based on validated steps
         IsStep1Active = step == 1;
-        IsStep1Complete = step > 1;
+        IsStep1Complete = _validatedSteps.Contains(1);
         IsStep2Active = step == 2;
-        IsStep2Complete = step > 2;
+        IsStep2Complete = _validatedSteps.Contains(2);
         IsStep3Active = step == 3;
-        IsStep3Complete = step > 3;
+        IsStep3Complete = _validatedSteps.Contains(3);
         IsStep4Active = step == 4;
-        IsStep4Complete = step > 4;
+        IsStep4Complete = _validatedSteps.Contains(4);
         IsStep5Active = step == 5;
-        IsStep5Complete = step > 5;
+        IsStep5Complete = _validatedSteps.Contains(5);
         IsStep6Active = step == 6;
-        IsStep6Complete = step > 6;
+        IsStep6Complete = _validatedSteps.Contains(6);
 
         // Update colors: Red for active (waiting), Green for complete, Gray for pending
         // Step 1: Level
@@ -456,7 +469,7 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
             CurrentCalibrationImage = CalibrationImagePaths[step - 1];
         }
         
-        AddDebugLog($"Step indicators updated: Step {step}, Image: {CurrentCalibrationImage}");
+        AddDebugLog($"Step indicators updated: Step {step}, Validated: {string.Join(",", _validatedSteps)}, Image: {CurrentCalibrationImage}");
     }
 
     #region Tab Selection Changed
@@ -513,7 +526,16 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
         {
             IsCalibrating = state.State == CalibrationState.InProgress;
             StatusMessage = state.Message ?? "Ready";
-            AddDebugLog($"Calibration state: {state.State}, Type: {state.Type}, Progress: {state.Progress}%");
+            AddDebugLog($"Calibration state: {state.State}, Type: {state.Type}, Progress: {state.Progress}%, StateMachine: {state.StateMachine}");
+
+            // Check for position rejection
+            if (state.Type == CalibrationType.Accelerometer && 
+                state.StateMachine == CalibrationStateMachine.PositionRejected)
+            {
+                AddDebugLog("Position REJECTED by FC - showing error");
+                ShowError("Incorrect Position", 
+                    $"The flight controller rejected the position. Please ensure the drone is correctly placed in the {GetPositionName(state.CurrentPosition)} position as shown in the image, then click 'Click When In Position' again.");
+            }
 
             // Update type-specific active states - ONLY the current type should be active
             if (state.State == CalibrationState.InProgress)
@@ -560,21 +582,53 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
         });
     }
 
+    private string GetPositionName(int position)
+    {
+        return position switch
+        {
+            1 => "LEVEL",
+            2 => "LEFT",
+            3 => "RIGHT",
+            4 => "NOSE DOWN",
+            5 => "NOSE UP",
+            6 => "BACK",
+            _ => $"Position {position}"
+        };
+    }
+
     private void OnCalibrationProgressChanged(object? sender, CalibrationProgressEventArgs e)
     {
         Dispatcher.UIThread.Post(() =>
         {
-            AddDebugLog($"Calibration progress: {e.Type} - {e.ProgressPercent}% - Step {e.CurrentStep}/{e.TotalSteps}");
+            AddDebugLog($"Calibration progress: {e.Type} - {e.ProgressPercent}% - Step {e.CurrentStep}/{e.TotalSteps} - StateMachine: {e.StateMachine}");
             
             if (e.Type == CalibrationType.Accelerometer)
             {
                 AccelCalibrationProgress = e.ProgressPercent;
                 AccelCurrentStep = e.StatusText ?? string.Empty;
-                UpdateStepIndicators(e.CurrentStep ?? 0);
+                
+                // Mark step as complete when FC is sampling (validated the position)
+                bool shouldMarkComplete = e.StateMachine == CalibrationStateMachine.Sampling;
+                
+                // If FC is sampling, the previous step was validated, mark it complete
+                if (shouldMarkComplete && e.CurrentStep.HasValue)
+                {
+                    UpdateStepIndicators(e.CurrentStep.Value, markCurrentAsComplete: true);
+                }
+                else
+                {
+                    UpdateStepIndicators(e.CurrentStep ?? 0, markCurrentAsComplete: false);
+                }
             }
             else if (e.Type == CalibrationType.Compass)
             {
                 CompassCalibrationProgress = e.ProgressPercent;
+            }
+            else if (e.Type == CalibrationType.Barometer)
+            {
+                // Show progress for barometer calibration
+                PressureCalibrationProgress = e.ProgressPercent;
+                StatusMessage = $"Barometer calibration: {e.ProgressPercent}% complete";
             }
         });
     }
@@ -791,9 +845,13 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
         try
         {
             AddDebugLog("Starting accelerometer calibration (6-axis)...");
+            
+            // Clear validated steps for new calibration
+            _validatedSteps.Clear();
+            
             AccelCalibrationProgress = 0;
-            UpdateStepIndicators(1);
-            AccelInstructions = "Place vehicle LEVEL on a flat surface and click Next when ready";
+            UpdateStepIndicators(1, markCurrentAsComplete: false);
+            AccelInstructions = "Place vehicle LEVEL on a flat surface and click 'Click When In Position' when ready";
             
             var success = await _calibrationService.StartAccelerometerCalibrationAsync(fullSixAxis: true);
             if (!success)
@@ -948,7 +1006,10 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
         AddDebugLog("Cancelling calibration...");
         await _calibrationService.CancelCalibrationAsync();
         StatusMessage = "Calibration cancelled";
-        UpdateStepIndicators(0);
+        
+        // Clear validated steps
+        _validatedSteps.Clear();
+        UpdateStepIndicators(0, markCurrentAsComplete: false);
         
         AccelInstructions = "Calibration cancelled. Click Calibrate to try again.";
         CompassInstructions = "Calibration cancelled. Click Calibrate to try again.";
