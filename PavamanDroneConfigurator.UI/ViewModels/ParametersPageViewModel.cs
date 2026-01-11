@@ -302,8 +302,12 @@ public partial class ParametersPageViewModel : ViewModelBase
             
             foreach (var p in allParams)
             {
-                // Enrich parameter with metadata
-                _metadataService.EnrichParameter(p);
+                // Parameters are already enriched by ParameterService when received
+                // Only enrich if metadata is missing (for imported parameters)
+                if (string.IsNullOrEmpty(p.Description) || p.Options.Count == 0)
+                {
+                    _metadataService.EnrichParameter(p);
+                }
                 
                 _originalValues[p.Name] = p.Value;
                 p.OriginalValue = p.Value;

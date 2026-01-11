@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -7,6 +9,10 @@ using System.Threading.Tasks;
 
 namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 {
+    /// <summary>
+    /// MAVLink protocol implementation matching Mission Planner's approach.
+    /// Handles both MAVLink v1 and v2 frames with proper CRC validation.
+    /// </summary>
     public sealed class AsvMavlinkWrapper : IDisposable
     {
         private readonly ILogger _logger;
@@ -14,7 +20,6 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private Stream? _outputStream;
         private CancellationTokenSource? _cts;
         private Task? _readTask;
-        private Task? _heartbeatTask;
         private bool _disposed;
 
         private readonly byte[] _rxBuffer = new byte[4096];
@@ -30,8 +35,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte MAVLINK_STX_V1 = 0xFE;
         private const byte MAVLINK_STX_V2 = 0xFD;
         private const byte GCS_SYSTEM_ID = 255;
-        private const byte GCS_COMPONENT_ID = 190;
-        
+        private const byte GCS_COMPONENT_ID = 190; // MAV_COMP_ID_MISSIONPLANNER
+
         // Message IDs
         private const byte MAVLINK_MSG_ID_HEARTBEAT = 0;
         private const byte MAVLINK_MSG_ID_PARAM_REQUEST_READ = 20;
@@ -46,11 +51,11 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         // MAV_CMD IDs
         private const ushort MAV_CMD_DO_MOTOR_TEST = 209;
         private const ushort MAV_CMD_PREFLIGHT_CALIBRATION = 241;
+        private const ushort MAV_CMD_PREFLIGHT_STORAGE = 245;
         private const ushort MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246;
         private const ushort MAV_CMD_COMPONENT_ARM_DISARM = 400;
-        private const ushort MAV_CMD_ACCELCAL_VEHICLE_POS = 42429;
 
-        // CRC extras
+        // CRC extras from MAVLink message definitions
         private const byte CRC_EXTRA_HEARTBEAT = 50;
         private const byte CRC_EXTRA_PARAM_REQUEST_READ = 214;
         private const byte CRC_EXTRA_PARAM_REQUEST_LIST = 159;
@@ -60,10 +65,6 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte CRC_EXTRA_COMMAND_ACK = 143;
         private const byte CRC_EXTRA_STATUSTEXT = 83;
         private const byte CRC_EXTRA_RC_CHANNELS = 118;
-
-        // MAV_TYPE and MAV_AUTOPILOT for GCS heartbeat
-        private const byte MAV_TYPE_GCS = 6;
-        private const byte MAV_AUTOPILOT_INVALID = 8;
 
         public event EventHandler<(byte SystemId, byte ComponentId)>? HeartbeatReceived;
         public event EventHandler<(string Name, float Value, ushort Index, ushort Count)>? ParamValueReceived;
@@ -84,56 +85,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             _outputStream = outputStream;
             _rxBufferPos = 0;
             _cts = new CancellationTokenSource();
-            
             _readTask = Task.Run(() => ReadLoopAsync(_cts.Token));
-            _heartbeatTask = Task.Run(() => GcsHeartbeatLoopAsync(_cts.Token));
-            
-            _logger.LogInformation("MAVLink wrapper initialized with GCS heartbeat");
-        }
-
-        private async Task GcsHeartbeatLoopAsync(CancellationToken token)
-        {
-            _logger.LogInformation("GCS heartbeat loop started");
-            
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    await SendGcsHeartbeatAsync(token);
-                    await Task.Delay(1000, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error sending GCS heartbeat");
-                }
-            }
-            
-            _logger.LogInformation("GCS heartbeat loop ended");
-        }
-
-        private async Task SendGcsHeartbeatAsync(CancellationToken ct)
-        {
-            // HEARTBEAT payload (9 bytes):
-            // [0-3] custom_mode (uint32)
-            // [4]   type (uint8) - MAV_TYPE_GCS = 6
-            // [5]   autopilot (uint8) - MAV_AUTOPILOT_INVALID = 8
-            // [6]   base_mode (uint8)
-            // [7]   system_status (uint8)
-            // [8]   mavlink_version (uint8)
-            
-            var payload = new byte[9];
-            payload[0] = 0; payload[1] = 0; payload[2] = 0; payload[3] = 0; // custom_mode = 0
-            payload[4] = MAV_TYPE_GCS;
-            payload[5] = MAV_AUTOPILOT_INVALID;
-            payload[6] = 0; // base_mode
-            payload[7] = 0; // system_status
-            payload[8] = 3; // mavlink_version
-
-            await SendMessageAsync(MAVLINK_MSG_ID_HEARTBEAT, payload, ct);
+            _logger.LogInformation("MAVLink wrapper initialized");
         }
 
         private async Task ReadLoopAsync(CancellationToken token)
@@ -158,12 +111,14 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                     }
                     catch (IOException)
                     {
+                        // Connection closed
                         break;
                     }
                 }
             }
             catch (OperationCanceledException)
             {
+                // Normal cancellation
             }
             catch (Exception ex)
             {
@@ -176,14 +131,18 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         {
             lock (_bufferLock)
             {
+                // Add new data to buffer
                 for (int i = 0; i < length; i++)
                 {
                     if (_rxBufferPos >= _rxBuffer.Length)
                     {
+                        // Buffer overflow - reset
                         _rxBufferPos = 0;
                     }
                     _rxBuffer[_rxBufferPos++] = data[i];
                 }
+
+                // Process complete packets
                 ProcessBuffer();
             }
         }
@@ -192,6 +151,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         {
             while (_rxBufferPos > 0)
             {
+                // Find start byte
                 int startIdx = -1;
                 for (int i = 0; i < _rxBufferPos; i++)
                 {
@@ -204,29 +164,34 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
                 if (startIdx < 0)
                 {
+                    // No start byte found - clear buffer
                     _rxBufferPos = 0;
                     return;
                 }
 
+                // Remove garbage before start byte
                 if (startIdx > 0)
                 {
                     Array.Copy(_rxBuffer, startIdx, _rxBuffer, 0, _rxBufferPos - startIdx);
                     _rxBufferPos -= startIdx;
                 }
 
+                // Check if we have enough data for header
                 if (_rxBufferPos < 8)
                     return;
 
                 byte stx = _rxBuffer[0];
                 int frameLen;
-                
+
                 if (stx == MAVLINK_STX_V1)
                 {
+                    // MAVLink v1: STX + LEN + SEQ + SYSID + COMPID + MSGID + PAYLOAD + CRC(2)
                     byte payloadLen = _rxBuffer[1];
                     frameLen = 8 + payloadLen;
                 }
-                else
+                else // MAVLINK_STX_V2
                 {
+                    // MAVLink v2: STX + LEN + INCOMPAT + COMPAT + SEQ + SYSID + COMPID + MSGID(3) + PAYLOAD + CRC(2) + [SIG(13)]
                     if (_rxBufferPos < 12)
                         return;
                     byte payloadLen = _rxBuffer[1];
@@ -235,15 +200,19 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                     frameLen = 12 + payloadLen + (hasSignature ? 13 : 0);
                 }
 
+                // Check if we have complete frame
                 if (_rxBufferPos < frameLen)
                     return;
 
+                // Extract and process frame
                 var frame = new byte[frameLen];
                 Array.Copy(_rxBuffer, 0, frame, 0, frameLen);
 
+                // Remove processed frame from buffer
                 Array.Copy(_rxBuffer, frameLen, _rxBuffer, 0, _rxBufferPos - frameLen);
                 _rxBufferPos -= frameLen;
 
+                // Process the frame
                 try
                 {
                     if (stx == MAVLINK_STX_V1)
@@ -261,18 +230,22 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private void ProcessMavlink1Frame(byte[] frame)
         {
             byte payloadLen = frame[1];
+            byte seq = frame[2];
             byte sysId = frame[3];
             byte compId = frame[4];
             byte msgId = frame[5];
 
+            // Verify CRC
             ushort crcCalc = CalculateCrc(frame, 1, payloadLen + 5, GetCrcExtra(msgId));
             ushort crcRecv = (ushort)(frame[6 + payloadLen] | (frame[7 + payloadLen] << 8));
 
             if (crcCalc != crcRecv)
             {
+                _logger.LogTrace("V1 CRC mismatch: msg={Msg} calc=0x{Calc:X4} recv=0x{Recv:X4}", msgId, crcCalc, crcRecv);
                 return;
             }
 
+            // Extract payload
             var payload = new byte[payloadLen];
             Array.Copy(frame, 6, payload, 0, payloadLen);
 
@@ -282,19 +255,25 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private void ProcessMavlink2Frame(byte[] frame)
         {
             byte payloadLen = frame[1];
+            byte incompatFlags = frame[2];
+            byte compatFlags = frame[3];
+            byte seq = frame[4];
             byte sysId = frame[5];
             byte compId = frame[6];
             int msgId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
 
+            // Verify CRC (for v2, CRC is calculated over bytes 1 to 9+payloadLen)
             ushort crcCalc = CalculateCrc(frame, 1, 9 + payloadLen, GetCrcExtra((byte)(msgId & 0xFF)));
             int crcOffset = 10 + payloadLen;
             ushort crcRecv = (ushort)(frame[crcOffset] | (frame[crcOffset + 1] << 8));
 
             if (crcCalc != crcRecv)
             {
+                _logger.LogTrace("V2 CRC mismatch: msg={Msg} calc=0x{Calc:X4} recv=0x{Recv:X4}", msgId, crcCalc, crcRecv);
                 return;
             }
 
+            // Extract payload
             var payload = new byte[payloadLen];
             Array.Copy(frame, 10, payload, 0, payloadLen);
 
@@ -308,15 +287,19 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 case MAVLINK_MSG_ID_HEARTBEAT:
                     HandleHeartbeat(sysId, compId, payload);
                     break;
+
                 case MAVLINK_MSG_ID_PARAM_VALUE:
                     HandleParamValue(payload);
                     break;
+
                 case (byte)MAVLINK_MSG_ID_COMMAND_ACK:
                     HandleCommandAck(payload);
                     break;
+
                 case MAVLINK_MSG_ID_STATUSTEXT:
                     HandleStatusText(payload);
                     break;
+
                 case MAVLINK_MSG_ID_RC_CHANNELS:
                     HandleRcChannels(payload);
                     break;
@@ -326,22 +309,32 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private void HandleHeartbeat(byte sysId, byte compId, byte[] payload)
         {
             // Skip GCS heartbeats
-            if (compId == GCS_COMPONENT_ID || sysId == 0 || sysId == GCS_SYSTEM_ID)
+            if (compId == GCS_COMPONENT_ID || sysId == 0)
                 return;
 
             _targetSystemId = sysId;
             _targetComponentId = compId;
-            
-            _logger.LogDebug("Heartbeat from FC: sysid={SysId} compid={CompId}", sysId, compId);
+
+            _logger.LogDebug("Heartbeat: sysid={SysId} compid={CompId}", sysId, compId);
             HeartbeatReceived?.Invoke(this, (sysId, compId));
 
-            if (payload.Length >= 7)
+            // Parse heartbeat payload for flight mode info and vehicle type
+            // HEARTBEAT payload:
+            // [0-3] custom_mode (uint32)
+            // [4]   type (uint8) - MAV_TYPE
+            // [5]   autopilot (uint8) - MAV_AUTOPILOT
+            // [6]   base_mode (uint8)
+            // [7]   system_status (uint8)
+            // [8]   mavlink_version (uint8)
+            if (payload.Length >= 9)
             {
                 uint customMode = BitConverter.ToUInt32(payload, 0);
-                byte vehicleType = payload[4];
-                byte autopilot = payload[5];
+                byte vehicleType = payload[4];  // MAV_TYPE
+                byte autopilot = payload[5];    // MAV_AUTOPILOT
                 byte baseMode = payload[6];
-                
+                byte systemStatus = payload[7];
+                byte mavlinkVersion = payload[8];
+
                 var heartbeatData = new HeartbeatData
                 {
                     SystemId = sysId,
@@ -350,33 +343,52 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                     VehicleType = vehicleType,
                     Autopilot = autopilot,
                     BaseMode = baseMode,
-                    IsArmed = (baseMode & 0x80) != 0
+                    SystemStatus = systemStatus,
+                    MavlinkVersion = mavlinkVersion,
+                    IsArmed = (baseMode & 0x80) != 0 // MAV_MODE_FLAG_SAFETY_ARMED
                 };
-                
+
                 HeartbeatDataReceived?.Invoke(this, heartbeatData);
             }
         }
 
         private void HandleParamValue(byte[] payload)
         {
+            // PARAM_VALUE payload (25 bytes):
+            // [0-3]   param_value (float)
+            // [4-5]   param_count (uint16)
+            // [6-7]   param_index (uint16)
+            // [8-23]  param_id (char[16])
+            // [24]    param_type (uint8)
+
             if (payload.Length < 25)
             {
+                _logger.LogWarning("PARAM_VALUE payload too short: {Len}", payload.Length);
                 return;
             }
 
             float value = BitConverter.ToSingle(payload, 0);
             ushort paramCount = BitConverter.ToUInt16(payload, 4);
             ushort paramIndex = BitConverter.ToUInt16(payload, 6);
-            string name = Encoding.ASCII.GetString(payload, 8, 16).TrimEnd('\0');
 
-            _logger.LogDebug("PARAM_VALUE: {Name}={Value} [{Index}/{Count}]", name, value, paramIndex + 1, paramCount);
+            // Extract param name (null-terminated string)
+            string name = Encoding.ASCII.GetString(payload, 8, 16).TrimEnd('\0');
+            byte paramType = payload[24];
+
+            _logger.LogDebug("PARAM_VALUE: {Name}={Value} [{Index}/{Count}] type={Type}",
+                name, value, paramIndex + 1, paramCount, paramType);
+
             ParamValueReceived?.Invoke(this, (name, value, paramIndex, paramCount));
         }
 
         private void HandleCommandAck(byte[] payload)
         {
+            // COMMAND_ACK payload:
+            // [0-1] command (uint16)
+            // [2]   result (uint8)
             if (payload.Length < 3)
             {
+                _logger.LogWarning("COMMAND_ACK payload too short: {Len}", payload.Length);
                 return;
             }
 
@@ -389,18 +401,28 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
         private void HandleStatusText(byte[] payload)
         {
+            // STATUSTEXT payload:
+            // [0]     severity (uint8)
+            // [1-50]  text (char[50])
             if (payload.Length < 2)
                 return;
 
             byte severity = payload[0];
-            string text = Encoding.ASCII.GetString(payload, 1, Math.Min(50, payload.Length - 1)).TrimEnd('\0');
+            string text = System.Text.Encoding.ASCII.GetString(payload, 1, Math.Min(50, payload.Length - 1)).TrimEnd('\0');
 
-            _logger.LogDebug("STATUSTEXT: [{Severity}] {Text}", severity, text);
+            _logger.LogDebug("STATUSTEXT: severity={Severity} text={Text}", severity, text);
             StatusTextReceived?.Invoke(this, (severity, text));
         }
 
         private void HandleRcChannels(byte[] payload)
         {
+            // RC_CHANNELS payload (42 bytes):
+            // [0-3]   time_boot_ms (uint32)
+            // [4-5]   chan1_raw (uint16)
+            // [6-7]   chan2_raw (uint16)
+            // ... up to chan18
+            // [38]    chancount (uint8)
+            // [39]    rssi (uint8)
             if (payload.Length < 40)
                 return;
 
@@ -424,6 +446,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
         public async Task SendParamRequestListAsync(CancellationToken ct = default)
         {
+            // PARAM_REQUEST_LIST payload (2 bytes):
+            // [0] target_system
+            // [1] target_component
             var payload = new byte[2];
             payload[0] = _targetSystemId != 0 ? _targetSystemId : (byte)1;
             payload[1] = _targetComponentId != 0 ? _targetComponentId : (byte)1;
@@ -434,67 +459,103 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 
         public async Task SendParamRequestReadAsync(ushort paramIndex, CancellationToken ct = default)
         {
+            // PARAM_REQUEST_READ payload (20 bytes):
+            // [0-1]   param_index (int16)
+            // [2]     target_system
+            // [3]     target_component
+            // [4-19]  param_id (char[16]) - empty when using index
             var payload = new byte[20];
+
+            // Write param_index as int16
             payload[0] = (byte)(paramIndex & 0xFF);
             payload[1] = (byte)((paramIndex >> 8) & 0xFF);
             payload[2] = _targetSystemId != 0 ? _targetSystemId : (byte)1;
             payload[3] = _targetComponentId != 0 ? _targetComponentId : (byte)1;
+            // param_id bytes 4-19 stay zero when requesting by index
 
             await SendMessageAsync(MAVLINK_MSG_ID_PARAM_REQUEST_READ, payload, ct);
         }
 
         public async Task SendParamSetAsync(string name, float value, CancellationToken ct = default)
         {
+            // PARAM_SET payload (23 bytes):
+            // [0-3]   param_value (float)
+            // [4]     target_system
+            // [5]     target_component
+            // [6-21]  param_id (char[16])
+            // [22]    param_type (uint8) - 9 = MAV_PARAM_TYPE_REAL32
             var payload = new byte[23];
+
             BitConverter.GetBytes(value).CopyTo(payload, 0);
             payload[4] = _targetSystemId != 0 ? _targetSystemId : (byte)1;
             payload[5] = _targetComponentId != 0 ? _targetComponentId : (byte)1;
-            
+
             var nameBytes = Encoding.ASCII.GetBytes(name);
             Array.Copy(nameBytes, 0, payload, 6, Math.Min(16, nameBytes.Length));
-            payload[22] = 9;
+
+            payload[22] = 9; // MAV_PARAM_TYPE_REAL32
 
             _logger.LogInformation("Sending PARAM_SET: {Name}={Value}", name, value);
             await SendMessageAsync(MAVLINK_MSG_ID_PARAM_SET, payload, ct);
         }
 
-        public async Task SendMotorTestAsync(int motorInstance, int throttleType, float throttleValue, 
-            float timeout, int motorCount = 0, int testOrder = 0, CancellationToken ct = default)
+        /// <summary>
+        /// Send DO_MOTOR_TEST command (MAV_CMD = 209)
+        /// </summary>
+        /// <param name="motorInstance">Motor instance (1-based)</param>
+        /// <param name="throttleType">Throttle type (0=percent, 1=PWM, 2=pilot)</param>
+        /// <param name="throttleValue">Throttle value (percent or PWM)</param>
+        /// <param name="timeout">Timeout in seconds</param>
+        /// <param name="motorCount">Motor count (0=single motor test)</param>
+        /// <param name="testOrder">Test order (0=default, 1=sequence)</param>
+        public async Task SendMotorTestAsync(
+            int motorInstance,
+            int throttleType,
+            float throttleValue,
+            float timeout,
+            int motorCount = 0,
+            int testOrder = 0,
+            CancellationToken ct = default)
         {
-            _logger.LogInformation("Sending DO_MOTOR_TEST: motor={Motor} throttle={Throttle}", motorInstance, throttleValue);
-            await SendCommandLongAsync(MAV_CMD_DO_MOTOR_TEST, motorInstance, throttleType, throttleValue, 
-                timeout, motorCount, testOrder, 0, ct);
+            _logger.LogInformation("Sending DO_MOTOR_TEST: motor={Motor} throttle={Throttle} timeout={Timeout}s",
+                motorInstance, throttleValue, timeout);
+
+            await SendCommandLongAsync(
+                MAV_CMD_DO_MOTOR_TEST,
+                motorInstance,      // param1: motor instance
+                throttleType,       // param2: throttle type
+                throttleValue,      // param3: throttle value
+                timeout,            // param4: timeout
+                motorCount,         // param5: motor count
+                testOrder,          // param6: test order
+                0,                  // param7: empty
+                ct);
         }
 
-        public async Task SendPreflightCalibrationAsync(int gyro = 0, int mag = 0, int groundPressure = 0, 
-            int airspeed = 0, int accel = 0, CancellationToken ct = default)
+        /// <summary>
+        /// Send COMMAND_LONG message
+        /// </summary>
+        private async Task SendCommandLongAsync(
+            ushort command,
+            float param1, float param2, float param3, float param4,
+            float param5, float param6, float param7,
+            CancellationToken ct = default)
         {
-            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_CALIBRATION");
-            await SendCommandLongAsync(MAV_CMD_PREFLIGHT_CALIBRATION, gyro, mag, groundPressure, airspeed, accel, 0, 0, ct);
-        }
+            // COMMAND_LONG payload (33 bytes):
+            // [0-3]   param1 (float)
+            // [4-7]   param2 (float)
+            // [8-11]  param3 (float)
+            // [12-15] param4 (float)
+            // [16-19] param5 (float)
+            // [20-23] param6 (float)
+            // [24-27] param7 (float)
+            // [28-29] command (uint16)
+            // [30]    target_system
+            // [31]    target_component
+            // [32]    confirmation
 
-        public async Task SendPreflightRebootAsync(int autopilot = 1, int companion = 0, CancellationToken ct = default)
-        {
-            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN");
-            await SendCommandLongAsync(MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, autopilot, companion, 0, 0, 0, 0, 0, ct);
-        }
-
-        public async Task SendArmDisarmAsync(bool arm, bool force = false, CancellationToken ct = default)
-        {
-            _logger.LogInformation("Sending MAV_CMD_COMPONENT_ARM_DISARM: arm={Arm}", arm);
-            await SendCommandLongAsync(MAV_CMD_COMPONENT_ARM_DISARM, arm ? 1 : 0, force ? 21196 : 0, 0, 0, 0, 0, 0, ct);
-        }
-
-        public async Task SendAccelCalVehiclePosAsync(int position, CancellationToken ct = default)
-        {
-            _logger.LogInformation("Sending MAV_CMD_ACCELCAL_VEHICLE_POS: position={Position}", position);
-            await SendCommandLongAsync(MAV_CMD_ACCELCAL_VEHICLE_POS, position, 0, 0, 0, 0, 0, 0, ct);
-        }
-
-        private async Task SendCommandLongAsync(ushort command, float param1, float param2, float param3, 
-            float param4, float param5, float param6, float param7, CancellationToken ct = default)
-        {
             var payload = new byte[33];
+
             BitConverter.GetBytes(param1).CopyTo(payload, 0);
             BitConverter.GetBytes(param2).CopyTo(payload, 4);
             BitConverter.GetBytes(param3).CopyTo(payload, 8);
@@ -505,7 +566,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             BitConverter.GetBytes(command).CopyTo(payload, 28);
             payload[30] = _targetSystemId != 0 ? _targetSystemId : (byte)1;
             payload[31] = _targetComponentId != 0 ? _targetComponentId : (byte)1;
-            payload[32] = 0;
+            payload[32] = 0; // confirmation
 
             await SendMessageAsync(MAVLINK_MSG_ID_COMMAND_LONG, payload, ct);
         }
@@ -518,6 +579,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 return;
             }
 
+            // Build MAVLink v1 frame
             var frame = new byte[8 + payload.Length];
             frame[0] = MAVLINK_STX_V1;
             frame[1] = (byte)payload.Length;
@@ -527,6 +589,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             frame[5] = msgId;
             Array.Copy(payload, 0, frame, 6, payload.Length);
 
+            // Calculate CRC
             ushort crc = CalculateCrc(frame, 1, payload.Length + 5, GetCrcExtra(msgId));
             frame[6 + payload.Length] = (byte)(crc & 0xFF);
             frame[7 + payload.Length] = (byte)(crc >> 8);
@@ -547,20 +610,27 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Calculate MAVLink CRC (X.25 checksum)
+        /// </summary>
         private static ushort CalculateCrc(byte[] buffer, int offset, int length, byte crcExtra)
         {
             ushort crc = 0xFFFF;
 
             for (int i = offset; i < offset + length; i++)
             {
-                byte tmp = (byte)(buffer[i] ^ (byte)(crc & 0xFF));
+                ref byte data = ref buffer[i];
+                byte tmp = (byte)(data ^ (byte)(crc & 0xFF));
                 tmp ^= (byte)(tmp << 4);
                 crc = (ushort)((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4));
             }
 
-            byte tmpExtra = (byte)(crcExtra ^ (byte)(crc & 0xFF));
-            tmpExtra ^= (byte)(tmpExtra << 4);
-            crc = (ushort)((crc >> 8) ^ (tmpExtra << 8) ^ (tmpExtra << 3) ^ (tmpExtra >> 4));
+            // Include CRC extra
+            {
+                byte tmp = (byte)(crcExtra ^ (byte)(crc & 0xFF));
+                tmp ^= (byte)(tmp << 4);
+                crc = (ushort)((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4));
+            }
 
             return crc;
         }
@@ -579,6 +649,99 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             _ => 0
         };
 
+        public async Task SendPreflightCalibrationAsync(
+            int gyro = 0,
+            int mag = 0,
+            int groundPressure = 0,
+            int airspeed = 0,
+            int accel = 0,
+            CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_CALIBRATION: gyro={Gyro} mag={Mag} baro={Baro} airspeed={Airspeed} accel={Accel}",
+                gyro, mag, groundPressure, airspeed, accel);
+
+            await SendCommandLongAsync(
+                MAV_CMD_PREFLIGHT_CALIBRATION,
+                gyro,           // param1: gyroscope
+                mag,            // param2: magnetometer
+                groundPressure, // param3: ground pressure / barometer
+                airspeed,       // param4: radio / airspeed
+                accel,          // param5: accelerometer
+                0,              // param6: compmot / none
+                0,              // param7: none
+                ct);
+        }
+
+        /// <summary>
+        /// Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN command
+        /// </summary>
+        /// <param name="autopilot">0=do nothing, 1=reboot autopilot, 2=shutdown autopilot, 3=reboot to bootloader</param>
+        /// <param name="companion">0=do nothing, 1=reboot companion, 2=shutdown companion</param>
+        public async Task SendPreflightRebootAsync(int autopilot = 1, int companion = 0, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN: autopilot={Autopilot} companion={Companion}",
+                autopilot, companion);
+
+            await SendCommandLongAsync(
+                MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
+                autopilot,  // param1: autopilot
+                companion,  // param2: companion
+                0, 0, 0, 0, 0,
+                ct);
+        }
+
+        /// <summary>
+        /// Send arm/disarm command
+        /// </summary>
+        public async Task SendArmDisarmAsync(bool arm, bool force = false, CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_COMPONENT_ARM_DISARM: arm={Arm} force={Force}", arm, force);
+
+            await SendCommandLongAsync(
+                MAV_CMD_COMPONENT_ARM_DISARM,
+                arm ? 1 : 0,        // param1: 1=arm, 0=disarm
+                force ? 21196 : 0,  // param2: 21196=force arm/disarm
+                0, 0, 0, 0, 0,
+                ct);
+        }
+
+        /// <summary>
+        /// Send MAV_CMD_PREFLIGHT_STORAGE command to reset all parameters to default
+        /// param1 = 0: Read params from storage
+        /// param1 = 1: Write params to storage
+        /// param1 = 2: Reset params to default
+        /// </summary>
+        public async Task SendResetParametersAsync(CancellationToken ct = default)
+        {
+            _logger.LogInformation("Sending MAV_CMD_PREFLIGHT_STORAGE: param1=2 (reset to defaults)");
+
+            await SendCommandLongAsync(
+                MAV_CMD_PREFLIGHT_STORAGE,
+                2,  // param1: 2 = reset all params to defaults
+                0,  // param2: mission storage (not used)
+                0,  // param3: logging rate (not used)
+                0, 0, 0, 0,
+                ct);
+        }
+
+        /// <summary>
+        /// Send MAV_CMD_ACCELCAL_VEHICLE_POS command for accelerometer calibration positions.
+        /// Used during 6-point accelerometer calibration to signal vehicle position.
+        /// </summary>
+        /// <param name="position">Calibration position (1-6 for level, nose down, nose up, left, right, upside down)</param>
+        public async Task SendAccelCalVehiclePosAsync(int position, CancellationToken ct = default)
+        {
+            const ushort MAV_CMD_ACCELCAL_VEHICLE_POS = 42429;
+
+            _logger.LogInformation("Sending MAV_CMD_ACCELCAL_VEHICLE_POS: position={Position}", position);
+
+            await SendCommandLongAsync(
+                MAV_CMD_ACCELCAL_VEHICLE_POS,
+                position,   // param1: position (1-6)
+                0, 0, 0, 0, 0, 0,
+                ct);
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -588,30 +751,36 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             {
                 _cts?.Cancel();
                 _readTask?.Wait(1000);
-                _heartbeatTask?.Wait(1000);
             }
             catch { }
 
             _cts?.Dispose();
             _cts = null;
             _readTask = null;
-            _heartbeatTask = null;
             _inputStream = null;
             _outputStream = null;
         }
     }
 
+    /// <summary>
+    /// Heartbeat data with flight mode information and vehicle type
+    /// </summary>
     public class HeartbeatData
     {
         public byte SystemId { get; set; }
         public byte ComponentId { get; set; }
         public uint CustomMode { get; set; }
-        public byte VehicleType { get; set; }
-        public byte Autopilot { get; set; }
+        public byte VehicleType { get; set; }  // MAV_TYPE
+        public byte Autopilot { get; set; }    // MAV_AUTOPILOT
         public byte BaseMode { get; set; }
+        public byte SystemStatus { get; set; }
+        public byte MavlinkVersion { get; set; }
         public bool IsArmed { get; set; }
     }
 
+    /// <summary>
+    /// RC channel data for flight mode switch monitoring
+    /// </summary>
     public class RcChannelsData
     {
         public uint TimeBootMs { get; set; }
@@ -625,11 +794,17 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         public ushort Channel8 { get; set; }
         public byte ChannelCount { get; set; }
         public byte Rssi { get; set; }
-        
+
         public ushort GetChannel(int channelNumber) => channelNumber switch
         {
-            1 => Channel1, 2 => Channel2, 3 => Channel3, 4 => Channel4,
-            5 => Channel5, 6 => Channel6, 7 => Channel7, 8 => Channel8,
+            1 => Channel1,
+            2 => Channel2,
+            3 => Channel3,
+            4 => Channel4,
+            5 => Channel5,
+            6 => Channel6,
+            7 => Channel7,
+            8 => Channel8,
             _ => 0
         };
     }

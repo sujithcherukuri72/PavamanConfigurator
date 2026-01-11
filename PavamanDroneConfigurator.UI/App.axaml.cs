@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Interfaces;
 using PavamanDroneConfigurator.Infrastructure.Services;
+using PavamanDroneConfigurator.Infrastructure.Repositories;
 using PavamanDroneConfigurator.UI.ViewModels;
 using PavamanDroneConfigurator.UI.Views;
 using Avalonia.Threading;
@@ -37,7 +38,20 @@ public partial class App : Application
             builder.SetMinimumLevel(LogLevel.Information);
         });
 
-        // Core services
+        // ArduPilot XML Integration Services (for parameter metadata)
+        services.AddSingleton<ArduPilotXmlParser>();
+        services.AddSingleton<ArduPilotMetadataDownloader>();
+        services.AddSingleton<VehicleTypeDetector>();
+
+        // Calibration Services (Mission Planner-equivalent strict validation)
+        services.AddSingleton<CalibrationPreConditionChecker>();
+        services.AddSingleton<CalibrationAbortMonitor>();
+        services.AddSingleton<CalibrationValidationHelper>();
+
+        // Repositories (Data Layer)
+        services.AddSingleton<IParameterMetadataRepository, ParameterMetadataRepository>();
+
+        // Core services (Business Logic Layer)
         services.AddSingleton<IConnectionService, ConnectionService>();
         services.AddSingleton<IParameterService, ParameterService>();
         services.AddSingleton<ICalibrationService, CalibrationService>();
@@ -54,8 +68,9 @@ public partial class App : Application
         services.AddSingleton<ISensorConfigService, SensorConfigService>();
         services.AddSingleton<IParameterMetadataService, ParameterMetadataService>();
         services.AddSingleton<IDroneInfoService, DroneInfoService>();
+        services.AddSingleton<ILogAnalyzerService, LogAnalyzerService>();
 
-        // ViewModels
+        // ViewModels (Presentation Layer)
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<ConnectionPageViewModel>();
         services.AddTransient<AirframePageViewModel>();
@@ -71,6 +86,8 @@ public partial class App : Application
         services.AddTransient<RcCalibrationPageViewModel>();
         services.AddTransient<SensorsCalibrationPageViewModel>();
         services.AddTransient<DroneDetailsPageViewModel>();
+        services.AddTransient<ParameterMetadataViewModel>();
+        services.AddTransient<LogAnalyzerPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

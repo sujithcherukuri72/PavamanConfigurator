@@ -59,6 +59,25 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
 
     #endregion
 
+    #region Calibration Active States (Type-Specific)
+
+    [ObservableProperty]
+    private bool _isAccelCalibrationActive;
+
+    [ObservableProperty]
+    private bool _isCompassCalibrationActive;
+
+    [ObservableProperty]
+    private bool _isLevelCalibrationActive;
+
+    [ObservableProperty]
+    private bool _isPressureCalibrationActive;
+
+    // The current calibration type being performed
+    private CalibrationType? _activeCalibrationTyp;
+
+    #endregion
+
     #region Sensor Availability Properties
 
     [ObservableProperty]
@@ -93,6 +112,12 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
     public bool CanCalibrateCompass => IsConnected && IsCompassAvailable && !IsCalibrating;
     public bool CanCalibrateLevelHorizon => IsConnected && IsAccelerometerAvailable && !IsCalibrating;
     public bool CanCalibrateBarometer => IsConnected && IsBarometerAvailable && !IsCalibrating;
+
+    // Show calibration progress/controls for each type
+    public bool ShowAccelCalibrationControls => IsAccelCalibrationActive;
+    public bool ShowCompassCalibrationControls => IsCompassCalibrationActive;
+    public bool ShowLevelCalibrationControls => IsLevelCalibrationActive;
+    public bool ShowPressureCalibrationControls => IsPressureCalibrationActive;
 
     #endregion
 
@@ -356,6 +381,31 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
     partial void OnIsCompassAvailableChanged(bool value) => UpdateSensorAvailability();
     partial void OnIsBarometerAvailableChanged(bool value) => UpdateSensorAvailability();
     partial void OnIsCalibratingChanged(bool value) => UpdateSensorAvailability();
+    
+    // Update calibration control visibility when active states change
+    partial void OnIsAccelCalibrationActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowAccelCalibrationControls));
+        UpdateSensorAvailability();
+    }
+    
+    partial void OnIsCompassCalibrationActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowCompassCalibrationControls));
+        UpdateSensorAvailability();
+    }
+    
+    partial void OnIsLevelCalibrationActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowLevelCalibrationControls));
+        UpdateSensorAvailability();
+    }
+    
+    partial void OnIsPressureCalibrationActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowPressureCalibrationControls));
+        UpdateSensorAvailability();
+    }
 
     private void UpdateStepIndicators(int step)
     {
@@ -464,6 +514,25 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
             IsCalibrating = state.State == CalibrationState.InProgress;
             StatusMessage = state.Message ?? "Ready";
             AddDebugLog($"Calibration state: {state.State}, Type: {state.Type}, Progress: {state.Progress}%");
+
+            // Update type-specific active states - ONLY the current type should be active
+            if (state.State == CalibrationState.InProgress)
+            {
+                _activeCalibrationTyp = state.Type;
+                IsAccelCalibrationActive = state.Type == CalibrationType.Accelerometer;
+                IsCompassCalibrationActive = state.Type == CalibrationType.Compass;
+                IsLevelCalibrationActive = state.Type == CalibrationType.LevelHorizon;
+                IsPressureCalibrationActive = state.Type == CalibrationType.Barometer;
+            }
+            else
+            {
+                // Calibration ended - reset all active states
+                _activeCalibrationTyp = null;
+                IsAccelCalibrationActive = false;
+                IsCompassCalibrationActive = false;
+                IsLevelCalibrationActive = false;
+                IsPressureCalibrationActive = false;
+            }
 
             if (state.State == CalibrationState.Completed)
             {

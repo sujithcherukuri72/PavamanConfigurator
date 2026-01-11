@@ -1,0 +1,409 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             xmlns:models="using:PavamanDroneConfigurator.Core.Models"
+             xmlns:core="using:PavamanDroneConfigurator.Core.Interfaces"
+             x:Class="PavamanDroneConfigurator.UI.Views.LogAnalyzerPage"
+             x:DataType="vm:LogAnalyzerPageViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#0B9999"/>
+        </Style>
+        
+        <Style Selector="Border.Card">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#0B9999"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#097777"/>
+        </Style>
+        
+        <Style Selector="Button.Outline">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#0B9999"/>
+            <Setter Property="BorderBrush" Value="#0B9999"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        
+        <Style Selector="Button.Outline:pointerover">
+            <Setter Property="Background" Value="#E6F7F7"/>
+        </Style>
+        
+        <Style Selector="Button.Small">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        
+        <Style Selector="Border.DialogOverlay">
+            <Setter Property="Background" Value="#80000000"/>
+        </Style>
+        
+        <Style Selector="Border.DialogBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BoxShadow" Value="0 10 40 0 #40000000"/>
+            <Setter Property="Padding" Value="24"/>
+        </Style>
+        
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+        
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="#E0F2FE"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="White" Padding="24,16" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16">
+                    <TextBlock Classes="PageTitle" Text="LOG ANALYZER"/>
+                    <TextBlock Text="{Binding LoadedLogInfo}" VerticalAlignment="Center" Foreground="#64748B" 
+                               IsVisible="{Binding IsLogLoaded}"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="Outline" Command="{Binding OpenDownloadDialogCommand}" 
+                            IsEnabled="{Binding IsConnected}" Content="Download from FC"/>
+                    <Button Classes="Primary" Command="{Binding BrowseLocalFileCommand}" Content="Browse Files"/>
+                </StackPanel>
+                
+                <TextBlock Grid.Column="2" Text="{Binding StatusMessage}" VerticalAlignment="Center" 
+                           Foreground="#64748B" Margin="16,0,0,0" MaxWidth="300" TextTrimming="CharacterEllipsis"/>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT -->
+        <Grid Grid.Row="1" ColumnDefinitions="280,*" Background="#F8FAFC">
+            
+            <!-- LEFT SIDEBAR: Message Types -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Padding="16" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Message Types" FontWeight="Bold" FontSize="14"/>
+                    </Border>
+                    
+                    <ListBox Grid.Row="1" ItemsSource="{Binding MessageTypes}" 
+                             SelectedItem="{Binding SelectedMessageType}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:LogMessageTypeGroup">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding MessageCount}" Foreground="#64748B" FontSize="12"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+            
+            <!-- RIGHT CONTENT: Tabs -->
+            <TabControl Grid.Column="1" SelectedIndex="{Binding SelectedTabIndex}" Margin="16">
+                
+                <!-- TAB 1: Data Grid (Message Browser) -->
+                <TabItem Header="Messages">
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <!-- Search Bar -->
+                        <Border Grid.Row="0" Classes="Card" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" Text="{Binding MessageSearchText}" 
+                                         Watermark="Search messages..." CornerRadius="6"/>
+                                <Button Grid.Column="1" Classes="Primary Small" Content="Search" 
+                                        Command="{Binding SearchMessagesCommand}" Margin="8,0,0,0"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Messages Grid -->
+                        <Border Grid.Row="1" Classes="Card">
+                            <DataGrid ItemsSource="{Binding CurrentMessages}" AutoGenerateColumns="False"
+                                      IsReadOnly="True" GridLinesVisibility="Horizontal"
+                                      CanUserResizeColumns="True" CanUserSortColumns="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60"/>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding TypeName}" Width="80"/>
+                                    <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="100"/>
+                                    <DataGridTextColumn Header="Fields" Binding="{Binding FieldsDisplay}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        
+                        <!-- Pagination -->
+                        <Border Grid.Row="2" Classes="Card" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+                                <Button Classes="Outline Small" Content="? Previous" 
+                                        Command="{Binding PreviousMessagePageCommand}"/>
+                                <TextBlock VerticalAlignment="Center">
+                                    <Run Text="Page "/>
+                                    <Run Text="{Binding CurrentMessagePage}"/>
+                                    <Run Text=" of "/>
+                                    <Run Text="{Binding TotalMessagePages}"/>
+                                </TextBlock>
+                                <Button Classes="Outline Small" Content="Next ?" 
+                                        Command="{Binding NextMessagePageCommand}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+                
+                <!-- TAB 2: Graph -->
+                <TabItem Header="Graph">
+                    <Grid ColumnDefinitions="250,*">
+                        <!-- Field Selector -->
+                        <Border Grid.Column="0" Classes="Card" Margin="0,0,8,0">
+                            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Text="Select Fields to Graph" FontWeight="Bold" Margin="0,0,0,8"/>
+                                
+                                <TextBox Grid.Row="1" Text="{Binding GraphFieldFilter}" 
+                                         Watermark="Filter fields..." Margin="0,0,0,8" CornerRadius="6"/>
+                                
+                                <ListBox Grid.Row="2" ItemsSource="{Binding FilteredFields}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:LogFieldInfo">
+                                            <Border Padding="4" PointerPressed="FieldItem_PointerPressed">
+                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Margin="0,0,8,0"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="12"
+                                                               VerticalAlignment="Center"/>
+                                                    <Ellipse Grid.Column="2" Width="12" Height="12" 
+                                                             Fill="{Binding Color}" IsVisible="{Binding IsSelected}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                
+                                <Button Grid.Row="3" Classes="Outline Small" Content="Clear All"
+                                        Command="{Binding ClearGraphCommand}" Margin="0,8,0,0"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Graph Area -->
+                        <Border Grid.Column="1" Classes="Card">
+                            <Grid RowDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Text="{Binding CurrentGraph.Title}" 
+                                           FontWeight="Bold" FontSize="16" Margin="0,0,0,8"
+                                           IsVisible="{Binding HasGraphData}"/>
+                                
+                                <!-- Graph Canvas Placeholder - would use a charting library in production -->
+                                <Border Grid.Row="1" Background="#FAFAFA" CornerRadius="8" 
+                                        IsVisible="{Binding HasGraphData}">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
+                                        <TextBlock Text="??" FontSize="64" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Graph visualization area" Foreground="#64748B"/>
+                                        <ItemsControl ItemsSource="{Binding CurrentGraph.Series}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:LogGraphSeries">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4">
+                                                        <Ellipse Width="12" Height="12" Fill="{Binding Color}"/>
+                                                        <TextBlock Text="{Binding Name}" FontSize="12"/>
+                                                        <TextBlock FontSize="11" Foreground="#64748B">
+                                                            <Run Text="("/>
+                                                            <Run Text="{Binding Points.Count}"/>
+                                                            <Run Text=" points, Min: "/>
+                                                            <Run Text="{Binding MinValue, StringFormat=F2}"/>
+                                                            <Run Text=", Max: "/>
+                                                            <Run Text="{Binding MaxValue, StringFormat=F2}"/>
+                                                            <Run Text=")"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- No Data Message -->
+                                <Border Grid.Row="1" Background="#FAFAFA" CornerRadius="8"
+                                        IsVisible="{Binding !HasGraphData}">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock Text="??" FontSize="64" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Select fields from the left panel to graph" 
+                                                   Foreground="#64748B" Margin="0,8,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Legend -->
+                                <ItemsControl Grid.Row="2" ItemsSource="{Binding SelectedGraphFields}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:LogFieldInfo">
+                                            <Border Background="#F1F5F9" CornerRadius="4" Padding="8,4" Margin="0,0,8,4">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Ellipse Width="10" Height="10" Fill="{Binding Color}"/>
+                                                    <TextBlock Text="{Binding DisplayName}" FontSize="12"/>
+                                                    <Button Classes="Small" Content="×" Padding="2" Background="Transparent"
+                                                            Command="{Binding $parent[UserControl].((vm:LogAnalyzerPageViewModel)DataContext).RemoveFieldFromGraphCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+                
+                <!-- TAB 3: Scripting -->
+                <TabItem Header="Script">
+                    <Grid RowDefinitions="*,Auto,*">
+                        <!-- Script Editor -->
+                        <Border Grid.Row="0" Classes="Card">
+                            <Grid RowDefinitions="Auto,*">
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                                    <TextBlock Text="Script Editor" FontWeight="Bold"/>
+                                    <Button Classes="Primary Small" Content="Run" 
+                                            Command="{Binding RunScriptCommand}"
+                                            IsEnabled="{Binding !IsScriptRunning}"/>
+                                    <Button Classes="Outline Small" Content="Clear"
+                                            Command="{Binding ClearScriptCommand}"/>
+                                </StackPanel>
+                                <TextBox Grid.Row="1" Text="{Binding ScriptText}" 
+                                         AcceptsReturn="True" TextWrapping="Wrap"
+                                         FontFamily="Consolas, Courier New, monospace"/>
+                            </Grid>
+                        </Border>
+                        
+                        <GridSplitter Grid.Row="1" Height="8" Background="Transparent"/>
+                        
+                        <!-- Script Output and Functions -->
+                        <Grid Grid.Row="2" ColumnDefinitions="*,200">
+                            <!-- Output -->
+                            <Border Grid.Column="0" Classes="Card" Margin="0,0,8,0">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Grid.Row="0" Text="Output" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <TextBox Grid.Row="1" Text="{Binding ScriptOutput}" 
+                                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                                             FontFamily="Consolas, Courier New, monospace"
+                                             Background="#1E293B" Foreground="#10B981"/>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- Available Functions -->
+                            <Border Grid.Column="1" Classes="Card">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Grid.Row="0" Text="Functions" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <ListBox Grid.Row="1" ItemsSource="{Binding ScriptFunctions}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="core:ScriptFunctionInfo">
+                                                <Border Padding="4" PointerPressed="ScriptFunction_PointerPressed">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"/>
+                                                        <TextBlock Text="{Binding Description}" FontSize="10" Foreground="#64748B"
+                                                                   TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+                
+                <!-- TAB 4: Parameters -->
+                <TabItem Header="Parameters">
+                    <Border Classes="Card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Parameters from Log" FontWeight="Bold" FontSize="16"/>
+                            <TextBlock Text="Parameters stored in the log file at time of recording." Foreground="#64748B"/>
+                            <!-- Parameter list would go here -->
+                            <TextBlock Text="Load a log file to view parameters." Foreground="#94A3B8" 
+                                       IsVisible="{Binding !IsLogLoaded}" Margin="0,24"/>
+                        </StackPanel>
+                    </Border>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- DOWNLOAD DIALOG OVERLAY -->
+        <Border Grid.RowSpan="2" Classes="DialogOverlay" 
+                IsVisible="{Binding IsDownloadDialogOpen}"
+                IsHitTestVisible="{Binding IsDownloadDialogOpen}">
+            <Border Classes="DialogBox" MaxWidth="900" MaxHeight="600"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="Log Files on Flight Controller" FontSize="20" FontWeight="Bold"/>
+                        <Border Height="2" Background="#0B9999" Margin="0,8,0,0"/>
+                    </StackPanel>
+                    
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding LogFiles}" AutoGenerateColumns="False"
+                              IsReadOnly="True" CanUserResizeColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected}" Width="40"/>
+                            <DataGridTextColumn Header="Id" Binding="{Binding LogId}" Width="50"/>
+                            <DataGridTextColumn Header="Date/Time" Binding="{Binding DateTimeDisplay}" Width="150"/>
+                            <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*"/>
+                            <DataGridTextColumn Header="Size" Binding="{Binding FileSizeKB}" Width="100"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" 
+                                Spacing="16" Margin="0,20,0,0">
+                        <Button Classes="Outline" Content="Cancel" Width="100"
+                                Command="{Binding CloseDownloadDialogCommand}"/>
+                        <Button Classes="Primary" Content="Refresh" Width="100"
+                                Command="{Binding RefreshLogsCommand}"/>
+                        <Button Classes="Primary" Content="Download" Width="100"
+                                Command="{Binding DownloadSelectedCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+        
+        <!-- DOWNLOAD PROGRESS OVERLAY -->
+        <Border Grid.RowSpan="2" Classes="DialogOverlay" 
+                IsVisible="{Binding IsDownloading}">
+            <Border Classes="DialogBox" MaxWidth="400" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Downloading..." FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <ProgressBar Value="{Binding DownloadProgress}" Maximum="100" Height="8"/>
+                    <TextBlock Text="{Binding DownloadProgressText}" HorizontalAlignment="Center" Foreground="#64748B"/>
+                    <Button Classes="Outline" Content="Cancel" Command="{Binding CancelDownloadCommand}" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+        
+        <!-- BUSY OVERLAY -->
+        <Border Grid.RowSpan="2" Background="#40000000" IsVisible="{Binding IsBusy}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200"/>
+                <TextBlock Text="Loading..." Foreground="White" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

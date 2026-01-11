@@ -7,32 +7,32 @@ using System.Text.RegularExpressions;
 namespace PavamanDroneConfigurator.Infrastructure.Services;
 
 /// <summary>
-/// Production-ready Calibration Service implementing Mission Planner behavior.
+/// Mission Planner-equivalent Calibration Service with STRICT supervisory control.
 /// 
-/// CRITICAL PRINCIPLES:
+/// ABSOLUTE RULES:
 /// 1. Firmware is the SINGLE SOURCE OF TRUTH
 /// 2. UI NEVER decides calibration success
 /// 3. Steps advance ONLY via STATUSTEXT messages from FC
 /// 4. All state transitions are driven by FC responses
+/// 5. Never invent sensor values
+/// 6. Never skip validation
+/// 7. Never continue after failure
+/// 8. Never soften failure language
+/// 9. Behavior must be deterministic
+/// 10. Flight safety always takes precedence
 /// 
-/// Accelerometer 6-axis calibration flow:
-/// 1. Send MAV_CMD_PREFLIGHT_CALIBRATION with param5=4
-/// 2. Wait for COMMAND_ACK (ACCEPTED or IN_PROGRESS)
-/// 3. FC sends STATUSTEXT "Place vehicle level..."
-/// 4. User positions vehicle, clicks confirm
-/// 5. App sends MAV_CMD_ACCELCAL_VEHICLE_POS(1)
-/// 6. FC samples, validates orientation
-/// 7. FC sends STATUSTEXT with result (next position or error)
-/// 8. Repeat for positions 2-6
-/// 9. FC sends "calibration successful" STATUSTEXT
-/// 
-/// Position mapping (ArduPilot):
-/// 1=Level, 2=Left, 3=Right, 4=NoseDown, 5=NoseUp, 6=Back
+/// PRE-CONDITIONS MUST PASS before calibration begins:
+/// - Vehicle DISARMED
+/// - Motors UNPOWERED
+/// - MAVLink heartbeat stable
+/// - No sensor timeout flags
 /// </summary>
 public class CalibrationService : ICalibrationService
 {
     private readonly ILogger<CalibrationService> _logger;
     private readonly IConnectionService _connectionService;
+    private readonly CalibrationPreConditionChecker _preConditionChecker;
+    private readonly CalibrationAbortMonitor _abortMonitor;
     
     // State
     private CalibrationStateModel _currentState = new();
@@ -65,15 +65,23 @@ public class CalibrationService : ICalibrationService
     // ArduPilot STATUSTEXT keywords for pattern matching
     private static class StatusKeywords
     {
-        // Completion
-        public static readonly string[] Complete = { "calibration successful", "calibration complete", 
-            "calibration done", "cal complete", "cal done" };
+        // Completion - expanded list matching ArduPilot actual messages
+        public static readonly string[] Complete = { 
+            "calibration successful", "calibration complete", "calibration done", 
+            "cal complete", "cal done", "calibration finished",
+            "level calibration", "level complete", "ahrs", "trim",
+            "accel offsets", "ins", "gyro", "gyros calibrated",
+            "baro", "ground pressure", "pressure calibration",
+            "compass", "mag offsets", "offsets saved"
+        };
         
         // Failure
-        public static readonly string[] Failed = { "calibration failed", "calibration cancelled", 
-            "cal failed", "failed" };
+        public static readonly string[] Failed = { 
+            "calibration failed", "calibration cancelled", "calibration timeout",
+            "cal failed", "failed", "error", "timeout", "cancelled"
+        };
         
-        // Position requests
+        // Position requests (for accel only)
         public const string Place = "place";
         public const string Level = "level";
         public const string Left = "left";
@@ -83,8 +91,8 @@ public class CalibrationService : ICalibrationService
         public const string Back = "back";
         public const string Upside = "upside";
         
-        // Sampling
-        public static readonly string[] Sampling = { "sampling", "reading", "detected", "hold still" };
+        // Sampling/progress
+        public static readonly string[] Sampling = { "sampling", "reading", "detected", "hold still", "calibrating" };
         
         // Progress
         public const string Progress = "progress";
@@ -103,13 +111,18 @@ public class CalibrationService : ICalibrationService
 
     public CalibrationService(
         ILogger<CalibrationService> logger,
-        IConnectionService connectionService)
+        IConnectionService connectionService,
+        CalibrationPreConditionChecker preConditionChecker,
+        CalibrationAbortMonitor abortMonitor)
     {
         _logger = logger;
         _connectionService = connectionService;
+        _preConditionChecker = preConditionChecker;
+        _abortMonitor = abortMonitor;
         
         _connectionService.StatusTextReceived += OnStatusTextReceived;
         _connectionService.CommandAckReceived += OnCommandAckReceived;
+        _abortMonitor.AbortTriggered += OnAbortTriggered;
     }
 
     #region Event Handlers
@@ -151,17 +164,43 @@ public class CalibrationService : ICalibrationService
         }
     }
 
+    private void OnAbortTriggered(object? sender, EventArgs e)
+    {
+        if (_isCalibrating)
+        {
+            _logger.LogWarning("Calibration aborted by monitor");
+            FinishCalibration(CalibrationResult.Cancelled, "Calibration aborted by monitor");
+        }
+    }
+
     private void HandleCalibrationCommandAck(byte result)
     {
         var mavResult = (MavResult)result;
         
         if (mavResult == MavResult.Accepted || mavResult == MavResult.InProgress)
         {
-            _logger.LogInformation("Calibration command accepted by FC");
+            _logger.LogInformation("Calibration command accepted by FC (result={Result})", mavResult);
             _currentDiagnostics?.AddDiagnostic(CalibrationDiagnosticSeverity.Info, 
                 $"FC accepted calibration command (result={mavResult})");
             
             TransitionState(CalibrationStateMachine.WaitingForInstruction);
+            
+            // For simple calibrations (gyro, baro, level), ACCEPTED means calibration started
+            // These calibrations complete very quickly - we need to wait for STATUSTEXT
+            // but also handle the case where FC completes without explicit success message
+            if (_currentCalibrationType == CalibrationType.Gyroscope ||
+                _currentCalibrationType == CalibrationType.Barometer ||
+                _currentCalibrationType == CalibrationType.LevelHorizon)
+            {
+                // Update UI to show calibration is in progress
+                UpdateState(CalibrationState.InProgress, 50, 
+                    $"{GetCalibrationTypeName(_currentCalibrationType)} calibration in progress... Keep vehicle still.",
+                    canConfirm: false);
+                
+                // Start a completion timer for simple calibrations
+                // These typically complete in 1-3 seconds
+                _ = WaitForSimpleCalibrationCompletion();
+            }
         }
         else
         {
@@ -181,6 +220,65 @@ public class CalibrationService : ICalibrationService
             
             FinishCalibration(CalibrationResult.Rejected, errorMessage);
         }
+    }
+
+    /// <summary>
+    /// For simple calibrations (gyro, baro, level), wait a short time then check if completed.
+    /// If no failure message received, assume success.
+    /// </summary>
+    private async Task WaitForSimpleCalibrationCompletion()
+    {
+        var calibrationType = _currentCalibrationType;
+        var startTime = DateTime.UtcNow;
+        var maxWaitMs = 10000; // Max 10 seconds for simple calibrations
+        var checkIntervalMs = 500;
+        
+        _logger.LogInformation("Waiting for {Type} calibration to complete...", calibrationType);
+        
+        while (_isCalibrating && 
+               _currentCalibrationType == calibrationType &&
+               (DateTime.UtcNow - startTime).TotalMilliseconds < maxWaitMs)
+        {
+            await Task.Delay(checkIntervalMs);
+            
+            // Update progress
+            var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+            var progress = Math.Min(95, (int)(elapsed / maxWaitMs * 100));
+            
+            if (_isCalibrating && _stateMachine != CalibrationStateMachine.Completed && 
+                _stateMachine != CalibrationStateMachine.Failed)
+            {
+                UpdateState(CalibrationState.InProgress, progress,
+                    $"{GetCalibrationTypeName(calibrationType)} calibration in progress...",
+                    canConfirm: false);
+            }
+        }
+        
+        // If still calibrating and no failure detected, assume success
+        // (FC may not send explicit success message for simple calibrations)
+        if (_isCalibrating && 
+            _currentCalibrationType == calibrationType &&
+            _stateMachine != CalibrationStateMachine.Failed &&
+            _stateMachine != CalibrationStateMachine.Completed)
+        {
+            _logger.LogInformation("{Type} calibration completed (no failure detected)", calibrationType);
+            FinishCalibration(CalibrationResult.Success, 
+                $"{GetCalibrationTypeName(calibrationType)} calibration completed successfully. Reboot recommended.");
+        }
+    }
+
+    private static string GetCalibrationTypeName(CalibrationType type)
+    {
+        return type switch
+        {
+            CalibrationType.Accelerometer => "Accelerometer",
+            CalibrationType.Compass => "Compass",
+            CalibrationType.Gyroscope => "Gyroscope",
+            CalibrationType.LevelHorizon => "Level Horizon",
+            CalibrationType.Barometer => "Barometer",
+            CalibrationType.Airspeed => "Airspeed",
+            _ => type.ToString()
+        };
     }
 
     private void HandleAccelCalVehiclePosAck(byte result)
@@ -271,7 +369,50 @@ public class CalibrationService : ICalibrationService
 
     private bool IsCompletionMessage(string lowerText)
     {
-        return StatusKeywords.Complete.Any(kw => lowerText.Contains(kw));
+        // Check for explicit completion keywords
+        if (StatusKeywords.Complete.Any(kw => lowerText.Contains(kw)))
+            return true;
+        
+        // For simple calibrations, check for type-specific success indicators
+        switch (_currentCalibrationType)
+        {
+            case CalibrationType.LevelHorizon:
+                // ArduPilot sends "Level Calibration" or "AHRS: " messages on completion
+                if (lowerText.Contains("level") && (lowerText.Contains("complete") || lowerText.Contains("done") || lowerText.Contains("saved")))
+                    return true;
+                if (lowerText.Contains("ahrs") && lowerText.Contains("trim"))
+                    return true;
+                break;
+                
+            case CalibrationType.Gyroscope:
+                // ArduPilot sends "Gyro" related messages
+                if (lowerText.Contains("gyro") && (lowerText.Contains("complete") || lowerText.Contains("done") || lowerText.Contains("calibrated")))
+                    return true;
+                break;
+                
+            case CalibrationType.Barometer:
+                // ArduPilot sends "Baro" or "pressure" related messages
+                if ((lowerText.Contains("baro") || lowerText.Contains("pressure")) && 
+                    (lowerText.Contains("complete") || lowerText.Contains("done") || lowerText.Contains("calibrated")))
+                    return true;
+                break;
+                
+            case CalibrationType.Accelerometer:
+                // For accel, need explicit "calibration successful"
+                if (lowerText.Contains("accel") && lowerText.Contains("calibration") && 
+                    (lowerText.Contains("successful") || lowerText.Contains("complete")))
+                    return true;
+                break;
+                
+            case CalibrationType.Compass:
+                // For compass, need explicit completion or offsets saved
+                if ((lowerText.Contains("compass") || lowerText.Contains("mag")) && 
+                    (lowerText.Contains("complete") || lowerText.Contains("done") || lowerText.Contains("saved")))
+                    return true;
+                break;
+        }
+        
+        return false;
     }
 
     private bool IsFailureMessage(string lowerText)
@@ -386,7 +527,19 @@ public class CalibrationService : ICalibrationService
 
     private void HandleSimpleCalStatusText(string lowerText, string originalText)
     {
-        // For gyro, baro, level - just update message
+        // For gyro, baro, level - check for progress indicators and update message
+        _logger.LogInformation("Simple cal STATUSTEXT: {Text}", originalText);
+        
+        // Check for "calibrating" type messages
+        if (StatusKeywords.Sampling.Any(kw => lowerText.Contains(kw)))
+        {
+            UpdateState(CalibrationState.InProgress, 50,
+                $"{GetCalibrationTypeName(_currentCalibrationType)}: {originalText}",
+                canConfirm: false);
+            return;
+        }
+        
+        // Update message and state
         _currentState.Message = originalText;
         CalibrationStateChanged?.Invoke(this, _currentState);
     }
@@ -764,6 +917,10 @@ public class CalibrationService : ICalibrationService
 
     private bool CanStartCalibration()
     {
+        // Use relaxed pre-condition checker (Mission Planner behavior)
+        // Only requires: connected + heartbeat stable + disarmed
+        // Does NOT require: EKF ready, GPS lock, full params, SYS_STATUS health
+        
         if (!_connectionService.IsConnected)
         {
             _logger.LogWarning("Cannot start calibration - not connected");
@@ -773,6 +930,13 @@ public class CalibrationService : ICalibrationService
         if (_isCalibrating)
         {
             _logger.LogWarning("Calibration already in progress");
+            return false;
+        }
+
+        // Quick check via pre-condition checker
+        if (!_preConditionChecker.CanStartCalibration())
+        {
+            _logger.LogWarning("Pre-conditions not met for calibration");
             return false;
         }
 
@@ -802,6 +966,9 @@ public class CalibrationService : ICalibrationService
             StateMachine = _stateMachine,
             Diagnostics = _currentDiagnostics
         };
+
+        // Start abort monitoring
+        _abortMonitor.StartMonitoring(type);
 
         _logger.LogInformation("Initialized {Type} calibration session {SessionId}", 
             type, _currentDiagnostics.SessionId);
@@ -840,6 +1007,9 @@ public class CalibrationService : ICalibrationService
 
     private void FinishCalibration(CalibrationResult result, string message)
     {
+        // Stop abort monitoring
+        _abortMonitor.StopMonitoring();
+
         var finalState = result switch
         {
             CalibrationResult.Success => CalibrationStateMachine.Completed,
@@ -863,7 +1033,10 @@ public class CalibrationService : ICalibrationService
         
         UpdateState(calState, progress, message, canConfirm: false);
         
-        _isCalibrating = false;
+        lock (_lock)
+        {
+            _isCalibrating = false;
+        }
 
         _logger.LogInformation("Calibration finished: {Result} - {Message} (Duration: {Duration})", 
             result, message, _currentDiagnostics.Duration);

@@ -8,11 +8,13 @@ namespace PavamanDroneConfigurator.Infrastructure.Services;
 /// <summary>
 /// Parameter service that downloads parameters from drone like Mission Planner.
 /// Uses aggressive retry strategy for missing parameters.
+/// Enriches parameters with metadata immediately upon receipt.
 /// </summary>
 public class ParameterService : IParameterService
 {
     private readonly ILogger<ParameterService> _logger;
     private readonly IConnectionService _connectionService;
+    private readonly IParameterMetadataService _metadataService;
     private readonly ConcurrentDictionary<string, DroneParameter> _parameters = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<DroneParameter>> _pendingWrites = new();
     private readonly HashSet<int> _receivedIndices = new();
@@ -35,10 +37,14 @@ public class ParameterService : IParameterService
     public int ReceivedParameterCount => _received;
     public int? ExpectedParameterCount => _expectedCount;
 
-    public ParameterService(ILogger<ParameterService> logger, IConnectionService connectionService)
+    public ParameterService(
+        ILogger<ParameterService> logger, 
+        IConnectionService connectionService,
+        IParameterMetadataService metadataService)
     {
         _logger = logger;
         _connectionService = connectionService;
+        _metadataService = metadataService;
         _connectionService.ParamValueReceived += OnParamReceived;
         _connectionService.ConnectionStateChanged += OnConnectionChanged;
     }
@@ -50,18 +56,27 @@ public class ParameterService : IParameterService
 
     private void OnParamReceived(object? sender, MavlinkParamValueEventArgs e)
     {
-        // Store parameter with value from drone
+        // Create parameter with value from drone
         var param = new DroneParameter
         {
             Name = e.Parameter.Name,
             Value = e.Parameter.Value,
-            Description = $"Index: {e.ParamIndex}"
+            OriginalValue = e.Parameter.Value
         };
+        
+        // Immediately enrich with metadata (descriptions, ranges, options)
+        _metadataService.EnrichParameter(param);
+        
+        // If no description from metadata, provide a default
+        if (string.IsNullOrEmpty(param.Description))
+        {
+            param.Description = $"Parameter {param.Name}";
+        }
         
         _parameters[param.Name] = param;
         
-        _logger.LogDebug("Received param: {Name} = {Value} [{Index}/{Count}]", 
-            param.Name, param.Value, e.ParamIndex, e.ParamCount);
+        _logger.LogDebug("Received param: {Name} = {Value} [{Index}/{Count}] - {Description}", 
+            param.Name, param.Value, e.ParamIndex, e.ParamCount, param.Description);
 
         bool isNew;
         lock (_lock)

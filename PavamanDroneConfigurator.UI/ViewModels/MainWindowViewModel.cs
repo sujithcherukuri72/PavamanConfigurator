@@ -44,6 +44,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public SerialConfigPageViewModel SerialConfigPage { get; }
     public RcCalibrationPageViewModel RcCalibrationPage { get; }
     public SensorsCalibrationPageViewModel SensorsCalibrationPage { get; }
+    public LogAnalyzerPageViewModel LogAnalyzerPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -64,6 +65,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SerialConfigPageViewModel serialConfigPage,
         RcCalibrationPageViewModel rcCalibrationPage,
         SensorsCalibrationPageViewModel sensorsCalibrationPage,
+        LogAnalyzerPageViewModel logAnalyzerPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -80,6 +82,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SerialConfigPage = serialConfigPage;
         RcCalibrationPage = rcCalibrationPage;
         SensorsCalibrationPage = sensorsCalibrationPage;
+        LogAnalyzerPage = logAnalyzerPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 

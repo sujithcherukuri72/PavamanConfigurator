@@ -179,6 +179,11 @@
                                     Classes="nav-button"
                                     CommandParameter="{Binding ProfilePage}" 
                                     Click="NavButton_Click" />
+
+                            <Button Content="Log Analyzer" 
+                                    Classes="nav-button"
+                                    CommandParameter="{Binding LogAnalyzerPage}" 
+                                    Click="NavButton_Click" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -244,6 +249,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:SensorsCalibrationPageViewModel">
                         <views:SensorsCalibrationPage />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:LogAnalyzerPageViewModel">
+                        <views:LogAnalyzerPage />
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

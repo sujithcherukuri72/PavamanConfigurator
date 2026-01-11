@@ -4,22 +4,43 @@ using PavamanDroneConfigurator.Core.Models;
 namespace PavamanDroneConfigurator.Core.Interfaces;
 
 /// <summary>
-/// Production-ready calibration service interface.
-/// Firmware is the SINGLE SOURCE OF TRUTH - UI never decides success.
-/// All state changes are driven by STATUSTEXT messages from the flight controller.
+/// Mission Planner-equivalent calibration service interface.
+// 
+/// STRICT CALIBRATION RULES:
+/// 1. Firmware is the SINGLE SOURCE OF TRUTH - UI never decides success
+/// 2. All state changes are driven by STATUSTEXT messages from the flight controller
+/// 3. Pre-conditions MUST pass before calibration can begin
+/// 4. Abort conditions are monitored continuously during calibration
+/// 5. Never invent sensor values
+/// 6. Never skip validation
+/// 7. Never continue after failure
+/// 8. Flight safety always takes precedence
 /// </summary>
 public interface ICalibrationService
 {
+    #region Pre-Condition Validation
+
+    /// <summary>
+    /// Validates all pre-conditions before starting calibration.
+    /// Returns detailed result with failure reasons if validation fails.
+    /// Calibration MUST NOT proceed if this returns invalid.
+    /// </summary>
+    // Note: Pre-condition checking is handled by CalibrationPreConditionChecker service
+
+    #endregion
+
     #region Calibration Operations
 
     /// <summary>
     /// Start a specific calibration type.
-    /// Sends MAV_CMD_PREFLIGHT_CALIBRATION with appropriate parameters.
+    /// Validates pre-conditions before sending MAV_CMD_PREFLIGHT_CALIBRATION.
+    /// Returns false if pre-conditions fail or command rejected.
     /// </summary>
     Task<bool> StartCalibrationAsync(CalibrationType type);
 
     /// <summary>
     /// Cancel the current calibration in progress.
+    /// Stops abort monitoring and resets state.
     /// </summary>
     Task<bool> CancelCalibrationAsync();
 
@@ -31,46 +52,49 @@ public interface ICalibrationService
     Task<bool> AcceptCalibrationStepAsync();
 
     /// <summary>
-    /// Start accelerometer calibration.
-    /// MAV_CMD_PREFLIGHT_CALIBRATION param5 = 1 (simple) or 4 (full 6-axis)
+    /// Start accelerometer calibration (6-axis).
+    /// REQUIRED ORIENTATIONS: Level, Left, Right, NoseDown, NoseUp, Back
+    /// MAV_CMD_PREFLIGHT_CALIBRATION param5 = 4 (full 6-axis)
     /// </summary>
     Task<bool> StartAccelerometerCalibrationAsync(bool fullSixAxis = true);
 
     /// <summary>
     /// Start compass/magnetometer calibration.
-    /// MAV_CMD_PREFLIGHT_CALIBRATION param2 = 1 (mag) or 76 (onboard mag cal)
+    /// Requires rotation through all orientations for spherical coverage.
+    /// MAV_CMD_PREFLIGHT_CALIBRATION param2 = 1 (mag) or 76 (onboard)
     /// </summary>
     Task<bool> StartCompassCalibrationAsync(bool onboardCalibration = false);
 
     /// <summary>
     /// Start gyroscope calibration.
+    /// Vehicle must remain COMPLETELY STILL during entire calibration.
     /// MAV_CMD_PREFLIGHT_CALIBRATION param1 = 1
-    /// Vehicle must remain completely still.
     /// </summary>
     Task<bool> StartGyroscopeCalibrationAsync();
 
     /// <summary>
-    /// Start level horizon calibration (trims).
+    /// Start level horizon calibration (AHRS trims).
+    /// Vehicle must be on PERFECTLY LEVEL surface.
     /// MAV_CMD_PREFLIGHT_CALIBRATION param5 = 2
-    /// Vehicle must be perfectly level.
     /// </summary>
     Task<bool> StartLevelHorizonCalibrationAsync();
 
     /// <summary>
     /// Start barometer calibration.
+    /// Vehicle must be stationary with no airflow disturbance.
     /// MAV_CMD_PREFLIGHT_CALIBRATION param3 = 1
-    /// Vehicle must be stationary.
     /// </summary>
     Task<bool> StartBarometerCalibrationAsync();
 
     /// <summary>
-    /// Start airspeed sensor calibration (for planes).
+    /// Start airspeed sensor calibration (for fixed-wing aircraft).
     /// MAV_CMD_PREFLIGHT_CALIBRATION param4 = 1
     /// </summary>
     Task<bool> StartAirspeedCalibrationAsync();
 
     /// <summary>
     /// Reboot the flight controller.
+    /// Should be called after successful calibration.
     /// MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN param1 = 1
     /// </summary>
     Task<bool> RebootFlightControllerAsync();
@@ -96,6 +120,7 @@ public interface ICalibrationService
 
     /// <summary>
     /// Get the current calibration diagnostics.
+    /// Contains all STATUSTEXT history, COMMAND_ACK responses, and diagnostic messages.
     /// </summary>
     CalibrationDiagnostics? CurrentDiagnostics { get; }
 

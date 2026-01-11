@@ -31,4 +31,24 @@ public interface IParameterMetadataService
     /// Updates a DroneParameter with metadata (description, range, etc).
     /// </summary>
     void EnrichParameter(DroneParameter parameter);
+
+    /// <summary>
+    /// Validates a parameter value against its metadata constraints.
+    /// </summary>
+    bool ValidateParameterValue(string parameterName, float value, out string? errorMessage);
+
+    /// <summary>
+    /// Gets a user-friendly description for a parameter value.
+    /// </summary>
+    string GetValueDescription(string parameterName, float value);
+
+    /// <summary>
+    /// Checks if metadata exists for a parameter.
+    /// </summary>
+    bool HasMetadata(string parameterName);
+
+    /// <summary>
+    /// Gets statistics about the metadata repository.
+    /// </summary>
+    ParameterMetadataStatistics GetStatistics();
 }
