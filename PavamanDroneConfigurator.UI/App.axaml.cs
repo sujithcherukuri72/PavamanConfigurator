@@ -67,10 +67,14 @@ public partial class App : Application
         services.AddTransient<PowerPageViewModel>();
         services.AddTransient<MotorEscPageViewModel>();
         services.AddTransient<PidTuningPageViewModel>();
+<<<<<<< Updated upstream
         services.AddTransient<SerialConfigPageViewModel>();
         services.AddTransient<RcCalibrationPageViewModel>();
         services.AddTransient<SensorsCalibrationPageViewModel>();
         services.AddTransient<DroneDetailsPageViewModel>();
+=======
+        services.AddTransient<ResetParametersPageViewModel>();
+>>>>>>> Stashed changes
 
         Services = services.BuildServiceProvider();
     }

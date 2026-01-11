@@ -693,6 +693,24 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _ = _mavlink.SendArmDisarmAsync(arm, force);
     }
 
+    public void SendResetParameters()
+    {
+        if (_currentConnectionType == ConnectionType.Bluetooth && _bluetoothConnection != null)
+        {
+            // Bluetooth does not support reset - log warning
+            _logger.LogWarning("Reset parameters via Bluetooth not yet supported");
+            return;
+        }
+
+        if (_mavlink == null)
+        {
+            _logger.LogWarning("Cannot send MAV_CMD_PREFLIGHT_STORAGE - not connected");
+            return;
+        }
+
+        _ = _mavlink.SendResetParametersAsync();
+    }
+
     private void SetConnected(bool connected)
     {
         if (_isConnected != connected)

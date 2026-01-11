@@ -50,6 +50,9 @@ public interface IConnectionService
     
     // Arm/Disarm command (MAV_CMD_COMPONENT_ARM_DISARM = 400)
     void SendArmDisarm(bool arm, bool force = false);
+    
+    // Reset all parameters to default (MAV_CMD_PREFLIGHT_STORAGE = 245, param1 = 2)
+    void SendResetParameters();
 }
 
 // Event args for PARAM_VALUE messages
