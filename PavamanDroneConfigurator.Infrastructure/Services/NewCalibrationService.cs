@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Asv.Mavlink.V2.Common;
 using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Interfaces;
 using PavamanDroneConfigurator.Core.Models;
@@ -12,39 +10,33 @@ using PavamanDroneConfigurator.Core.Models;
 namespace PavamanDroneConfigurator.Infrastructure.Services;
 
 /// <summary>
-/// New calibration service implementation using asv-mavlink v3.9
+/// New calibration service implementation using existing ConnectionService infrastructure
 /// Implements the backend logic for sensor calibration according to the specified UI data model
 /// </summary>
 public class NewCalibrationService : INewCalibrationService
 {
     private readonly ILogger<NewCalibrationService> _logger;
-    private readonly IMavlinkTransport _transport;
-    private readonly AckService _ackService;
-    private readonly MavlinkParameterService _parameterService;
+    private readonly IConnectionService _connectionService;
     
     private readonly Dictionary<SensorCategory, Category> _categories;
-    private readonly byte _targetSystem = 1;
-    private readonly byte _targetComponent = 1;
+    private readonly Dictionary<SensorCategory, int> _currentStepIndex;
 
     public NewCalibrationService(
         ILogger<NewCalibrationService> logger,
-        IMavlinkTransport transport,
-        AckService ackService,
-        MavlinkParameterService parameterService)
+        IConnectionService connectionService)
     {
         _logger = logger;
-        _transport = transport;
-        _ackService = ackService;
-        _parameterService = parameterService;
+        _connectionService = connectionService;
         
         _categories = InitializeCategories();
+        _currentStepIndex = new Dictionary<SensorCategory, int>();
     }
 
     private Dictionary<SensorCategory, Category> InitializeCategories()
     {
         var categories = new Dictionary<SensorCategory, Category>();
 
-        // Accelerometer
+        // Accelerometer - 6-axis calibration
         categories[SensorCategory.Accelerometer] = new Category
         {
             Id = "accelerometer",
@@ -52,11 +44,70 @@ public class NewCalibrationService : INewCalibrationService
             Icon = "accel_icon",
             Required = true,
             Status = Status.NotCalibrated,
-            Commands = CreateAccelerometerCommands(),
-            CalibrationSteps = CreateAccelerometerSteps()
+            Commands = new List<Command>
+            {
+                new Command
+                {
+                    CommandId = 241, // MAV_CMD_PREFLIGHT_CALIBRATION
+                    Name = "StartAccelerometerCalibration",
+                    TimeoutMs = 5000,
+                    Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
+                },
+                new Command
+                {
+                    CommandId = 42429, // MAV_CMD_ACCELCAL_VEHICLE_POS
+                    Name = "SetAccelOrientation",
+                    TimeoutMs = 3000
+                }
+            },
+            CalibrationSteps = new List<CalibrationStepInfo>
+            {
+                new CalibrationStepInfo
+                {
+                    StepIndex = 0,
+                    Label = "LEVEL",
+                    InstructionText = "Place vehicle level on a flat surface, then click Next",
+                    StepStatus = Status.NotCalibrated
+                },
+                new CalibrationStepInfo
+                {
+                    StepIndex = 1,
+                    Label = "LEFT",
+                    InstructionText = "Place vehicle on its left side, then click Next",
+                    StepStatus = Status.NotCalibrated
+                },
+                new CalibrationStepInfo
+                {
+                    StepIndex = 2,
+                    Label = "RIGHT",
+                    InstructionText = "Place vehicle on its right side, then click Next",
+                    StepStatus = Status.NotCalibrated
+                },
+                new CalibrationStepInfo
+                {
+                    StepIndex = 3,
+                    Label = "NOSE DOWN",
+                    InstructionText = "Place vehicle nose down, then click Next",
+                    StepStatus = Status.NotCalibrated
+                },
+                new CalibrationStepInfo
+                {
+                    StepIndex = 4,
+                    Label = "NOSE UP",
+                    InstructionText = "Place vehicle nose up, then click Next",
+                    StepStatus = Status.NotCalibrated
+                },
+                new CalibrationStepInfo
+                {
+                    StepIndex = 5,
+                    Label = "BACK",
+                    InstructionText = "Place vehicle on its back (upside down), then click Next",
+                    StepStatus = Status.NotCalibrated
+                }
+            }
         };
 
-        // Compass
+        // Compass/Magnetometer calibration
         categories[SensorCategory.Compass] = new Category
         {
             Id = "compass",
@@ -64,11 +115,29 @@ public class NewCalibrationService : INewCalibrationService
             Icon = "compass_icon",
             Required = true,
             Status = Status.NotCalibrated,
-            Commands = CreateCompassCommands(),
-            CalibrationSteps = CreateCompassSteps()
+            Commands = new List<Command>
+            {
+                new Command
+                {
+                    CommandId = 241, // MAV_CMD_PREFLIGHT_CALIBRATION
+                    Name = "StartCompassCalibration",
+                    TimeoutMs = 5000,
+                    Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
+                }
+            },
+            CalibrationSteps = new List<CalibrationStepInfo>
+            {
+                new CalibrationStepInfo
+                {
+                    StepIndex = 0,
+                    Label = "ROTATE",
+                    InstructionText = "Slowly rotate the vehicle in all directions until calibration completes",
+                    StepStatus = Status.NotCalibrated
+                }
+            }
         };
 
-        // Level Horizon
+        // Level Horizon calibration
         categories[SensorCategory.LevelHorizon] = new Category
         {
             Id = "level_horizon",
@@ -76,11 +145,29 @@ public class NewCalibrationService : INewCalibrationService
             Icon = "level_icon",
             Required = true,
             Status = Status.NotCalibrated,
-            Commands = CreateLevelHorizonCommands(),
-            CalibrationSteps = CreateLevelHorizonSteps()
+            Commands = new List<Command>
+            {
+                new Command
+                {
+                    CommandId = 241, // MAV_CMD_PREFLIGHT_CALIBRATION
+                    Name = "StartLevelCalibration",
+                    TimeoutMs = 5000,
+                    Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
+                }
+            },
+            CalibrationSteps = new List<CalibrationStepInfo>
+            {
+                new CalibrationStepInfo
+                {
+                    StepIndex = 0,
+                    Label = "LEVEL",
+                    InstructionText = "Place vehicle on a perfectly level surface and keep it still",
+                    StepStatus = Status.NotCalibrated
+                }
+            }
         };
 
-        // Pressure
+        // Pressure/Barometer calibration
         categories[SensorCategory.Pressure] = new Category
         {
             Id = "pressure",
@@ -88,11 +175,29 @@ public class NewCalibrationService : INewCalibrationService
             Icon = "pressure_icon",
             Required = false,
             Status = Status.NotCalibrated,
-            Commands = CreatePressureCommands(),
-            CalibrationSteps = CreatePressureSteps()
+            Commands = new List<Command>
+            {
+                new Command
+                {
+                    CommandId = 241, // MAV_CMD_PREFLIGHT_CALIBRATION
+                    Name = "StartPressureCalibration",
+                    TimeoutMs = 5000,
+                    Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
+                }
+            },
+            CalibrationSteps = new List<CalibrationStepInfo>
+            {
+                new CalibrationStepInfo
+                {
+                    StepIndex = 0,
+                    Label = "STILL",
+                    InstructionText = "Keep vehicle stationary with no airflow disturbance",
+                    StepStatus = Status.NotCalibrated
+                }
+            }
         };
 
-        // Flow
+        // Flow sensor configuration
         categories[SensorCategory.Flow] = new Category
         {
             Id = "flow",
@@ -100,285 +205,29 @@ public class NewCalibrationService : INewCalibrationService
             Icon = "flow_icon",
             Required = false,
             Status = Status.NotCalibrated,
-            Commands = CreateFlowCommands(),
-            CalibrationSteps = CreateFlowSteps()
+            Commands = new List<Command>
+            {
+                new Command
+                {
+                    CommandId = 0, // Custom - uses PARAM_SET
+                    Name = "SetFlowScale",
+                    TimeoutMs = 5000
+                }
+            },
+            CalibrationSteps = new List<CalibrationStepInfo>
+            {
+                new CalibrationStepInfo
+                {
+                    StepIndex = 0,
+                    Label = "CONFIGURE",
+                    InstructionText = "Configure optical flow scale factors via parameters",
+                    StepStatus = Status.NotCalibrated
+                }
+            }
         };
 
         return categories;
     }
-
-    #region Command Creation
-
-    private List<Command> CreateAccelerometerCommands()
-    {
-        return new List<Command>
-        {
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdPreflightCalibration,
-                Name = "StartAccelerometerCalibration",
-                TimeoutMs = 5000,
-                Schema = new PayloadSchema
-                {
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "param1", 0f }, // gyro
-                        { "param2", 0f }, // mag
-                        { "param3", 0f }, // ground_pressure
-                        { "param4", 0f }, // airspeed
-                        { "param5", 4f }  // accel (4 = full 6-axis calibration)
-                    }
-                },
-                Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 },
-                Preconditions = new List<Precondition>
-                {
-                    new Precondition { Type = "disarmed", Description = "Vehicle must be disarmed" },
-                    new Precondition { Type = "connected", Description = "MAVLink connection required" }
-                }
-            },
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdAccelcalVehiclePos,
-                Name = "SetAccelOrientation",
-                TimeoutMs = 3000,
-                Retry = new RetryPolicy { MaxRetries = 1, RetryDelayMs = 500 }
-            },
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdAccelcalVehiclePos,
-                Name = "NextAccelStep",
-                TimeoutMs = 3000
-            }
-        };
-    }
-
-    private List<Command> CreateCompassCommands()
-    {
-        return new List<Command>
-        {
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdPreflightCalibration,
-                Name = "StartCompassCalibration",
-                TimeoutMs = 5000,
-                Schema = new PayloadSchema
-                {
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "param1", 0f }, // gyro
-                        { "param2", 1f }, // mag (1 = start, 76 = onboard)
-                        { "param3", 0f }, // ground_pressure
-                        { "param4", 0f }, // airspeed
-                        { "param5", 0f }  // accel
-                    }
-                },
-                Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
-            },
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdDoAcceptMagCal,
-                Name = "FinishCompassCalibration",
-                TimeoutMs = 5000
-            }
-        };
-    }
-
-    private List<Command> CreateLevelHorizonCommands()
-    {
-        return new List<Command>
-        {
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdPreflightCalibration,
-                Name = "StartLevelCalibration",
-                TimeoutMs = 5000,
-                Schema = new PayloadSchema
-                {
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "param1", 0f }, // gyro
-                        { "param2", 0f }, // mag
-                        { "param3", 0f }, // ground_pressure
-                        { "param4", 0f }, // airspeed
-                        { "param5", 2f }  // accel (2 = level/trim calibration)
-                    }
-                },
-                Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
-            }
-        };
-    }
-
-    private List<Command> CreatePressureCommands()
-    {
-        return new List<Command>
-        {
-            new Command
-            {
-                CommandId = (int)MavCmd.MavCmdPreflightCalibration,
-                Name = "StartPressureCalibration",
-                TimeoutMs = 5000,
-                Schema = new PayloadSchema
-                {
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "param1", 0f }, // gyro
-                        { "param2", 0f }, // mag
-                        { "param3", 1f }, // ground_pressure (1 = calibrate)
-                        { "param4", 0f }, // airspeed
-                        { "param5", 0f }  // accel
-                    }
-                },
-                Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
-            }
-        };
-    }
-
-    private List<Command> CreateFlowCommands()
-    {
-        return new List<Command>
-        {
-            new Command
-            {
-                CommandId = 0, // Custom - will use PARAM_SET
-                Name = "SetFlowScale",
-                TimeoutMs = 5000,
-                Retry = new RetryPolicy { MaxRetries = 2, RetryDelayMs = 1000 }
-            }
-        };
-    }
-
-    #endregion
-
-    #region Step Creation
-
-    private List<CalibrationStepInfo> CreateAccelerometerSteps()
-    {
-        return new List<CalibrationStepInfo>
-        {
-            new CalibrationStepInfo
-            {
-                StepIndex = 0,
-                Label = "LEVEL",
-                InstructionText = "Place vehicle level on a flat surface",
-                StepStatus = Status.NotCalibrated,
-                ExpectedTelemetry = new TelemetryExpectation
-                {
-                    MessageType = "SCALED_IMU",
-                    TimeoutMs = 10000
-                }
-            },
-            new CalibrationStepInfo
-            {
-                StepIndex = 1,
-                Label = "LEFT",
-                InstructionText = "Place vehicle on its left side",
-                StepStatus = Status.NotCalibrated
-            },
-            new CalibrationStepInfo
-            {
-                StepIndex = 2,
-                Label = "RIGHT",
-                InstructionText = "Place vehicle on its right side",
-                StepStatus = Status.NotCalibrated
-            },
-            new CalibrationStepInfo
-            {
-                StepIndex = 3,
-                Label = "NOSE DOWN",
-                InstructionText = "Place vehicle nose down",
-                StepStatus = Status.NotCalibrated
-            },
-            new CalibrationStepInfo
-            {
-                StepIndex = 4,
-                Label = "NOSE UP",
-                InstructionText = "Place vehicle nose up",
-                StepStatus = Status.NotCalibrated
-            },
-            new CalibrationStepInfo
-            {
-                StepIndex = 5,
-                Label = "BACK",
-                InstructionText = "Place vehicle on its back (upside down)",
-                StepStatus = Status.NotCalibrated
-            }
-        };
-    }
-
-    private List<CalibrationStepInfo> CreateCompassSteps()
-    {
-        return new List<CalibrationStepInfo>
-        {
-            new CalibrationStepInfo
-            {
-                StepIndex = 0,
-                Label = "ROTATE",
-                InstructionText = "Slowly rotate the vehicle in all directions to cover all orientations",
-                StepStatus = Status.NotCalibrated,
-                ExpectedTelemetry = new TelemetryExpectation
-                {
-                    MessageType = "MAG_CAL_PROGRESS",
-                    TimeoutMs = 60000
-                }
-            }
-        };
-    }
-
-    private List<CalibrationStepInfo> CreateLevelHorizonSteps()
-    {
-        return new List<CalibrationStepInfo>
-        {
-            new CalibrationStepInfo
-            {
-                StepIndex = 0,
-                Label = "LEVEL",
-                InstructionText = "Place vehicle on a perfectly level surface and keep it still",
-                StepStatus = Status.NotCalibrated,
-                ExpectedTelemetry = new TelemetryExpectation
-                {
-                    MessageType = "ATTITUDE",
-                    TimeoutMs = 10000
-                }
-            }
-        };
-    }
-
-    private List<CalibrationStepInfo> CreatePressureSteps()
-    {
-        return new List<CalibrationStepInfo>
-        {
-            new CalibrationStepInfo
-            {
-                StepIndex = 0,
-                Label = "STILL",
-                InstructionText = "Keep vehicle stationary with no airflow disturbance",
-                StepStatus = Status.NotCalibrated,
-                ExpectedTelemetry = new TelemetryExpectation
-                {
-                    MessageType = "SCALED_PRESSURE",
-                    TimeoutMs = 10000
-                }
-            }
-        };
-    }
-
-    private List<CalibrationStepInfo> CreateFlowSteps()
-    {
-        return new List<CalibrationStepInfo>
-        {
-            new CalibrationStepInfo
-            {
-                StepIndex = 0,
-                Label = "CONFIGURE",
-                InstructionText = "Configure optical flow scale factors",
-                StepStatus = Status.NotCalibrated
-            }
-        };
-    }
-
-    #endregion
-
-    #region INewCalibrationService Implementation
 
     public async Task StartCalibrationAsync(SensorCategory category, CancellationToken ct)
     {
@@ -389,11 +238,14 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
-        // Check preconditions
-        if (!CheckPreconditions(cat))
+        // Check if connected
+        if (!_connectionService.IsConnected)
         {
-            throw new InvalidOperationException("Preconditions not met");
+            throw new InvalidOperationException("Not connected to drone");
         }
+
+        // Reset step index
+        _currentStepIndex[category] = 0;
 
         // Update status
         cat.Status = Status.InProgress;
@@ -402,160 +254,45 @@ public class NewCalibrationService : INewCalibrationService
             step.StepStatus = Status.NotCalibrated;
         }
 
-        // Get start command
-        var startCommand = cat.Commands.FirstOrDefault();
-        if (startCommand == null)
+        if (cat.CalibrationSteps.Count > 0)
         {
-            throw new InvalidOperationException("No start command found");
+            cat.CalibrationSteps[0].StepStatus = Status.InProgress;
         }
 
-        // Send calibration command based on category
-        await SendCalibrationCommandAsync(category, startCommand, ct);
-    }
-
-    private async Task SendCalibrationCommandAsync(SensorCategory category, Command command, CancellationToken ct)
-    {
+        // Send calibration start command based on category
         switch (category)
         {
             case SensorCategory.Accelerometer:
-                await SendAccelerometerCalibrationAsync(ct);
+                // MAV_CMD_PREFLIGHT_CALIBRATION: param5 = 4 (full 6-axis accel calibration)
+                _connectionService.SendPreflightCalibration(
+                    gyro: 0, mag: 0, groundPressure: 0, airspeed: 0, accel: 4);
                 break;
+
             case SensorCategory.Compass:
-                await SendCompassCalibrationAsync(ct);
+                // MAV_CMD_PREFLIGHT_CALIBRATION: param2 = 1 (mag calibration)
+                _connectionService.SendPreflightCalibration(
+                    gyro: 0, mag: 1, groundPressure: 0, airspeed: 0, accel: 0);
                 break;
+
             case SensorCategory.LevelHorizon:
-                await SendLevelHorizonCalibrationAsync(ct);
+                // MAV_CMD_PREFLIGHT_CALIBRATION: param5 = 2 (level/trim calibration)
+                _connectionService.SendPreflightCalibration(
+                    gyro: 0, mag: 0, groundPressure: 0, airspeed: 0, accel: 2);
                 break;
+
             case SensorCategory.Pressure:
-                await SendPressureCalibrationAsync(ct);
+                // MAV_CMD_PREFLIGHT_CALIBRATION: param3 = 1 (ground pressure calibration)
+                _connectionService.SendPreflightCalibration(
+                    gyro: 0, mag: 0, groundPressure: 1, airspeed: 0, accel: 0);
                 break;
+
             case SensorCategory.Flow:
-                await SendFlowCalibrationAsync(ct);
+                // Flow calibration is done via parameter setting
+                _logger.LogInformation("Flow sensor calibration - use parameter interface");
                 break;
         }
-    }
 
-    private async Task SendAccelerometerCalibrationAsync(CancellationToken ct)
-    {
-        var cmd = new CommandLongPayload
-        {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightCalibration,
-            Param1 = 0f, // gyro
-            Param2 = 0f, // mag
-            Param3 = 0f, // ground_pressure
-            Param4 = 0f, // airspeed
-            Param5 = 4f  // accel (4 = full 6-axis)
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdPreflightCalibration,
-            TimeSpan.FromSeconds(5),
-            ct);
-
-        if (!ackReceived)
-        {
-            throw new InvalidOperationException("Failed to start accelerometer calibration");
-        }
-
-        _logger.LogInformation("Accelerometer calibration started successfully");
-    }
-
-    private async Task SendCompassCalibrationAsync(CancellationToken ct)
-    {
-        var cmd = new CommandLongPayload
-        {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightCalibration,
-            Param1 = 0f, // gyro
-            Param2 = 1f, // mag (1 = start calibration)
-            Param3 = 0f, // ground_pressure
-            Param4 = 0f, // airspeed
-            Param5 = 0f  // accel
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdPreflightCalibration,
-            TimeSpan.FromSeconds(5),
-            ct);
-
-        if (!ackReceived)
-        {
-            throw new InvalidOperationException("Failed to start compass calibration");
-        }
-
-        _logger.LogInformation("Compass calibration started successfully");
-    }
-
-    private async Task SendLevelHorizonCalibrationAsync(CancellationToken ct)
-    {
-        var cmd = new CommandLongPayload
-        {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightCalibration,
-            Param1 = 0f, // gyro
-            Param2 = 0f, // mag
-            Param3 = 0f, // ground_pressure
-            Param4 = 0f, // airspeed
-            Param5 = 2f  // accel (2 = level/trim calibration)
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdPreflightCalibration,
-            TimeSpan.FromSeconds(5),
-            ct);
-
-        if (!ackReceived)
-        {
-            throw new InvalidOperationException("Failed to start level horizon calibration");
-        }
-
-        _logger.LogInformation("Level horizon calibration started successfully");
-    }
-
-    private async Task SendPressureCalibrationAsync(CancellationToken ct)
-    {
-        var cmd = new CommandLongPayload
-        {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightCalibration,
-            Param1 = 0f, // gyro
-            Param2 = 0f, // mag
-            Param3 = 1f, // ground_pressure (1 = calibrate)
-            Param4 = 0f, // airspeed
-            Param5 = 0f  // accel
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdPreflightCalibration,
-            TimeSpan.FromSeconds(5),
-            ct);
-
-        if (!ackReceived)
-        {
-            throw new InvalidOperationException("Failed to start pressure calibration");
-        }
-
-        _logger.LogInformation("Pressure calibration started successfully");
-    }
-
-    private async Task SendFlowCalibrationAsync(CancellationToken ct)
-    {
-        // Flow calibration is done via parameter writes
-        // FLOW_FXSCALER, FLOW_FYSCALER
-        _logger.LogInformation("Flow sensor calibration - parameters will be set via UI");
+        _logger.LogInformation("Calibration started for {Category}", category);
         await Task.CompletedTask;
     }
 
@@ -568,40 +305,52 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
+        if (!_currentStepIndex.TryGetValue(category, out var currentIndex))
+        {
+            throw new InvalidOperationException("Calibration not started");
+        }
+
         // For accelerometer, send position confirmation
         if (category == SensorCategory.Accelerometer)
         {
-            var currentStep = cat.CalibrationSteps.FirstOrDefault(s => s.StepStatus == Status.InProgress);
-            if (currentStep != null)
+            // MAV_CMD_ACCELCAL_VEHICLE_POS: param1 = position index (1-6)
+            int position = currentIndex + 1; // Position is 1-indexed
+            _connectionService.SendAccelCalVehiclePos(position);
+            
+            _logger.LogInformation("Sent accelerometer position {Position}", position);
+
+            // Mark current step as complete
+            if (currentIndex < cat.CalibrationSteps.Count)
             {
-                await SendAccelPositionAsync(currentStep.StepIndex + 1, ct);
+                cat.CalibrationSteps[currentIndex].StepStatus = Status.Complete;
+            }
+
+            // Move to next step
+            currentIndex++;
+            _currentStepIndex[category] = currentIndex;
+
+            if (currentIndex < cat.CalibrationSteps.Count)
+            {
+                cat.CalibrationSteps[currentIndex].StepStatus = Status.InProgress;
+            }
+            else
+            {
+                // All steps completed
+                cat.Status = Status.Complete;
+                _logger.LogInformation("All calibration steps completed for {Category}", category);
             }
         }
-    }
-
-    private async Task SendAccelPositionAsync(int positionIndex, CancellationToken ct)
-    {
-        var cmd = new CommandLongPayload
+        else
         {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdAccelcalVehiclePos,
-            Param1 = positionIndex
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdAccelcalVehiclePos,
-            TimeSpan.FromSeconds(3),
-            ct);
-
-        if (!ackReceived)
-        {
-            throw new InvalidOperationException($"Failed to confirm position {positionIndex}");
+            // For other calibrations, just mark as complete
+            cat.Status = Status.Complete;
+            foreach (var step in cat.CalibrationSteps)
+            {
+                step.StepStatus = Status.Complete;
+            }
         }
 
-        _logger.LogInformation("Accelerometer position {Position} confirmed", positionIndex);
+        await Task.CompletedTask;
     }
 
     public async Task AbortCalibrationAsync(SensorCategory category, CancellationToken ct)
@@ -613,21 +362,10 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
-        // Send abort command (param1 = 0 aborts all)
-        var cmd = new CommandLongPayload
-        {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightCalibration,
-            Param1 = 0f,
-            Param2 = 0f,
-            Param3 = 0f,
-            Param4 = 0f,
-            Param5 = 0f
-        };
+        // Send abort command (all params = 0 aborts calibration)
+        _connectionService.SendPreflightCalibration(
+            gyro: 0, mag: 0, groundPressure: 0, airspeed: 0, accel: 0);
 
-        await _transport.SendMessageAsync(cmd, ct);
-        
         // Update status
         cat.Status = Status.Error;
         foreach (var step in cat.CalibrationSteps)
@@ -639,6 +377,7 @@ public class NewCalibrationService : INewCalibrationService
         }
 
         _logger.LogInformation("Calibration aborted for {Category}", category);
+        await Task.CompletedTask;
     }
 
     public async Task CommitCalibrationAsync(SensorCategory category, CancellationToken ct)
@@ -650,30 +389,7 @@ public class NewCalibrationService : INewCalibrationService
             throw new ArgumentException($"Unknown category: {category}");
         }
 
-        // For compass, send accept command
-        if (category == SensorCategory.Compass)
-        {
-            var cmd = new CommandLongPayload
-            {
-                TargetSystem = _targetSystem,
-                TargetComponent = _targetComponent,
-                Command = MavCmd.MavCmdDoAcceptMagCal
-            };
-
-            await _transport.SendMessageAsync(cmd, ct);
-            
-            var ackReceived = await _ackService.WaitForAckAsync(
-                (int)MavCmd.MavCmdDoAcceptMagCal,
-                TimeSpan.FromSeconds(5),
-                ct);
-
-            if (!ackReceived)
-            {
-                throw new InvalidOperationException("Failed to commit compass calibration");
-            }
-        }
-
-        // Update status
+        // Mark as complete
         cat.Status = Status.Complete;
         foreach (var step in cat.CalibrationSteps)
         {
@@ -681,6 +397,7 @@ public class NewCalibrationService : INewCalibrationService
         }
 
         _logger.LogInformation("Calibration committed for {Category}", category);
+        await Task.CompletedTask;
     }
 
     public Category GetCategoryState(SensorCategory category)
@@ -697,54 +414,15 @@ public class NewCalibrationService : INewCalibrationService
     {
         _logger.LogInformation("Rebooting drone");
 
-        var cmd = new CommandLongPayload
+        if (!_connectionService.IsConnected)
         {
-            TargetSystem = _targetSystem,
-            TargetComponent = _targetComponent,
-            Command = MavCmd.MavCmdPreflightRebootShutdown,
-            Param1 = 1f // Reboot autopilot
-        };
-
-        await _transport.SendMessageAsync(cmd, ct);
-        
-        var ackReceived = await _ackService.WaitForAckAsync(
-            (int)MavCmd.MavCmdPreflightRebootShutdown,
-            TimeSpan.FromSeconds(5),
-            ct);
-
-        if (!ackReceived)
-        {
-            _logger.LogWarning("Reboot command may not have been acknowledged");
+            throw new InvalidOperationException("Not connected to drone");
         }
+
+        // MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN: param1 = 1 (reboot autopilot)
+        _connectionService.SendPreflightReboot(autopilot: 1, companion: 0);
 
         _logger.LogInformation("Reboot command sent");
+        await Task.CompletedTask;
     }
-
-    private bool CheckPreconditions(Category category)
-    {
-        // Check if transport is connected
-        if (!_transport.IsConnected)
-        {
-            _logger.LogWarning("Precondition failed: Not connected");
-            return false;
-        }
-
-        // Check command preconditions
-        var startCommand = category.Commands.FirstOrDefault();
-        if (startCommand?.Preconditions != null)
-        {
-            foreach (var precondition in startCommand.Preconditions)
-            {
-                if (precondition.CheckFunction != null && !precondition.CheckFunction())
-                {
-                    _logger.LogWarning("Precondition failed: {Description}", precondition.Description);
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    #endregion
 }
