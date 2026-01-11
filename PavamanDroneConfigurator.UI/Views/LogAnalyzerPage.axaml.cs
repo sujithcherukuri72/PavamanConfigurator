@@ -1,85 +1,75 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using PavamanDroneConfigurator.Core.Interfaces;
 using PavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.UI.Controls;
 using PavamanDroneConfigurator.UI.ViewModels;
+using System;
+using System.Linq;
 
-namespace PavamanDroneConfigurator.UI.Views;
-
-public partial class LogAnalyzerPage : UserControl
+namespace PavamanDroneConfigurator.UI.Views
 {
-    public LogAnalyzerPage()
+    public partial class LogAnalyzerPage : UserControl
     {
-        InitializeComponent();
-        
-        DataContextChanged += OnDataContextChanged;
-    }
+        private LogGraphControl? _graphControl;
 
-    private void OnDataContextChanged(object? sender, System.EventArgs e)
-    {
-        if (DataContext is LogAnalyzerPageViewModel viewModel)
+        public LogAnalyzerPage()
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel is Window window)
-            {
-                viewModel.SetParentWindow(window);
-            }
+            InitializeComponent();
+            Loaded += OnLoaded;
         }
-    }
 
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        
-        if (DataContext is LogAnalyzerPageViewModel viewModel)
+        private void OnLoaded(object? sender, RoutedEventArgs e)
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel is Window window)
-            {
-                viewModel.SetParentWindow(window);
-            }
-        }
-    }
+            // Get reference to graph control
+            _graphControl = this.FindControl<LogGraphControl>("GraphControl");
 
-    private void LogRow_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is LogFileInfo logFile)
-        {
-            logFile.IsSelected = !logFile.IsSelected;
-            
+            // Find the parent window and set it on the ViewModel
             if (DataContext is LogAnalyzerPageViewModel viewModel)
             {
-                viewModel.SelectedLogFile = logFile;
-            }
-        }
-    }
-
-    private void FieldItem_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is LogFieldInfo field)
-        {
-            if (DataContext is LogAnalyzerPageViewModel viewModel)
-            {
-                if (field.IsSelected)
+                viewModel.PropertyChanged += ViewModel_PropertyChanged;
+                
+                // Find parent window
+                var window = TopLevel.GetTopLevel(this) as Window;
+                if (window != null)
                 {
-                    viewModel.RemoveFieldFromGraphCommand.Execute(field);
-                }
-                else
-                {
-                    viewModel.AddFieldToGraphCommand.Execute(field);
+                    viewModel.SetParentWindow(window);
                 }
             }
         }
-    }
 
-    private void ScriptFunction_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is ScriptFunctionInfo func)
+        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (DataContext is LogAnalyzerPageViewModel viewModel)
+            if (e.PropertyName == nameof(LogAnalyzerPageViewModel.CurrentGraph) && _graphControl != null)
             {
-                viewModel.InsertScriptFunctionCommand.Execute(func);
+                var viewModel = DataContext as LogAnalyzerPageViewModel;
+                _graphControl.UpdateGraph(viewModel?.CurrentGraph);
+            }
+        }
+
+        private void FieldItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is LogFieldInfo field)
+            {
+                // Toggle selection
+                field.IsSelected = !field.IsSelected;
+
+                // Notify ViewModel
+                if (DataContext is LogAnalyzerPageViewModel viewModel)
+                {
+                    viewModel.OnFieldSelectionChanged(field);
+                }
+            }
+        }
+
+        private void ScriptFunction_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is Core.Interfaces.ScriptFunctionInfo function)
+            {
+                if (DataContext is LogAnalyzerPageViewModel viewModel)
+                {
+                    viewModel.InsertScriptFunction(function);
+                }
             }
         }
     }

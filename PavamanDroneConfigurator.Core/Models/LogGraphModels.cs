@@ -1,3 +1,6 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+
 namespace PavamanDroneConfigurator.Core.Models;
 
 /// <summary>
@@ -174,6 +177,21 @@ public class LogFieldInfo
     /// Assigned color when selected.
     /// </summary>
     public string? Color { get; set; }
+
+    /// <summary>
+    /// Minimum value in the data series (for legend display).
+    /// </summary>
+    public double MinValue { get; set; }
+
+    /// <summary>
+    /// Maximum value in the data series (for legend display).
+    /// </summary>
+    public double MaxValue { get; set; }
+
+    /// <summary>
+    /// Mean/average value in the data series (for legend display).
+    /// </summary>
+    public double MeanValue { get; set; }
 }
 
 /// <summary>
@@ -200,6 +218,62 @@ public class LogMessageTypeGroup
     /// Whether this group is expanded in UI.
     /// </summary>
     public bool IsExpanded { get; set; }
+}
+
+/// <summary>
+/// Tree node for hierarchical message type display (Mission Planner style)
+/// </summary>
+public class LogMessageTypeNode : INotifyPropertyChanged
+{
+    public string Name { get; set; } = string.Empty;
+    public bool IsMessageType { get; set; } = true;
+    public ObservableCollection<LogFieldNode> Fields { get; set; } = new();
+    public bool HasChildren => Fields.Count > 0;
+    
+    private bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded != value)
+            {
+                _isExpanded = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>
+/// Field node for TreeView (child of message type)
+/// </summary>
+public class LogFieldNode : INotifyPropertyChanged
+{
+    public string Name { get; set; } = string.Empty;
+    public string FullKey { get; set; } = string.Empty; // MessageType.FieldName
+    public string Color { get; set; } = "#FFFFFF";
+    public double MinValue { get; set; }
+    public double MaxValue { get; set; }
+    public double MeanValue { get; set; }
+    
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 /// <summary>

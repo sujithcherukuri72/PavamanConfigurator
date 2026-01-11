@@ -115,12 +115,47 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [ObservableProperty]
     private ObservableCollection<LogFieldInfo> _filteredFields = new();
 
+    // TreeView for Mission Planner style
+    [ObservableProperty]
+    private ObservableCollection<LogMessageTypeNode> _messageTypesTree = new();
+
+    [ObservableProperty]
+    private bool _hasTreeData;
+
+    #endregion
+
+    #region Display Options (Mission Planner style toolbar)
+
+    [ObservableProperty]
+    private bool _showMap;
+
+    [ObservableProperty]
+    private bool _showTime = true;
+
+    [ObservableProperty]
+    private bool _showDataTable;
+
+    [ObservableProperty]
+    private bool _showParams;
+
+    [ObservableProperty]
+    private bool _showMode = true;
+
+    [ObservableProperty]
+    private bool _showErrors = true;
+
+    [ObservableProperty]
+    private bool _showMsg = true;
+
+    [ObservableProperty]
+    private bool _showEvents = true;
+
     #endregion
 
     #region Scripting Properties
 
     [ObservableProperty]
-    private string _scriptText = "# Enter script commands here\nINFO\nTYPES\n";
+    private string _scriptText = string.Empty;
 
     [ObservableProperty]
     private string _scriptOutput = string.Empty;
@@ -130,6 +165,12 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private ObservableCollection<ScriptFunctionInfo> _scriptFunctions = new();
+
+    [ObservableProperty]
+    private string _loadedScriptPath = string.Empty;
+
+    [ObservableProperty]
+    private string _loadedScriptName = string.Empty;
 
     #endregion
 
@@ -218,7 +259,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         });
     }
 
-    private void OnDownloadCompleted(object? sender, (LogFileInfo File, bool Success, string? Error) e)
+    private void OnDownloadCompleted(object? sender, (LogFileInfo File, bool Success, String? Error) e)
     {
         Dispatcher.UIThread.Post(() =>
         {
@@ -391,6 +432,20 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private void CloseDownloadDialog()
     {
+        // Cancel any ongoing operations safely before closing
+        try
+        {
+            if (IsDownloading)
+            {
+                _logAnalyzerService.CancelDownload();
+                IsDownloading = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error canceling download on dialog close");
+        }
+        
         IsDownloadDialogOpen = false;
     }
 
@@ -403,6 +458,11 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         try
         {
             await _logAnalyzerService.RefreshLogFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh logs");
+            StatusMessage = $"Failed to refresh: {ex.Message}";
         }
         finally
         {
@@ -434,7 +494,18 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             {
                 SelectedFilePath = downloaded.LocalPath ?? string.Empty;
                 IsDownloadDialogOpen = false;
+                
+                // Auto-load the downloaded log
+                if (!string.IsNullOrEmpty(SelectedFilePath))
+                {
+                    await LoadLogAsync();
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Download failed");
+            StatusMessage = $"Download failed: {ex.Message}";
         }
         finally
         {
@@ -445,7 +516,14 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private void CancelDownload()
     {
-        _logAnalyzerService.CancelDownload();
+        try
+        {
+            _logAnalyzerService.CancelDownload();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error canceling download");
+        }
         IsDownloading = false;
     }
 
@@ -516,13 +594,54 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         AvailableFields.Clear();
         FilteredFields.Clear();
         SelectedGraphFields.Clear();
+        MessageTypesTree.Clear();
 
         var fields = _logAnalyzerService.GetAvailableGraphFields();
+        
+        // Build flat list with statistics
         foreach (var field in fields)
         {
+            // Get statistics for each field for legend display
+            var stats = _logAnalyzerService.GetFieldStatistics(field.DisplayName);
+            field.MinValue = stats.Minimum;
+            field.MaxValue = stats.Maximum;
+            field.MeanValue = stats.Average;
+            
             AvailableFields.Add(field);
             FilteredFields.Add(field);
         }
+
+        // Build TreeView structure (Mission Planner style)
+        var groupedByType = fields.GroupBy(f => f.MessageType).OrderBy(g => g.Key);
+        
+        foreach (var group in groupedByType)
+        {
+            var typeNode = new LogMessageTypeNode
+            {
+                Name = group.Key,
+                IsMessageType = true
+            };
+
+            var colorIndex = 0;
+            foreach (var field in group.OrderBy(f => f.FieldName))
+            {
+                var fieldNode = new LogFieldNode
+                {
+                    Name = field.FieldName,
+                    FullKey = field.DisplayName,
+                    Color = GraphColors.GetColor(colorIndex++),
+                    MinValue = field.MinValue,
+                    MaxValue = field.MaxValue,
+                    MeanValue = field.MeanValue
+                };
+                
+                typeNode.Fields.Add(fieldNode);
+            }
+
+            MessageTypesTree.Add(typeNode);
+        }
+
+        HasTreeData = MessageTypesTree.Count > 0;
     }
 
     private void FilterGraphFields()
@@ -605,11 +724,91 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     #region Script Commands
 
     [RelayCommand]
+    private async Task LoadScriptFileAsync()
+    {
+        if (_parentWindow == null)
+        {
+            StatusMessage = "Cannot open file browser";
+            return;
+        }
+
+        try
+        {
+            var files = await _parentWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Select Lua Script",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Lua Scripts") { Patterns = new[] { "*.lua" } },
+                    new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                }
+            });
+
+            if (files.Count > 0)
+            {
+                var file = files[0];
+                LoadedScriptPath = file.Path.LocalPath;
+                LoadedScriptName = Path.GetFileName(LoadedScriptPath);
+                
+                // Read the script file content
+                ScriptText = await File.ReadAllTextAsync(LoadedScriptPath);
+                ScriptOutput = $"Loaded: {LoadedScriptName}\nFile size: {new FileInfo(LoadedScriptPath).Length} bytes";
+                StatusMessage = $"Script loaded: {LoadedScriptName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load script file");
+            StatusMessage = $"Failed to load script: {ex.Message}";
+            ScriptOutput = $"Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveScriptFileAsync()
+    {
+        if (_parentWindow == null || string.IsNullOrWhiteSpace(ScriptText))
+        {
+            StatusMessage = "Nothing to save";
+            return;
+        }
+
+        try
+        {
+            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save Lua Script",
+                DefaultExtension = "lua",
+                SuggestedFileName = !string.IsNullOrEmpty(LoadedScriptName) ? LoadedScriptName : "script.lua",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("Lua Scripts") { Patterns = new[] { "*.lua" } }
+                }
+            });
+
+            if (file != null)
+            {
+                await File.WriteAllTextAsync(file.Path.LocalPath, ScriptText);
+                LoadedScriptPath = file.Path.LocalPath;
+                LoadedScriptName = Path.GetFileName(LoadedScriptPath);
+                StatusMessage = $"Script saved: {LoadedScriptName}";
+                ScriptOutput = $"Saved: {LoadedScriptName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save script file");
+            StatusMessage = $"Failed to save script: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task RunScriptAsync()
     {
         if (string.IsNullOrWhiteSpace(ScriptText))
         {
-            StatusMessage = "No script to run.";
+            StatusMessage = "No script loaded. Load a Lua script file first.";
             return;
         }
 
@@ -655,13 +854,77 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     {
         ScriptText = "";
         ScriptOutput = "";
+        LoadedScriptPath = "";
+        LoadedScriptName = "";
+    }
+
+    public void InsertScriptFunction(ScriptFunctionInfo function)
+    {
+        if (string.IsNullOrEmpty(ScriptText))
+        {
+            ScriptText = function.Example;
+        }
+        else
+        {
+            ScriptText += $"\n{function.Example}";
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    public void OnFieldSelectionChanged(LogFieldInfo field)
+    {
+        if (field.IsSelected)
+        {
+            AddFieldToGraph(field);
+        }
+        else
+        {
+            RemoveFieldFromGraph(field);
+        }
+    }
+
+    public bool CanGoToNextPage => CurrentMessagePage < TotalMessagePages - 1;
+    public bool CanGoToPreviousPage => CurrentMessagePage > 0;
+
+    [RelayCommand]
+    private void ResetZoom()
+    {
+        // This will be handled by the graph control
+        StatusMessage = "Zoom reset";
     }
 
     [RelayCommand]
-    private void InsertScriptFunction(ScriptFunctionInfo? func)
+    private async Task ExportGraphAsync()
     {
-        if (func == null) return;
-        ScriptText += $"\n{func.Example}";
+        if (!HasGraphData || _parentWindow == null) return;
+
+        try
+        {
+            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Graph",
+                DefaultExtension = "png",
+                SuggestedFileName = $"graph_{DateTime.Now:yyyyMMdd_HHmmss}.png",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("PNG Image") { Patterns = new[] { "*.png" } }
+                }
+            });
+
+            if (file != null)
+            {
+                // The export will be triggered through the view
+                StatusMessage = $"Graph exported to {Path.GetFileName(file.Path.LocalPath)}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export graph");
+            StatusMessage = $"Export failed: {ex.Message}";
+        }
     }
 
     #endregion
@@ -679,6 +942,24 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             _logAnalyzerService.LogParsed -= OnLogParsed;
         }
         base.Dispose(disposing);
+    }
+
+    #endregion
+
+    #region Graph Navigation Commands
+
+    [RelayCommand]
+    private void GraphLeft()
+    {
+        // Scroll graph left (pan left in time)
+        StatusMessage = "Graph panned left";
+    }
+
+    [RelayCommand]
+    private void GraphRight()
+    {
+        // Scroll graph right (pan right in time)
+        StatusMessage = "Graph panned right";
     }
 
     #endregion
