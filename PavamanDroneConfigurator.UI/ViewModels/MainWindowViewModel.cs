@@ -41,13 +41,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public PowerPageViewModel PowerPage { get; }
     public MotorEscPageViewModel MotorEscPage { get; }
     public PidTuningPageViewModel PidTuningPage { get; }
-<<<<<<< Updated upstream
     public SerialConfigPageViewModel SerialConfigPage { get; }
     public RcCalibrationPageViewModel RcCalibrationPage { get; }
     public SensorsCalibrationPageViewModel SensorsCalibrationPage { get; }
-=======
     public ResetParametersPageViewModel ResetParametersPage { get; }
->>>>>>> Stashed changes
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -65,13 +62,10 @@ public partial class MainWindowViewModel : ViewModelBase
         PowerPageViewModel powerPage,
         MotorEscPageViewModel motorEscPage,
         PidTuningPageViewModel pidTuningPage,
-<<<<<<< Updated upstream
         SerialConfigPageViewModel serialConfigPage,
         RcCalibrationPageViewModel rcCalibrationPage,
         SensorsCalibrationPageViewModel sensorsCalibrationPage,
-=======
         ResetParametersPageViewModel resetParametersPage,
->>>>>>> Stashed changes
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -85,13 +79,10 @@ public partial class MainWindowViewModel : ViewModelBase
         PowerPage = powerPage;
         MotorEscPage = motorEscPage;
         PidTuningPage = pidTuningPage;
-<<<<<<< Updated upstream
         SerialConfigPage = serialConfigPage;
         RcCalibrationPage = rcCalibrationPage;
         SensorsCalibrationPage = sensorsCalibrationPage;
-=======
         ResetParametersPage = resetParametersPage;
->>>>>>> Stashed changes
         _parameterService = parameterService;
         _connectionService = connectionService;
 
