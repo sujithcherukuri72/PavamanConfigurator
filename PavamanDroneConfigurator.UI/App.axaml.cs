@@ -88,6 +88,7 @@ public partial class App : Application
         services.AddTransient<DroneDetailsPageViewModel>();
         services.AddTransient<ParameterMetadataViewModel>();
         services.AddTransient<LogAnalyzerPageViewModel>();
+        services.AddTransient<ResetParametersPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

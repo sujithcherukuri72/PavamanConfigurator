@@ -132,48 +132,51 @@ public partial class ConnectionPageViewModel : ViewModelBase
 
     private void OnConnectionStateChanged(object? sender, bool connected)
     {
-        try
+        Dispatcher.UIThread.Post(() =>
         {
-            IsConnected = connected;
-            StatusMessage = connected ? "Connection established successfully" : "Disconnected";
-            SetConnectionIndicator(connected ? "Connected" : "Disconnected", connected ? new SolidColorBrush(Color.Parse("#10B981")) : new SolidColorBrush(Color.Parse("#EF4444")));
+            try
+            {
+                IsConnected = connected;
+                StatusMessage = connected ? "Connection established successfully" : "Disconnected";
+                SetConnectionIndicator(connected ? "Connected" : "Disconnected", connected ? new SolidColorBrush(Color.Parse("#10B981")) : new SolidColorBrush(Color.Parse("#EF4444")));
 
-            if (connected)
-            {
-                // Trigger parameter download when connection is established
-                _ = Task.Run(async () =>
+                if (connected)
                 {
-                    try
+                    // Trigger parameter download when connection is established
+                    _ = Task.Run(async () =>
                     {
-                        await _parameterService.RefreshParametersAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        try
                         {
-                            StatusMessage = $"Parameter download failed: {ex.Message}";
-                        });
-                    }
-                });
-                
-                _downloadInProgress = true;
-                IsDownloadingParameters = true;
-                StatusMessage = "Connected - Downloading parameters...";
+                            await _parameterService.RefreshParametersAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                StatusMessage = $"Parameter download failed: {ex.Message}";
+                            });
+                        }
+                    });
+                    
+                    _downloadInProgress = true;
+                    IsDownloadingParameters = true;
+                    StatusMessage = "Connected - Downloading parameters...";
+                }
+                else
+                {
+                    var interruptedDownload = _downloadInProgress && !_parameterService.IsParameterDownloadComplete;
+                    StatusMessage = interruptedDownload
+                        ? "Disconnected during parameter download"
+                        : "Disconnected";
+                    _downloadInProgress = false;
+                    IsDownloadingParameters = false;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var interruptedDownload = _downloadInProgress && !_parameterService.IsParameterDownloadComplete;
-                StatusMessage = interruptedDownload
-                    ? "Disconnected during parameter download"
-                    : "Disconnected";
-                _downloadInProgress = false;
-                IsDownloadingParameters = false;
+                StatusMessage = $"Error during connection state change: {ex.Message}";
             }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error during connection state change: {ex.Message}";
-        }
+        });
     }
 
     private void SetConnectionIndicator(string text, IBrush brush)
