@@ -298,6 +298,7 @@ public class CalibrationService : ICalibrationService
                 .FirstOrDefault(p => p.Position == _currentPositionNumber);
             if (posResult != null)
             {
+                posResult.Accepted = true;
                 posResult.FcAcceptedTime = DateTime.UtcNow;
             }
         }
@@ -442,13 +443,18 @@ public class CalibrationService : ICalibrationService
             _currentDiagnostics?.AddDiagnostic(CalibrationDiagnosticSeverity.Info,
                 $"FC requested position {_currentPositionNumber}: {GetPositionName(_currentPositionNumber)}");
             
-            // Add position result entry
-            _currentDiagnostics?.AccelPositionResults.Add(new AccelPositionResult
+            // Add position result entry - only if it doesn't already exist for this position
+            var existingResult = _currentDiagnostics?.AccelPositionResults
+                .FirstOrDefault(p => p.Position == _currentPositionNumber);
+            if (existingResult == null && _currentDiagnostics != null)
             {
-                Position = _currentPositionNumber,
-                PositionName = GetPositionName(_currentPositionNumber),
-                Attempts = 1
-            });
+                _currentDiagnostics.AccelPositionResults.Add(new AccelPositionResult
+                {
+                    Position = _currentPositionNumber,
+                    PositionName = GetPositionName(_currentPositionNumber),
+                    Attempts = 0  // Will be incremented when user confirms
+                });
+            }
 
             TransitionState(CalibrationStateMachine.WaitingForUserPosition);
             
@@ -859,6 +865,9 @@ public class CalibrationService : ICalibrationService
             {
                 posResult.UserConfirmedTime = DateTime.UtcNow;
                 posResult.Attempts++;
+                // Reset acceptance state for retry attempt
+                posResult.Accepted = false;
+                posResult.FcAcceptedTime = null;
             }
 
             TransitionState(CalibrationStateMachine.WaitingForSampling);
