@@ -537,7 +537,7 @@
                         <Border Background="#FEF2F2" CornerRadius="8" Padding="12" Margin="0,0,0,16" 
                                 IsVisible="{Binding !IsBarometerAvailable}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="⚠" FontSize="16" Foreground="#DC2626"/>
+                                <TextBlock Text="!" FontSize="16" FontWeight="Bold" Foreground="#DC2626"/>
                                 <TextBlock Text="Barometer sensor not detected. Check hardware connections." 
                                            Foreground="#DC2626" VerticalAlignment="Center"/>
                             </StackPanel>
@@ -550,15 +550,20 @@
                         <!-- Barometer visualization with better styling -->
                         <Border Background="#F8FAFC" CornerRadius="12" Padding="32" Margin="0,0,0,16" HorizontalAlignment="Center">
                             <StackPanel HorizontalAlignment="Center" Spacing="12">
-                                <!-- Barometer icon -->
+                                <!-- Barometer icon - using simple geometric design for cross-platform compatibility -->
                                 <Border Width="80" Height="80" CornerRadius="40" 
                                         Background="White" 
                                         BorderBrush="#3B82F6" 
                                         BorderThickness="4"
                                         HorizontalAlignment="Center">
-                                    <TextBlock Text="⏱" FontSize="36" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="P" FontSize="32" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" 
+                                                   Foreground="#3B82F6"/>
+                                        <TextBlock Text="mbar" FontSize="10"
+                                                   HorizontalAlignment="Center" 
+                                                   Foreground="#3B82F6"/>
+                                    </StackPanel>
                                 </Border>
                                 <TextBlock Text="Barometer Sensor" 
                                            FontSize="14" 

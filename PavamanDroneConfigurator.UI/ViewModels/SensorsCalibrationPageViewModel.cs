@@ -607,10 +607,11 @@ public partial class SensorsCalibrationPageViewModel : ViewModelBase
                 AccelCalibrationProgress = e.ProgressPercent;
                 AccelCurrentStep = e.StatusText ?? string.Empty;
                 
-                // Mark step as complete when FC is sampling (validated the position)
+                // Mark step as complete when FC is sampling (FC has validated the current position)
+                // The sampling state indicates the FC accepted the position and is collecting data
                 bool shouldMarkComplete = e.StateMachine == CalibrationStateMachine.Sampling;
                 
-                // If FC is sampling, the previous step was validated, mark it complete
+                // If FC is sampling, the current step's position was validated, mark it complete
                 if (shouldMarkComplete && e.CurrentStep.HasValue)
                 {
                     UpdateStepIndicators(e.CurrentStep.Value, markCurrentAsComplete: true);
