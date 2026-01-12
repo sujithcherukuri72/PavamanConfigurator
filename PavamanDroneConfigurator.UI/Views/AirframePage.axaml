@@ -133,7 +133,7 @@
                         Padding="15"
                         Background="#22FFA500">
                     <StackPanel Spacing="5">
-                        <TextBlock Text="?? Important Warning" 
+                        <TextBlock Text="Important Warning" 
                                    FontSize="16" 
                                    FontWeight="Bold"
                                    Foreground="Orange" />

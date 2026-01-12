@@ -47,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public LogAnalyzerPageViewModel LogAnalyzerPage { get; }
     public ResetParametersPageViewModel ResetParametersPage { get; }
     public SprayingConfigPageViewModel SprayingConfigPage { get; }
+    public AdvancedSettingsPageViewModel AdvancedSettingsPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -70,6 +71,7 @@ public partial class MainWindowViewModel : ViewModelBase
         LogAnalyzerPageViewModel logAnalyzerPage,
         ResetParametersPageViewModel resetParametersPage,
         SprayingConfigPageViewModel sprayingConfigPage,
+        AdvancedSettingsPageViewModel advancedSettingsPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -89,6 +91,7 @@ public partial class MainWindowViewModel : ViewModelBase
         LogAnalyzerPage = logAnalyzerPage;
         ResetParametersPage = resetParametersPage;
         SprayingConfigPage = sprayingConfigPage;
+        AdvancedSettingsPage = advancedSettingsPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 

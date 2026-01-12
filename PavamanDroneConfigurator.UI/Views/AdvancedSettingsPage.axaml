@@ -1,0 +1,497 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             xmlns:models="using:PavamanDroneConfigurator.Core.Models"
+             x:Class="PavamanDroneConfigurator.UI.Views.AdvancedSettingsPage"
+             x:DataType="vm:AdvancedSettingsPageViewModel">
+
+    <UserControl.Styles>
+        <!-- Modern Blue Theme Color System -->
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#29ABE2"/>
+            <Setter Property="LetterSpacing" Value="1"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#29ABE2"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldValue">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+        
+        <Style Selector="TextBlock.HintText">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        
+        <Style Selector="Border.DetailCard">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="#29ABE2"/>
+        </Style>
+        
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="MinWidth" Value="150"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#29ABE2"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#1E96C8"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#CBD5E1"/>
+        </Style>
+
+        <Style Selector="Border.TagPill">
+            <Setter Property="Background" Value="#DBEAFE"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        
+        <Style Selector="Border.WarningPill">
+            <Setter Property="Background" Value="#FEF3C7"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="#F0F9FF"/>
+        </Style>
+        
+        <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="#DBEAFE"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header Section -->
+        <StackPanel Grid.Row="0" Margin="32,24,32,16">
+            <TextBlock Classes="PageTitle" Text="ADVANCED SETTINGS"/>
+            <TextBlock Classes="HintText" Text="Browse and search ArduPilot parameter definitions from official metadata" Margin="0,8,0,0"/>
+        </StackPanel>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,380" Margin="32,0,32,32">
+            
+            <!-- Left Panel - Parameter List -->
+            <Border Grid.Column="0" Classes="SectionCard" Margin="0,0,16,0">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    
+                    <!-- Search and Filter Bar -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                        <TextBox Grid.Column="0" 
+                                 Text="{Binding SearchText}"
+                                 Watermark="Search parameters by name or description..."
+                                 Margin="0,0,12,0"/>
+                        
+                        <ComboBox Grid.Column="1" 
+                                  ItemsSource="{Binding Groups}"
+                                  SelectedItem="{Binding SelectedGroup}"
+                                  MinWidth="180"
+                                  Margin="0,0,12,0"/>
+                        
+                        <Button Grid.Column="2" 
+                                Classes="Secondary"
+                                Command="{Binding ClearFiltersCommand}"
+                                Content="Clear"/>
+                    </Grid>
+
+                    <!-- Statistics Bar -->
+                    <Border Grid.Row="1" Background="#F0F9FF" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" Spacing="24">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Showing:" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBlock Text="{Binding FilteredParameterCount}" Foreground="#29ABE2" FontWeight="Bold"/>
+                                <TextBlock Text="of" Foreground="#64748B"/>
+                                <TextBlock Text="{Binding TotalParameterCount}" Foreground="#29ABE2" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Groups:" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBlock Text="{Binding GroupCount}" Foreground="#29ABE2" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="With Ranges:" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBlock Text="{Binding ParametersWithRanges}" Foreground="#29ABE2" FontWeight="Bold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Parameter DataGrid -->
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding FilteredParameters}"
+                              SelectedItem="{Binding SelectedParameter}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserResizeColumns="True"
+                              CanUserReorderColumns="True"
+                              CanUserSortColumns="True"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              BorderThickness="0"
+                              Background="Transparent">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Parameter" 
+                                                Binding="{Binding Name}" 
+                                                Width="180"
+                                                FontWeight="SemiBold"/>
+                            <DataGridTextColumn Header="Display Name" 
+                                                Binding="{Binding DisplayNameOrName}" 
+                                                Width="200"/>
+                            <DataGridTextColumn Header="Group" 
+                                                Binding="{Binding Group}" 
+                                                Width="100"/>
+                            <DataGridTextColumn Header="Range" 
+                                                Binding="{Binding RangeDisplay}" 
+                                                Width="120"/>
+                            <DataGridTextColumn Header="Units" 
+                                                Binding="{Binding Units}" 
+                                                Width="80"/>
+                            <DataGridTextColumn Header="Description" 
+                                                Binding="{Binding ShortDescription}" 
+                                                Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="3" Background="#F8FAFC" CornerRadius="8" Padding="12" Margin="0,16,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" 
+                                       Text="{Binding StatusMessage}" 
+                                       Foreground="#64748B"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <Button Classes="Secondary" 
+                                        Command="{Binding RefreshMetadataCommand}"
+                                        IsEnabled="{Binding !IsLoading}"
+                                        Content="Refresh"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Right Panel - Parameter Details -->
+            <Border Grid.Column="1" Classes="SectionCard">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Classes="SectionTitle" Text="Parameter Details"/>
+                        
+                        <!-- No Selection Message -->
+                        <Border IsVisible="{Binding !HasSelectedParameter}" 
+                                Background="#F8FAFC" 
+                                CornerRadius="8" 
+                                Padding="24"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock Text="??" FontSize="32" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Select a parameter" 
+                                           FontSize="16" 
+                                           FontWeight="SemiBold"
+                                           Foreground="#64748B"
+                                           HorizontalAlignment="Center"/>
+                                <TextBlock Text="Click on a parameter in the list to view its details"
+                                           FontSize="12"
+                                           Foreground="#94A3B8"
+                                           HorizontalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Parameter Details Content -->
+                        <StackPanel IsVisible="{Binding HasSelectedParameter}" Spacing="12">
+                            
+                            <!-- Parameter Name and Display Name -->
+                            <Border Classes="DetailCard">
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding SelectedParamName}" 
+                                                   FontSize="18" 
+                                                   FontWeight="Bold" 
+                                                   Foreground="#1E293B"/>
+                                        <Button Classes="Secondary"
+                                                Command="{Binding CopyParameterNameCommand}"
+                                                Padding="8,4"
+                                                Content="?? Copy"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SelectedParamDisplayName}" 
+                                               FontSize="14" 
+                                               Foreground="#64748B"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Tags (Reboot Required, Read Only) -->
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                                <Border Classes="TagPill" IsVisible="{Binding SelectedParamRequiresReboot}">
+                                    <TextBlock Text="?? Reboot Required" FontSize="11" Foreground="#1E40AF"/>
+                                </Border>
+                                <Border Classes="WarningPill" IsVisible="{Binding SelectedParamIsReadOnly}">
+                                    <TextBlock Text="?? Read Only" FontSize="11" Foreground="#92400E"/>
+                                </Border>
+                                <Border Classes="TagPill">
+                                    <TextBlock FontSize="11" Foreground="#1E40AF">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="?? {0}">
+                                                <Binding Path="SelectedParamGroup"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Description -->
+                            <Border Classes="DetailCard">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Classes="FieldLabel" Text="Description"/>
+                                    <TextBlock Text="{Binding SelectedParamDescription}" 
+                                               TextWrapping="Wrap" 
+                                               Foreground="#1E293B"
+                                               LineHeight="20"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Range and Units -->
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto">
+                                <Border Grid.Column="0" Classes="DetailCard" Margin="0,0,6,0">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="FieldLabel" Text="Valid Range"/>
+                                        <TextBlock Text="{Binding SelectedParamRange}" 
+                                                   Classes="FieldValue" 
+                                                   FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Classes="DetailCard" Margin="6,0,0,0">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="FieldLabel" Text="Units"/>
+                                        <TextBlock Text="{Binding SelectedParamUnits}" 
+                                                   Classes="FieldValue" 
+                                                   FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Increment and User Type -->
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto">
+                                <Border Grid.Column="0" Classes="DetailCard" Margin="0,0,6,0">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="FieldLabel" Text="Increment"/>
+                                        <TextBlock Text="{Binding SelectedParamIncrement}" 
+                                                   Classes="FieldValue"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Classes="DetailCard" Margin="6,0,0,0">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="FieldLabel" Text="User Type"/>
+                                        <TextBlock Text="{Binding SelectedParamUserType}" 
+                                                   Classes="FieldValue"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Enum Options -->
+                            <Border Classes="DetailCard" IsVisible="{Binding HasEnumOptions}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="Available Values"/>
+                                    <ItemsControl ItemsSource="{Binding EnumOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:ParameterEnumOption">
+                                                <Border Background="#F1F5F9" 
+                                                        CornerRadius="4" 
+                                                        Padding="8,6" 
+                                                        Margin="0,0,0,4">
+                                                    <Grid ColumnDefinitions="Auto,*">
+                                                        <Border Grid.Column="0" 
+                                                                Background="#29ABE2" 
+                                                                CornerRadius="4" 
+                                                                Padding="6,2"
+                                                                Margin="0,0,8,0">
+                                                            <TextBlock Text="{Binding Value}" 
+                                                                       Foreground="White" 
+                                                                       FontWeight="Bold"
+                                                                       FontSize="12"/>
+                                                        </Border>
+                                                        <TextBlock Grid.Column="1" 
+                                                                   Text="{Binding Label}" 
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#1E293B"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Bitmask Options -->
+                            <Border Classes="DetailCard" IsVisible="{Binding HasBitmaskOptions}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="Bitmask Options"/>
+                                    <ItemsControl ItemsSource="{Binding BitmaskOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:ParameterBitmaskOption">
+                                                <Border Background="#F1F5F9" 
+                                                        CornerRadius="4" 
+                                                        Padding="8,6" 
+                                                        Margin="0,0,0,4">
+                                                    <Grid ColumnDefinitions="Auto,Auto,*">
+                                                        <Border Grid.Column="0" 
+                                                                Background="#6366F1" 
+                                                                CornerRadius="4" 
+                                                                Padding="6,2"
+                                                                Margin="0,0,8,0">
+                                                            <TextBlock Foreground="White" FontWeight="Bold" FontSize="11">
+                                                                <TextBlock.Text>
+                                                                    <MultiBinding StringFormat="Bit {0}">
+                                                                        <Binding Path="BitPosition"/>
+                                                                    </MultiBinding>
+                                                                </TextBlock.Text>
+                                                            </TextBlock>
+                                                        </Border>
+                                                        <TextBlock Grid.Column="1" 
+                                                                   Foreground="#94A3B8"
+                                                                   FontSize="11"
+                                                                   Margin="0,0,8,0"
+                                                                   VerticalAlignment="Center">
+                                                            <TextBlock.Text>
+                                                                <MultiBinding StringFormat="(={0})">
+                                                                    <Binding Path="BitValue"/>
+                                                                </MultiBinding>
+                                                            </TextBlock.Text>
+                                                        </TextBlock>
+                                                        <TextBlock Grid.Column="2" 
+                                                                   Text="{Binding Label}" 
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#1E293B"
+                                                                   TextWrapping="Wrap"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Loading Overlay -->
+        <Border Grid.RowSpan="2" 
+                Background="#80FFFFFF" 
+                IsVisible="{Binding IsLoading}"
+                IsHitTestVisible="{Binding IsLoading}">
+            <Border Background="White" 
+                    Padding="32" 
+                    CornerRadius="12" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    BoxShadow="0 4 20 0 #20000000">
+                <StackPanel Spacing="16" HorizontalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Width="200"/>
+                    <TextBlock Text="Loading parameter metadata..." 
+                               HorizontalAlignment="Center"
+                               Foreground="#64748B"/>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Error Overlay -->
+        <Border Grid.RowSpan="2" 
+                Background="#80FFFFFF" 
+                IsVisible="{Binding HasError}"
+                IsHitTestVisible="{Binding HasError}">
+            <Border Background="White" 
+                    Padding="32" 
+                    CornerRadius="12" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    BoxShadow="0 4 20 0 #20000000"
+                    MaxWidth="400">
+                <StackPanel Spacing="16" HorizontalAlignment="Center">
+                    <TextBlock Text="?" FontSize="48" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Error Loading Metadata" 
+                               FontSize="18"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Foreground="#DC2626"/>
+                    <TextBlock Text="{Binding ErrorMessage}" 
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Foreground="#64748B"/>
+                    <Button Classes="Primary" 
+                            Command="{Binding LoadMetadataCommand}"
+                            HorizontalAlignment="Center"
+                            Content="Retry"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

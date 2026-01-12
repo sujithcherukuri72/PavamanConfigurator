@@ -43,6 +43,9 @@ public partial class App : Application
         services.AddSingleton<ArduPilotMetadataDownloader>();
         services.AddSingleton<VehicleTypeDetector>();
 
+        // ArduPilot JSON Metadata Loader (for Advanced Settings)
+        services.AddSingleton<IArduPilotMetadataLoader, ArduPilotMetadataLoader>();
+
         // Calibration Services (Mission Planner-equivalent strict validation)
         services.AddSingleton<CalibrationPreConditionChecker>();
         services.AddSingleton<CalibrationAbortMonitor>();
@@ -90,6 +93,7 @@ public partial class App : Application
         services.AddTransient<LogAnalyzerPageViewModel>();
         services.AddTransient<ResetParametersPageViewModel>();
         services.AddTransient<SprayingConfigPageViewModel>();
+        services.AddTransient<AdvancedSettingsPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }
