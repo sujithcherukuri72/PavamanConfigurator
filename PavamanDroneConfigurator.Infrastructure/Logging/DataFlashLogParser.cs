@@ -658,13 +658,3 @@ public class LogMessage
         return Fields.TryGetValue(name, out var value) ? value?.ToString() : null;
     }
 }
-
-/// <summary>
-/// Represents a single data point for graphing.
-/// </summary>
-public class LogDataPoint
-{
-    public int Index { get; set; }
-    public double Timestamp { get; set; }
-    public double Value { get; set; }
-}

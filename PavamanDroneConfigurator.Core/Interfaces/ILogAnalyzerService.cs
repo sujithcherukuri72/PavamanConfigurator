@@ -182,6 +182,14 @@ public interface ILogAnalyzerService
     /// Gets statistical summary for a field.
     /// </summary>
     LogFieldStatistics GetFieldStatistics(string fieldKey);
+    
+    /// <summary>
+    /// Gets raw data series for a specific field (for custom processing).
+    /// </summary>
+    /// <param name="messageType">Message type (e.g., "GPS", "ATT").</param>
+    /// <param name="fieldName">Field name (e.g., "Lat", "Roll").</param>
+    /// <returns>List of data points, or null if not found.</returns>
+    List<LogDataPoint>? GetFieldData(string messageType, string fieldName);
 
     #endregion
 

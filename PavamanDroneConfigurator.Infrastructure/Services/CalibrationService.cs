@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Enums;
 using PavamanDroneConfigurator.Core.Interfaces;
 using PavamanDroneConfigurator.Core.Models;
+using PavamanDroneConfigurator.Infrastructure.MAVLink;
 using System.Text.RegularExpressions;
 
 namespace PavamanDroneConfigurator.Infrastructure.Services;
@@ -33,6 +34,8 @@ public class CalibrationService : ICalibrationService
     private readonly IConnectionService _connectionService;
     private readonly CalibrationPreConditionChecker _preConditionChecker;
     private readonly CalibrationAbortMonitor _abortMonitor;
+    private readonly AccelPositionValidator _positionValidator;
+    private readonly AccelerometerCalibrationService _accelCalibrationService;
     
     // State
     private CalibrationStateModel _currentState = new();
@@ -42,6 +45,11 @@ public class CalibrationService : ICalibrationService
     private int _currentPositionNumber;
     private bool _isCalibrating;
     private readonly object _lock = new();
+    
+    // IMU data collection
+    private RawImuData? _latestImuData;
+    private readonly List<RawImuData> _imuSamples = new();
+    private const int IMU_SAMPLES_REQUIRED = 50; // Collect 50 samples (~1 second at 50Hz)
     
     // Timeouts
     private const int COMMAND_ACK_TIMEOUT_MS = 5000;
@@ -113,16 +121,27 @@ public class CalibrationService : ICalibrationService
         ILogger<CalibrationService> logger,
         IConnectionService connectionService,
         CalibrationPreConditionChecker preConditionChecker,
-        CalibrationAbortMonitor abortMonitor)
+        CalibrationAbortMonitor abortMonitor,
+        AccelPositionValidator positionValidator,
+        AccelerometerCalibrationService accelCalibrationService)
     {
         _logger = logger;
         _connectionService = connectionService;
         _preConditionChecker = preConditionChecker;
         _abortMonitor = abortMonitor;
+        _positionValidator = positionValidator;
+        _accelCalibrationService = accelCalibrationService;
         
         _connectionService.StatusTextReceived += OnStatusTextReceived;
         _connectionService.CommandAckReceived += OnCommandAckReceived;
+        _connectionService.RawImuReceived += OnRawImuReceived;
         _abortMonitor.AbortTriggered += OnAbortTriggered;
+        
+        // Wire up accelerometer calibration events
+        _accelCalibrationService.StateChanged += OnAccelStateChanged;
+        _accelCalibrationService.PositionRequested += OnAccelPositionRequested;
+        _accelCalibrationService.PositionValidated += OnAccelPositionValidated;
+        _accelCalibrationService.CalibrationCompleted += OnAccelCalibrationCompleted;
     }
 
     #region Event Handlers
@@ -170,6 +189,38 @@ public class CalibrationService : ICalibrationService
         {
             _logger.LogWarning("Calibration aborted by monitor");
             FinishCalibration(CalibrationResult.Cancelled, "Calibration aborted by monitor");
+        }
+    }
+
+    private void OnRawImuReceived(object? sender, RawImuEventArgs imuData)
+    {
+        // Convert to internal format for position validation
+        var rawImuData = new RawImuData
+        {
+            TimeUsec = imuData.TimeUsec,
+            // Back-convert from m/s² to raw format (approximate)
+            XAcc = (short)(imuData.AccelX / 0.00981), // Assuming SCALED_IMU format
+            YAcc = (short)(imuData.AccelY / 0.00981),
+            ZAcc = (short)(imuData.AccelZ / 0.00981),
+            XGyro = (short)(imuData.GyroX / 0.001),
+            YGyro = (short)(imuData.GyroY / 0.001),
+            ZGyro = (short)(imuData.GyroZ / 0.001),
+            Temperature = (short)(imuData.Temperature * 100),
+            IsScaled = true
+        };
+        
+        // Store latest IMU data for calibration validation
+        _latestImuData = rawImuData;
+        
+        // During position validation, collect samples
+        if (_isCalibrating && 
+            _currentCalibrationType == CalibrationType.Accelerometer &&
+            _stateMachine == CalibrationStateMachine.ValidatingPosition)
+        {
+            lock (_imuSamples)
+            {
+                _imuSamples.Add(rawImuData);
+            }
         }
     }
 
@@ -322,6 +373,49 @@ public class CalibrationService : ICalibrationService
             TransitionState(CalibrationStateMachine.PositionRejected);
             UpdateState(CalibrationState.InProgress, _currentState.Progress, message, canConfirm: true);
         }
+    }
+
+    private void OnAccelStateChanged(object? sender, AccelCalibrationStateChangedEventArgs e)
+    {
+        // No-op: can be used for logging or future enhancements
+    }
+
+    private void OnAccelPositionRequested(object? sender, AccelPositionRequestedEventArgs e)
+    {
+        _logger.LogInformation("FC requested position {Position}: {Name}", e.Position, e.PositionName);
+        
+        lock (_lock) { _currentPositionNumber = e.Position; }
+        
+        var step = GetCalibrationStep(e.Position);
+        var instruction = GetPositionInstruction(e.Position);
+        
+        RaiseCalibrationStepRequired(step, instruction);
+    }
+
+    private void OnAccelPositionValidated(object? sender, AccelPositionValidationEventArgs e)
+    {
+        if (!e.IsValid)
+        {
+            UpdateState(CalibrationState.InProgress, _currentState.Progress,
+                $"? {e.Message}", canConfirm: true);
+        }
+    }
+
+    private void OnAccelCalibrationCompleted(object? sender, AccelCalibrationCompletedEventArgs e)
+    {
+        _logger.LogInformation("Accelerometer calibration completed: {Result} - {Message} ({Duration})",
+            e.Result, e.Message, e.Duration);
+        
+        var result = e.Result switch
+        {
+            AccelCalibrationResult.Success => CalibrationResult.Success,
+            AccelCalibrationResult.Failed => CalibrationResult.Failed,
+            AccelCalibrationResult.Cancelled => CalibrationResult.Cancelled,
+            AccelCalibrationResult.Rejected => CalibrationResult.Rejected,
+            _ => CalibrationResult.Failed
+        };
+        
+        FinishCalibration(result, e.Message);
     }
 
     #endregion
@@ -826,31 +920,31 @@ public class CalibrationService : ICalibrationService
 
     /// <summary>
     /// User confirms vehicle is in position.
-    /// Sends MAV_CMD_ACCELCAL_VEHICLE_POS to FC for validation.
-    /// FC decides whether position is correct - not the UI.
+    /// VALIDATES position using actual IMU readings before sending to FC.
+    /// This is CRITICAL for flight safety - prevents bad calibration data.
     /// </summary>
-    public Task<bool> AcceptCalibrationStepAsync()
+    public async Task<bool> AcceptCalibrationStepAsync()
     {
         if (!_isCalibrating)
         {
             _logger.LogWarning("AcceptCalibrationStepAsync called but no calibration in progress");
-            return Task.FromResult(false);
+            return false;
         }
 
         if (_stateMachine != CalibrationStateMachine.WaitingForUserPosition &&
             _stateMachine != CalibrationStateMachine.PositionRejected)
         {
             _logger.LogWarning("AcceptCalibrationStepAsync called in invalid state: {State}", _stateMachine);
-            return Task.FromResult(false);
+            return false;
         }
 
         if (_currentCalibrationType == CalibrationType.Accelerometer)
         {
-            _logger.LogInformation("User confirmed position {Position}, sending to FC for validation", 
+            _logger.LogInformation("User confirmed position {Position}, validating with IMU data...", 
                 _currentPositionNumber);
             
             _currentDiagnostics?.AddDiagnostic(CalibrationDiagnosticSeverity.Info,
-                $"User confirmed position {_currentPositionNumber}: {GetPositionName(_currentPositionNumber)}");
+                $"User confirmed position {_currentPositionNumber}: {GetPositionName(_currentPositionNumber)} - Validating...");
             
             // Record user confirmation time
             var posResult = _currentDiagnostics?.AccelPositionResults
@@ -861,21 +955,149 @@ public class CalibrationService : ICalibrationService
                 posResult.Attempts++;
             }
 
-            TransitionState(CalibrationStateMachine.WaitingForSampling);
+            // Transition to validating state
+            TransitionState(CalibrationStateMachine.ValidatingPosition);
             
             var posName = GetPositionName(_currentPositionNumber);
             UpdateState(CalibrationState.InProgress, _currentState.Progress,
-                $"Position {_currentPositionNumber}/6: {posName} - Validating... Hold still!",
+                $"Position {_currentPositionNumber}/6: {posName} - Reading sensors...",
                 canConfirm: false);
             
-            // Send MAV_CMD_ACCELCAL_VEHICLE_POS - FC will validate
+            // Collect IMU samples for validation
+            lock (_imuSamples)
+            {
+                _imuSamples.Clear();
+            }
+            
+            // Wait for samples (up to 3 seconds)
+            var samplesCollected = await WaitForImuSamples(3000);
+            
+            if (!samplesCollected)
+            {
+                _logger.LogWarning("Failed to collect enough IMU samples for position {Position}", _currentPositionNumber);
+                
+                _currentDiagnostics?.AddDiagnostic(CalibrationDiagnosticSeverity.Warning,
+                    $"Position {_currentPositionNumber}: Not enough IMU data - check sensor connection");
+                
+                TransitionState(CalibrationStateMachine.PositionRejected);
+                UpdateState(CalibrationState.InProgress, _currentState.Progress,
+                    $"Position {_currentPositionNumber}/6: {posName} - Could not read IMU data. Try again.",
+                    canConfirm: true);
+                
+                return false;
+            }
+            
+            // Average the IMU samples
+            var avgImuData = AverageImuSamples(_imuSamples);
+            
+            // Validate position using actual sensor data
+            var accel = avgImuData.GetAcceleration();
+            var imuData = new ImuData
+            {
+                AccelX = accel.X,
+                AccelY = accel.Y,
+                AccelZ = accel.Z,
+                TimeBootMs = (uint)(avgImuData.TimeUsec / 1000)
+            };
+            
+            var validation = _positionValidator.ValidatePosition(_currentPositionNumber, imuData);
+            
+            // Log validation result
+            _currentDiagnostics?.AddDiagnostic(
+                validation.IsValid ? CalibrationDiagnosticSeverity.Info : CalibrationDiagnosticSeverity.Warning,
+                $"Position {_currentPositionNumber} validation: {validation.ErrorMessage}");
+            
+            if (posResult != null)
+            {
+                posResult.Accepted = validation.IsValid;
+                posResult.FcMessage = validation.ErrorMessage;
+                posResult.ActualAccelX = validation.ActualAccelX;
+                posResult.ActualAccelY = validation.ActualAccelY;
+                posResult.ActualAccelZ = validation.ActualAccelZ;
+            }
+            
+            if (!validation.IsValid)
+            {
+                // Position validation FAILED - reject it
+                _logger.LogWarning(
+                    "Position {Position} validation FAILED: {Message}",
+                    _currentPositionNumber, validation.ErrorMessage);
+                
+                TransitionState(CalibrationStateMachine.PositionRejected);
+                UpdateState(CalibrationState.InProgress, _currentState.Progress,
+                    $"? {validation.ErrorMessage}",
+                    canConfirm: true);
+                
+                return false;
+            }
+            
+            // Position validation PASSED - send to FC
+            _logger.LogInformation(
+                "Position {Position} validation PASSED - sending to FC",
+                _currentPositionNumber);
+            
+            TransitionState(CalibrationStateMachine.WaitingForSampling);
+            UpdateState(CalibrationState.InProgress, _currentState.Progress,
+                $"Position {_currentPositionNumber}/6: {posName} - ? Position verified! Sending to FC...",
+                canConfirm: false);
+            
+            // Send MAV_CMD_ACCELCAL_VEHICLE_POS - FC will do final sampling
             _connectionService.SendAccelCalVehiclePos(_currentPositionNumber);
             
             _logger.LogInformation("Sent MAV_CMD_ACCELCAL_VEHICLE_POS({Position})", _currentPositionNumber);
         }
 
-        return Task.FromResult(true);
+        return true;
     }
+    
+    private async Task<bool> WaitForImuSamples(int timeoutMs)
+    {
+        var startTime = DateTime.UtcNow;
+        
+        while ((DateTime.UtcNow - startTime).TotalMilliseconds < timeoutMs)
+        {
+            lock (_imuSamples)
+            {
+                if (_imuSamples.Count >= IMU_SAMPLES_REQUIRED)
+                    return true;
+            }
+            
+            await Task.Delay(50);
+        }
+        
+        return false;
+    }
+    
+    private RawImuData AverageImuSamples(List<RawImuData> samples)
+    {
+        if (samples.Count == 0)
+            return _latestImuData ?? new RawImuData();
+        
+        var avgXAcc = samples.Average(s => s.XAcc);
+        var avgYAcc = samples.Average(s => s.YAcc);
+        var avgZAcc = samples.Average(s => s.ZAcc);
+        var avgXGyro = samples.Average(s => s.XGyro);
+        var avgYGyro = samples.Average(s => s.YGyro);
+        var avgZGyro = samples.Average(s => s.ZGyro);
+        var avgTemp = samples.Average(s => s.Temperature);
+        
+        return new RawImuData
+        {
+            XAcc = (short)avgXAcc,
+            YAcc = (short)avgYAcc,
+            ZAcc = (short)avgZAcc,
+            XGyro = (short)avgXGyro,
+            YGyro = (short)avgYGyro,
+            ZGyro = (short)avgZGyro,
+            Temperature = (short)avgTemp,
+            TimeUsec = samples.Last().TimeUsec,
+            IsScaled = samples.First().IsScaled
+        };
+    }
+
+    #endregion
+
+    #region Calibration Management
 
     public Task<bool> CancelCalibrationAsync()
     {

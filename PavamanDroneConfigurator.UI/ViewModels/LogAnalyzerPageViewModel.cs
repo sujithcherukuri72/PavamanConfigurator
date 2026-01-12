@@ -20,6 +20,9 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private readonly ILogger<LogAnalyzerPageViewModel> _logger;
     private readonly ILogAnalyzerService _logAnalyzerService;
     private readonly IConnectionService _connectionService;
+    private readonly ILogQueryEngine? _queryEngine;
+    private readonly ILogEventDetector? _eventDetector;
+    private readonly ILogExportService? _exportService;
 
     #region Status Properties
 
@@ -43,6 +46,62 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _loadedLogInfo = string.Empty;
+
+    [ObservableProperty]
+    private int _loadProgress;
+
+    #endregion
+
+    #region Tab Properties
+
+    [ObservableProperty]
+    private int _selectedTabIndex;
+
+    public const int TAB_OVERVIEW = 0;
+    public const int TAB_PLOT = 1;
+    public const int TAB_MAP = 2;
+    public const int TAB_EVENTS = 3;
+    public const int TAB_PARAMS = 4;
+
+    #endregion
+
+    #region Overview Properties
+
+    [ObservableProperty]
+    private string _logFileName = string.Empty;
+
+    [ObservableProperty]
+    private string _logFileSize = string.Empty;
+
+    [ObservableProperty]
+    private string _logDuration = string.Empty;
+
+    [ObservableProperty]
+    private string _logMessageCount = string.Empty;
+
+    [ObservableProperty]
+    private string _logMessageTypes = string.Empty;
+
+    [ObservableProperty]
+    private string _vehicleType = string.Empty;
+
+    [ObservableProperty]
+    private string _firmwareVersion = string.Empty;
+
+    [ObservableProperty]
+    private int _errorCount;
+
+    [ObservableProperty]
+    private int _warningCount;
+
+    [ObservableProperty]
+    private bool _hasGpsData;
+
+    [ObservableProperty]
+    private bool _hasAttitudeData;
+
+    [ObservableProperty]
+    private bool _hasVibeData;
 
     #endregion
 
@@ -115,16 +174,93 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [ObservableProperty]
     private ObservableCollection<LogFieldInfo> _filteredFields = new();
 
-    // TreeView for Mission Planner style
     [ObservableProperty]
     private ObservableCollection<LogMessageTypeNode> _messageTypesTree = new();
 
     [ObservableProperty]
     private bool _hasTreeData;
 
+    [ObservableProperty]
+    private double _cursorTime;
+
+    [ObservableProperty]
+    private string _cursorTimeDisplay = "00:00:00.000";
+
+    [ObservableProperty]
+    private ObservableCollection<CursorReadout> _cursorReadouts = new();
+
+    [ObservableProperty]
+    private double _zoomStartTime;
+
+    [ObservableProperty]
+    private double _zoomEndTime;
+
     #endregion
 
-    #region Display Options (Mission Planner style toolbar)
+    #region Events Properties
+
+    [ObservableProperty]
+    private ObservableCollection<LogEvent> _detectedEvents = new();
+
+    [ObservableProperty]
+    private ObservableCollection<LogEvent> _filteredEvents = new();
+
+    [ObservableProperty]
+    private LogEvent? _selectedEvent;
+
+    [ObservableProperty]
+    private bool _showInfoEvents = true;
+
+    [ObservableProperty]
+    private bool _showWarningEvents = true;
+
+    [ObservableProperty]
+    private bool _showErrorEvents = true;
+
+    [ObservableProperty]
+    private bool _showCriticalEvents = true;
+
+    [ObservableProperty]
+    private string _eventSearchText = string.Empty;
+
+    [ObservableProperty]
+    private EventSummary? _eventSummary;
+
+    #endregion
+
+    #region Parameters Properties
+
+    [ObservableProperty]
+    private ObservableCollection<ParameterChange> _parameterChanges = new();
+
+    [ObservableProperty]
+    private ParameterChange? _selectedParameterChange;
+
+    [ObservableProperty]
+    private string _parameterSearchText = string.Empty;
+
+    #endregion
+
+    #region Map Properties
+
+    [ObservableProperty]
+    private ObservableCollection<GpsPoint> _gpsTrack = new();
+
+    [ObservableProperty]
+    private GpsPoint? _currentMapPosition;
+
+    [ObservableProperty]
+    private double _mapCenterLat;
+
+    [ObservableProperty]
+    private double _mapCenterLng;
+
+    [ObservableProperty]
+    private int _mapZoom = 15;
+
+    #endregion
+
+    #region Display Options
 
     [ObservableProperty]
     private bool _showMap;
@@ -174,14 +310,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     #endregion
 
-    #region Tab Properties
-
-    [ObservableProperty]
-    private int _selectedTabIndex;
-
-    #endregion
-
-    // Reference to the parent window for file picker
     private Window? _parentWindow;
 
     public void SetParentWindow(Window window)
@@ -192,11 +320,17 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     public LogAnalyzerPageViewModel(
         ILogger<LogAnalyzerPageViewModel> logger,
         ILogAnalyzerService logAnalyzerService,
-        IConnectionService connectionService)
+        IConnectionService connectionService,
+        ILogQueryEngine? queryEngine = null,
+        ILogEventDetector? eventDetector = null,
+        ILogExportService? exportService = null)
     {
         _logger = logger;
         _logAnalyzerService = logAnalyzerService;
         _connectionService = connectionService;
+        _queryEngine = queryEngine;
+        _eventDetector = eventDetector;
+        _exportService = exportService;
 
         _downloadFolder = _logAnalyzerService.GetDefaultDownloadFolder();
 
@@ -277,12 +411,15 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     private void OnLogParsed(object? sender, LogParseResult result)
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(async () =>
         {
             if (result.IsSuccess)
             {
                 IsLogLoaded = true;
                 LoadedLogInfo = $"{result.FileName} - {result.MessageCount:N0} messages, {result.DurationDisplay}";
+                
+                // Update overview
+                UpdateOverview(result);
                 
                 // Load message types
                 MessageTypes.Clear();
@@ -293,6 +430,12 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
                 // Load available graph fields
                 LoadAvailableFields();
+                
+                // Detect events in background
+                await DetectEventsAsync();
+                
+                // Load GPS track for map
+                LoadGpsTrack();
 
                 StatusMessage = $"Log loaded: {result.MessageCount:N0} messages";
             }
@@ -302,6 +445,32 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 StatusMessage = $"Failed to load log: {result.ErrorMessage}";
             }
         });
+    }
+
+    private void UpdateOverview(LogParseResult result)
+    {
+        LogFileName = result.FileName;
+        LogFileSize = FormatFileSize(result.FileSize);
+        LogDuration = result.DurationDisplay;
+        LogMessageCount = result.MessageCount.ToString("N0");
+        LogMessageTypes = result.MessageTypes.Count.ToString();
+        
+        // Check for specific data types
+        HasGpsData = result.MessageTypes.Any(t => t.Name == "GPS");
+        HasAttitudeData = result.MessageTypes.Any(t => t.Name == "ATT");
+        HasVibeData = result.MessageTypes.Any(t => t.Name == "VIBE");
+        
+        // Set time range for zoom
+        ZoomStartTime = 0;
+        ZoomEndTime = result.Duration.TotalSeconds;
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024.0 * 1024.0):F1} MB";
+        return $"{bytes / (1024.0 * 1024.0 * 1024.0):F2} GB";
     }
 
     partial void OnSelectedMessageTypeChanged(LogMessageTypeGroup? value)
@@ -316,6 +485,305 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     partial void OnGraphFieldFilterChanged(string value)
     {
         FilterGraphFields();
+    }
+
+    partial void OnSelectedEventChanged(LogEvent? value)
+    {
+        if (value != null)
+        {
+            JumpToTime(value.Timestamp);
+        }
+    }
+
+    partial void OnSelectedParameterChangeChanged(ParameterChange? value)
+    {
+        if (value != null)
+        {
+            JumpToTime(value.Timestamp);
+        }
+    }
+
+    partial void OnShowInfoEventsChanged(bool value) => FilterEvents();
+    partial void OnShowWarningEventsChanged(bool value) => FilterEvents();
+    partial void OnShowErrorEventsChanged(bool value) => FilterEvents();
+    partial void OnShowCriticalEventsChanged(bool value) => FilterEvents();
+    partial void OnEventSearchTextChanged(string value) => FilterEvents();
+
+    #endregion
+
+    #region Events Commands
+
+    private async Task DetectEventsAsync()
+    {
+        if (_eventDetector == null) return;
+
+        IsAnalyzing = true;
+        StatusMessage = "Detecting events...";
+
+        try
+        {
+            var progress = new Progress<int>(p => LoadProgress = p);
+            var events = await _eventDetector.DetectEventsAsync(progress);
+
+            DetectedEvents.Clear();
+            foreach (var evt in events)
+            {
+                DetectedEvents.Add(evt);
+            }
+
+            EventSummary = _eventDetector.GetEventSummary();
+            ErrorCount = EventSummary.ErrorCount + EventSummary.CriticalCount;
+            WarningCount = EventSummary.WarningCount;
+
+            FilterEvents();
+            StatusMessage = $"Detected {events.Count} events";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting events");
+        }
+        finally
+        {
+            IsAnalyzing = false;
+        }
+    }
+
+    private void FilterEvents()
+    {
+        FilteredEvents.Clear();
+
+        var filtered = DetectedEvents.Where(e =>
+        {
+            if (e.Severity == LogEventSeverity.Info && !ShowInfoEvents) return false;
+            if (e.Severity == LogEventSeverity.Warning && !ShowWarningEvents) return false;
+            if (e.Severity == LogEventSeverity.Error && !ShowErrorEvents) return false;
+            if (e.Severity == LogEventSeverity.Critical && !ShowCriticalEvents) return false;
+
+            if (!string.IsNullOrWhiteSpace(EventSearchText))
+            {
+                var search = EventSearchText.ToLowerInvariant();
+                if (!e.Title.ToLowerInvariant().Contains(search) &&
+                    !e.Description.ToLowerInvariant().Contains(search))
+                    return false;
+            }
+
+            return true;
+        });
+
+        foreach (var evt in filtered)
+        {
+            FilteredEvents.Add(evt);
+        }
+    }
+
+    [RelayCommand]
+    private void JumpToEvent(LogEvent? evt)
+    {
+        if (evt == null) return;
+        JumpToTime(evt.Timestamp);
+        SelectedTabIndex = TAB_PLOT;
+    }
+
+    private void JumpToTime(double timestamp)
+    {
+        CursorTime = timestamp;
+        CursorTimeDisplay = TimeSpan.FromSeconds(timestamp).ToString(@"hh\:mm\:ss\.fff");
+        
+        // Update zoom window to center on this time
+        var windowSize = (ZoomEndTime - ZoomStartTime);
+        var halfWindow = windowSize / 2;
+        ZoomStartTime = Math.Max(0, timestamp - halfWindow);
+        ZoomEndTime = ZoomStartTime + windowSize;
+        
+        // Update cursor readouts
+        UpdateCursorReadouts();
+        
+        // Update map position
+        UpdateMapPosition(timestamp);
+    }
+
+    private void UpdateCursorReadouts()
+    {
+        CursorReadouts.Clear();
+
+        foreach (var field in SelectedGraphFields)
+        {
+            var stats = _logAnalyzerService.GetFieldStatistics(field.DisplayName);
+            // Would get actual value at cursor time from query engine
+            CursorReadouts.Add(new CursorReadout
+            {
+                FieldName = field.DisplayName,
+                Color = field.Color ?? "#FFFFFF",
+                Value = stats.Average // Placeholder
+            });
+        }
+    }
+
+    private void UpdateMapPosition(double timestamp)
+    {
+        // Find GPS position at timestamp
+        if (GpsTrack.Count > 0)
+        {
+            var nearest = GpsTrack.MinBy(p => Math.Abs(p.Timestamp - timestamp));
+            if (nearest != null)
+            {
+                CurrentMapPosition = nearest;
+                MapCenterLat = nearest.Latitude;
+                MapCenterLng = nearest.Longitude;
+            }
+        }
+    }
+
+    #endregion
+
+    #region Map Commands
+
+    private void LoadGpsTrack()
+    {
+        GpsTrack.Clear();
+
+        var latData = _logAnalyzerService.GetFieldData("GPS", "Lat");
+        var lngData = _logAnalyzerService.GetFieldData("GPS", "Lng");
+        var altData = _logAnalyzerService.GetFieldData("GPS", "Alt");
+
+        if (latData == null || lngData == null) return;
+
+        var minCount = Math.Min(latData.Count, lngData.Count);
+        var altCount = altData?.Count ?? 0;
+
+        for (int i = 0; i < minCount; i++)
+        {
+            var lat = latData[i].Value;
+            var lng = lngData[i].Value;
+            
+            // Skip invalid coordinates
+            if (Math.Abs(lat) < 0.001 && Math.Abs(lng) < 0.001)
+                continue;
+
+            var point = new GpsPoint
+            {
+                Latitude = lat,
+                Longitude = lng,
+                Altitude = i < altCount ? altData![i].Value : 0,
+                Timestamp = latData[i].Timestamp / 1e6 // Convert to seconds
+            };
+            GpsTrack.Add(point);
+        }
+
+        if (GpsTrack.Count > 0)
+        {
+            MapCenterLat = GpsTrack[0].Latitude;
+            MapCenterLng = GpsTrack[0].Longitude;
+        }
+
+        HasGpsData = GpsTrack.Count > 0;
+    }
+
+    #endregion
+
+    #region Export Commands
+
+    [RelayCommand]
+    private async Task ExportToCsvAsync()
+    {
+        if (_parentWindow == null || !IsLogLoaded) return;
+
+        try
+        {
+            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export to CSV",
+                DefaultExtension = "csv",
+                SuggestedFileName = $"log_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } }
+                }
+            });
+
+            if (file != null && _exportService != null)
+            {
+                IsBusy = true;
+                StatusMessage = "Exporting to CSV...";
+
+                var seriesKeys = SelectedGraphFields.Select(f => f.DisplayName).ToList();
+                if (seriesKeys.Count == 0)
+                {
+                    StatusMessage = "Select series to export first";
+                    return;
+                }
+
+                var progress = new Progress<int>(p => LoadProgress = p);
+                var result = await _exportService.ExportToCsvAsync(
+                    file.Path.LocalPath, seriesKeys, ZoomStartTime, ZoomEndTime, progress);
+
+                if (result.IsSuccess)
+                {
+                    StatusMessage = $"Exported {result.RecordCount} records to CSV";
+                }
+                else
+                {
+                    StatusMessage = $"Export failed: {result.ErrorMessage}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CSV export failed");
+            StatusMessage = $"Export failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportToKmlAsync()
+    {
+        if (_parentWindow == null || !IsLogLoaded || !HasGpsData) return;
+
+        try
+        {
+            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export to KML",
+                DefaultExtension = "kml",
+                SuggestedFileName = $"flight_track_{DateTime.Now:yyyyMMdd_HHmmss}.kml",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("KML Files") { Patterns = new[] { "*.kml" } }
+                }
+            });
+
+            if (file != null && _exportService != null)
+            {
+                IsBusy = true;
+                StatusMessage = "Exporting to KML...";
+
+                var progress = new Progress<int>(p => LoadProgress = p);
+                var result = await _exportService.ExportToKmlAsync(
+                    file.Path.LocalPath, true, progress);
+
+                if (result.IsSuccess)
+                {
+                    StatusMessage = $"Exported GPS track to KML ({result.RecordCount} points)";
+                }
+                else
+                {
+                    StatusMessage = $"Export failed: {result.ErrorMessage}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "KML export failed");
+            StatusMessage = $"Export failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     #endregion
@@ -333,9 +801,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
         try
         {
-            var storageProvider = _parentWindow.StorageProvider;
-            
-            var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            var files = await _parentWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Select Log File",
                 AllowMultiple = false,
@@ -352,7 +818,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 var file = files[0];
                 SelectedFilePath = file.Path.LocalPath;
                 StatusMessage = $"Selected: {Path.GetFileName(SelectedFilePath)}";
-                
                 await LoadLogAsync();
             }
         }
@@ -384,7 +849,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         try
         {
             var result = await _logAnalyzerService.LoadLogFileAsync(SelectedFilePath);
-            
             if (!result.IsSuccess)
             {
                 StatusMessage = $"Failed to load: {result.ErrorMessage}";
@@ -432,7 +896,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private void CloseDownloadDialog()
     {
-        // Cancel any ongoing operations safely before closing
         try
         {
             if (IsDownloading)
@@ -445,7 +908,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         {
             _logger.LogWarning(ex, "Error canceling download on dialog close");
         }
-        
         IsDownloadDialogOpen = false;
     }
 
@@ -474,7 +936,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private async Task DownloadSelectedAsync()
     {
         var selectedFiles = LogFiles.Where(f => f.IsSelected).ToList();
-        
         if (selectedFiles.Count == 0)
         {
             StatusMessage = "No logs selected.";
@@ -494,8 +955,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             {
                 SelectedFilePath = downloaded.LocalPath ?? string.Empty;
                 IsDownloadDialogOpen = false;
-                
-                // Auto-load the downloaded log
                 if (!string.IsNullOrEmpty(SelectedFilePath))
                 {
                     await LoadLogAsync();
@@ -516,14 +975,8 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private void CancelDownload()
     {
-        try
-        {
-            _logAnalyzerService.CancelDownload();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error canceling download");
-        }
+        try { _logAnalyzerService.CancelDownload(); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Error canceling download"); }
         IsDownloading = false;
     }
 
@@ -536,7 +989,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         if (SelectedMessageType == null) return;
 
         CurrentMessages.Clear();
-        
         var skip = CurrentMessagePage * MessagesPerPage;
         var messages = _logAnalyzerService.GetMessages(SelectedMessageType.Name, skip, MessagesPerPage);
         
@@ -598,10 +1050,8 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
         var fields = _logAnalyzerService.GetAvailableGraphFields();
         
-        // Build flat list with statistics
         foreach (var field in fields)
         {
-            // Get statistics for each field for legend display
             var stats = _logAnalyzerService.GetFieldStatistics(field.DisplayName);
             field.MinValue = stats.Minimum;
             field.MaxValue = stats.Maximum;
@@ -611,7 +1061,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             FilteredFields.Add(field);
         }
 
-        // Build TreeView structure (Mission Planner style)
         var groupedByType = fields.GroupBy(f => f.MessageType).OrderBy(g => g.Key);
         
         foreach (var group in groupedByType)
@@ -634,7 +1083,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                     MaxValue = field.MaxValue,
                     MeanValue = field.MeanValue
                 };
-                
                 typeNode.Fields.Add(fieldNode);
             }
 
@@ -647,9 +1095,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private void FilterGraphFields()
     {
         FilteredFields.Clear();
-
         var filter = GraphFieldFilter?.ToLowerInvariant() ?? "";
-        
         var filtered = string.IsNullOrEmpty(filter)
             ? AvailableFields
             : AvailableFields.Where(f => f.DisplayName.ToLowerInvariant().Contains(filter));
@@ -664,7 +1110,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private void AddFieldToGraph(LogFieldInfo? field)
     {
         if (field == null) return;
-
         if (!SelectedGraphFields.Any(f => f.DisplayName == field.DisplayName))
         {
             field.IsSelected = true;
@@ -678,7 +1123,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private void RemoveFieldFromGraph(LogFieldInfo? field)
     {
         if (field == null) return;
-
         field.IsSelected = false;
         SelectedGraphFields.Remove(field);
         UpdateGraph();
@@ -714,10 +1158,60 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private void ShowFieldStatistics(LogFieldInfo? field)
     {
         if (field == null) return;
-
         var stats = _logAnalyzerService.GetFieldStatistics(field.DisplayName);
         StatusMessage = $"{field.DisplayName}: Min={stats.Minimum:F3}, Max={stats.Maximum:F3}, Avg={stats.Average:F3}";
     }
+
+    public void OnFieldSelectionChanged(LogFieldInfo field)
+    {
+        if (field.IsSelected) AddFieldToGraph(field);
+        else RemoveFieldFromGraph(field);
+    }
+
+    public bool CanGoToNextPage => CurrentMessagePage < TotalMessagePages - 1;
+    public bool CanGoToPreviousPage => CurrentMessagePage > 0;
+
+    [RelayCommand]
+    private void ResetZoom()
+    {
+        StatusMessage = "Zoom reset";
+    }
+
+    [RelayCommand]
+    private async Task ExportGraphAsync()
+    {
+        if (!HasGraphData || _parentWindow == null) return;
+
+        try
+        {
+            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Graph",
+                DefaultExtension = "png",
+                SuggestedFileName = $"graph_{DateTime.Now:yyyyMMdd_HHmmss}.png",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("PNG Image") { Patterns = new[] { "*.png" } }
+                }
+            });
+
+            if (file != null)
+            {
+                StatusMessage = $"Graph exported to {Path.GetFileName(file.Path.LocalPath)}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export graph");
+            StatusMessage = $"Export failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void GraphLeft() => StatusMessage = "Graph panned left";
+
+    [RelayCommand]
+    private void GraphRight() => StatusMessage = "Graph panned right";
 
     #endregion
 
@@ -726,11 +1220,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task LoadScriptFileAsync()
     {
-        if (_parentWindow == null)
-        {
-            StatusMessage = "Cannot open file browser";
-            return;
-        }
+        if (_parentWindow == null) { StatusMessage = "Cannot open file browser"; return; }
 
         try
         {
@@ -750,8 +1240,6 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 var file = files[0];
                 LoadedScriptPath = file.Path.LocalPath;
                 LoadedScriptName = Path.GetFileName(LoadedScriptPath);
-                
-                // Read the script file content
                 ScriptText = await File.ReadAllTextAsync(LoadedScriptPath);
                 ScriptOutput = $"Loaded: {LoadedScriptName}\nFile size: {new FileInfo(LoadedScriptPath).Length} bytes";
                 StatusMessage = $"Script loaded: {LoadedScriptName}";
@@ -768,11 +1256,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveScriptFileAsync()
     {
-        if (_parentWindow == null || string.IsNullOrWhiteSpace(ScriptText))
-        {
-            StatusMessage = "Nothing to save";
-            return;
-        }
+        if (_parentWindow == null || string.IsNullOrWhiteSpace(ScriptText)) { StatusMessage = "Nothing to save"; return; }
 
         try
         {
@@ -781,10 +1265,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 Title = "Save Lua Script",
                 DefaultExtension = "lua",
                 SuggestedFileName = !string.IsNullOrEmpty(LoadedScriptName) ? LoadedScriptName : "script.lua",
-                FileTypeChoices = new[]
-                {
-                    new FilePickerFileType("Lua Scripts") { Patterns = new[] { "*.lua" } }
-                }
+                FileTypeChoices = new[] { new FilePickerFileType("Lua Scripts") { Patterns = new[] { "*.lua" } } }
             });
 
             if (file != null)
@@ -806,17 +1287,8 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task RunScriptAsync()
     {
-        if (string.IsNullOrWhiteSpace(ScriptText))
-        {
-            StatusMessage = "No script loaded. Load a Lua script file first.";
-            return;
-        }
-
-        if (!IsLogLoaded)
-        {
-            StatusMessage = "Load a log file first.";
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(ScriptText)) { StatusMessage = "No script loaded."; return; }
+        if (!IsLogLoaded) { StatusMessage = "Load a log file first."; return; }
 
         IsScriptRunning = true;
         ScriptOutput = "Running script...\n";
@@ -824,14 +1296,11 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         try
         {
             var result = await _logAnalyzerService.RunScriptAsync(ScriptText);
-            
             if (result.IsSuccess)
             {
                 ScriptOutput = result.Output;
                 if (result.Warnings.Count > 0)
-                {
                     ScriptOutput += "\nWarnings:\n" + string.Join("\n", result.Warnings);
-                }
                 ScriptOutput += $"\nCompleted in {result.ExecutionTime.TotalMilliseconds:F0}ms";
             }
             else
@@ -860,71 +1329,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     public void InsertScriptFunction(ScriptFunctionInfo function)
     {
-        if (string.IsNullOrEmpty(ScriptText))
-        {
-            ScriptText = function.Example;
-        }
-        else
-        {
-            ScriptText += $"\n{function.Example}";
-        }
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    public void OnFieldSelectionChanged(LogFieldInfo field)
-    {
-        if (field.IsSelected)
-        {
-            AddFieldToGraph(field);
-        }
-        else
-        {
-            RemoveFieldFromGraph(field);
-        }
-    }
-
-    public bool CanGoToNextPage => CurrentMessagePage < TotalMessagePages - 1;
-    public bool CanGoToPreviousPage => CurrentMessagePage > 0;
-
-    [RelayCommand]
-    private void ResetZoom()
-    {
-        // This will be handled by the graph control
-        StatusMessage = "Zoom reset";
-    }
-
-    [RelayCommand]
-    private async Task ExportGraphAsync()
-    {
-        if (!HasGraphData || _parentWindow == null) return;
-
-        try
-        {
-            var file = await _parentWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Export Graph",
-                DefaultExtension = "png",
-                SuggestedFileName = $"graph_{DateTime.Now:yyyyMMdd_HHmmss}.png",
-                FileTypeChoices = new[]
-                {
-                    new FilePickerFileType("PNG Image") { Patterns = new[] { "*.png" } }
-                }
-            });
-
-            if (file != null)
-            {
-                // The export will be triggered through the view
-                StatusMessage = $"Graph exported to {Path.GetFileName(file.Path.LocalPath)}";
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to export graph");
-            StatusMessage = $"Export failed: {ex.Message}";
-        }
+        ScriptText = string.IsNullOrEmpty(ScriptText) ? function.Example : ScriptText + $"\n{function.Example}";
     }
 
     #endregion
@@ -945,22 +1350,80 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     }
 
     #endregion
+}
 
-    #region Graph Navigation Commands
 
-    [RelayCommand]
-    private void GraphLeft()
+
+/// <summary>
+/// Cursor readout for displaying values at cursor position.
+/// </summary>
+public class CursorReadout
+{
+    public string FieldName { get; set; } = string.Empty;
+    public string Color { get; set; } = "#FFFFFF";
+    public double Value { get; set; }
+    public string ValueDisplay => Value.ToString("F3");
+}
+
+
+
+/// <summary>
+/// GPS point for map display.
+/// </summary>
+public class GpsPoint
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public double Altitude { get; set; }
+    public double Timestamp { get; set; }
+}
+
+
+
+/// <summary>
+/// Parameter change record.
+/// </summary>
+public class ParameterChange
+{
+    public string Name { get; set; } = string.Empty;
+    public double OldValue { get; set; }
+    public double NewValue { get; set; }
+    public double Timestamp { get; set; }
+    public string TimestampDisplay => TimeSpan.FromSeconds(Timestamp).ToString(@"hh\:mm\:ss");
+}
+
+/// <summary>
+/// Converter from bool to Yes/No string
+/// </summary>
+public class BoolToYesNoConverter : Avalonia.Data.Converters.IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
     {
-        // Scroll graph left (pan left in time)
-        StatusMessage = "Graph panned left";
+        if (value is bool b)
+            return b ? "Yes" : "No";
+        return "No";
     }
 
-    [RelayCommand]
-    private void GraphRight()
+    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
     {
-        // Scroll graph right (pan right in time)
-        StatusMessage = "Graph panned right";
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converter from bool to success/error color
+/// </summary>
+public class BoolToSuccessColorConverter : Avalonia.Data.Converters.IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+    {
+        if (value is bool b)
+            return b ? "#10B981" : "#EF4444";  // Green for true, red for false
+        return "#888";
     }
 
-    #endregion
+    public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
 }

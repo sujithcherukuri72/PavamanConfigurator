@@ -46,6 +46,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte MAVLINK_MSG_ID_PARAM_REQUEST_LIST = 21;
         private const byte MAVLINK_MSG_ID_PARAM_VALUE = 22;
         private const byte MAVLINK_MSG_ID_PARAM_SET = 23;
+        private const byte MAVLINK_MSG_ID_RAW_IMU = 27;
+        private const byte MAVLINK_MSG_ID_SCALED_IMU = 26;
         private const byte MAVLINK_MSG_ID_COMMAND_LONG = 76;
         private const ushort MAVLINK_MSG_ID_COMMAND_ACK = 77;
         private const byte MAVLINK_MSG_ID_STATUSTEXT = 253;
@@ -65,6 +67,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private const byte CRC_EXTRA_PARAM_REQUEST_LIST = 159;
         private const byte CRC_EXTRA_PARAM_VALUE = 220;
         private const byte CRC_EXTRA_PARAM_SET = 168;
+        private const byte CRC_EXTRA_RAW_IMU = 144;
+        private const byte CRC_EXTRA_SCALED_IMU = 170;
         private const byte CRC_EXTRA_COMMAND_LONG = 152;
         private const byte CRC_EXTRA_COMMAND_ACK = 143;
         private const byte CRC_EXTRA_STATUSTEXT = 83;
@@ -76,6 +80,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         public event EventHandler<(byte Severity, string Text)>? StatusTextReceived;
         public event EventHandler<HeartbeatData>? HeartbeatDataReceived;
         public event EventHandler<RcChannelsData>? RcChannelsReceived;
+        public event EventHandler<RawImuData>? RawImuReceived;
 
         public AsvMavlinkWrapper(ILogger logger)
         {
@@ -355,6 +360,14 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 case MAVLINK_MSG_ID_RC_CHANNELS:
                     HandleRcChannels(payload);
                     break;
+
+                case MAVLINK_MSG_ID_RAW_IMU:
+                    HandleRawImu(payload);
+                    break;
+
+                case MAVLINK_MSG_ID_SCALED_IMU:
+                    HandleScaledImu(payload);
+                    break;
             }
         }
 
@@ -494,6 +507,86 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             };
 
             RcChannelsReceived?.Invoke(this, rcData);
+        }
+
+        private void HandleRawImu(byte[] payload)
+        {
+            // RAW_IMU payload (29 bytes):
+            // [0-7]   time_usec (uint64)
+            // [8-9]   xacc (int16) - raw X acceleration
+            // [10-11] yacc (int16) - raw Y acceleration
+            // [12-13] zacc (int16) - raw Z acceleration
+            // [14-15] xgyro (int16) - raw X gyro
+            // [16-17] ygyro (int16) - raw Y gyro
+            // [18-19] zgyro (int16) - raw Z gyro
+            // [20-21] xmag (int16) - raw X magnetometer
+            // [22-23] ymag (int16) - raw Y magnetometer
+            // [24-25] zmag (int16) - raw Z magnetometer
+            // [26]    id (uint8) - IMU ID
+            // [27-28] temperature (int16) - temperature in cdegC (optional)
+            if (payload.Length < 26)
+                return;
+
+            var imuData = new RawImuData
+            {
+                TimeUsec = BitConverter.ToUInt64(payload, 0),
+                XAcc = BitConverter.ToInt16(payload, 8),
+                YAcc = BitConverter.ToInt16(payload, 10),
+                ZAcc = BitConverter.ToInt16(payload, 12),
+                XGyro = BitConverter.ToInt16(payload, 14),
+                YGyro = BitConverter.ToInt16(payload, 16),
+                ZGyro = BitConverter.ToInt16(payload, 18),
+                XMag = BitConverter.ToInt16(payload, 20),
+                YMag = BitConverter.ToInt16(payload, 22),
+                ZMag = BitConverter.ToInt16(payload, 24)
+            };
+
+            if (payload.Length >= 27)
+                imuData.Id = payload[26];
+            
+            if (payload.Length >= 29)
+                imuData.Temperature = BitConverter.ToInt16(payload, 27);
+
+            RawImuReceived?.Invoke(this, imuData);
+        }
+
+        private void HandleScaledImu(byte[] payload)
+        {
+            // SCALED_IMU payload (24 bytes):
+            // [0-3]   time_boot_ms (uint32)
+            // [4-5]   xacc (int16) - milli-g
+            // [6-7]   yacc (int16) - milli-g
+            // [8-9]   zacc (int16) - milli-g
+            // [10-11] xgyro (int16) - milli-rad/s
+            // [12-13] ygyro (int16) - milli-rad/s
+            // [14-15] zgyro (int16) - milli-rad/s
+            // [16-17] xmag (int16) - milli-Gauss
+            // [18-19] ymag (int16) - milli-Gauss
+            // [20-21] zmag (int16) - milli-Gauss
+            // [22-23] temperature (int16) - cdegC (optional)
+            if (payload.Length < 22)
+                return;
+
+            // Convert to same format as RAW_IMU for consistency
+            var imuData = new RawImuData
+            {
+                TimeUsec = BitConverter.ToUInt32(payload, 0) * 1000UL, // Convert ms to us
+                XAcc = BitConverter.ToInt16(payload, 4),
+                YAcc = BitConverter.ToInt16(payload, 6),
+                ZAcc = BitConverter.ToInt16(payload, 8),
+                XGyro = BitConverter.ToInt16(payload, 10),
+                YGyro = BitConverter.ToInt16(payload, 12),
+                ZGyro = BitConverter.ToInt16(payload, 14),
+                XMag = BitConverter.ToInt16(payload, 16),
+                YMag = BitConverter.ToInt16(payload, 18),
+                ZMag = BitConverter.ToInt16(payload, 20),
+                IsScaled = true // Flag to indicate this is SCALED_IMU
+            };
+
+            if (payload.Length >= 24)
+                imuData.Temperature = BitConverter.ToInt16(payload, 22);
+
+            RawImuReceived?.Invoke(this, imuData);
         }
 
         public async Task SendParamRequestListAsync(CancellationToken ct = default)
@@ -796,6 +889,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 MAVLINK_MSG_ID_PARAM_REQUEST_LIST => CRC_EXTRA_PARAM_REQUEST_LIST,
                 MAVLINK_MSG_ID_PARAM_VALUE => CRC_EXTRA_PARAM_VALUE,
                 MAVLINK_MSG_ID_PARAM_SET => CRC_EXTRA_PARAM_SET,
+                MAVLINK_MSG_ID_RAW_IMU => CRC_EXTRA_RAW_IMU,
+                MAVLINK_MSG_ID_SCALED_IMU => CRC_EXTRA_SCALED_IMU,
                 MAVLINK_MSG_ID_COMMAND_LONG => CRC_EXTRA_COMMAND_LONG,
                 (byte)MAVLINK_MSG_ID_COMMAND_ACK => CRC_EXTRA_COMMAND_ACK,
                 MAVLINK_MSG_ID_STATUSTEXT => CRC_EXTRA_STATUSTEXT,
@@ -864,5 +959,72 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         public ushort Channel8 { get; set; }
         public byte ChannelCount { get; set; }
         public byte Rssi { get; set; }
+    }
+
+    /// <summary>
+    /// Raw IMU data from vehicle
+    /// </summary>
+    public class RawImuData
+    {
+        public ulong TimeUsec { get; set; }
+        public short XAcc { get; set; }
+        public short YAcc { get; set; }
+        public short ZAcc { get; set; }
+        public short XGyro { get; set; }
+        public short YGyro { get; set; }
+        public short ZGyro { get; set; }
+        public short XMag { get; set; }
+        public short YMag { get; set; }
+        public short ZMag { get; set; }
+        public byte Id { get; set; }
+        public short Temperature { get; set; }
+        public bool IsScaled { get; set; }
+
+        /// <summary>
+        /// Get acceleration in m/s² (scaled)
+        /// </summary>
+        public (double X, double Y, double Z) GetAcceleration()
+        {
+            if (IsScaled)
+            {
+                // SCALED_IMU: values are in milli-g, convert to m/s²
+                const double MILLI_G_TO_MS2 = 0.00981; // 1 milli-g = 0.00981 m/s²
+                return (XAcc * MILLI_G_TO_MS2, YAcc * MILLI_G_TO_MS2, ZAcc * MILLI_G_TO_MS2);
+            }
+            else
+            {
+                // RAW_IMU: values are raw ADC, typical scale is 1/1000 g per LSB for most IMUs
+                // This varies by sensor, typical MPU6000/9250: 16-bit, ±16g range = 32g / 65536 = 0.000488 g/LSB
+                const double RAW_TO_MS2 = 0.00478; // Approximate conversion for ±16g range
+                return (XAcc * RAW_TO_MS2, YAcc * RAW_TO_MS2, ZAcc * RAW_TO_MS2);
+            }
+        }
+
+        /// <summary>
+        /// Get gyro in rad/s (scaled)
+        /// </summary>
+        public (double X, double Y, double Z) GetGyro()
+        {
+            if (IsScaled)
+            {
+                // SCALED_IMU: values are in milli-rad/s
+                const double MILLI_RAD_TO_RAD = 0.001;
+                return (XGyro * MILLI_RAD_TO_RAD, YGyro * MILLI_RAD_TO_RAD, ZGyro * MILLI_RAD_TO_RAD);
+            }
+            else
+            {
+                // RAW_IMU: values are raw ADC
+                const double RAW_TO_RAD = 0.0001; // Approximate
+                return (XGyro * RAW_TO_RAD, YGyro * RAW_TO_RAD, ZGyro * RAW_TO_RAD);
+            }
+        }
+
+        /// <summary>
+        /// Get temperature in °C
+        /// </summary>
+        public double GetTemperature()
+        {
+            return Temperature / 100.0; // Temperature is in centi-degrees
+        }
     }
 }

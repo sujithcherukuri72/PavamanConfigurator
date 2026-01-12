@@ -4,6 +4,16 @@ using System.ComponentModel;
 namespace PavamanDroneConfigurator.Core.Models;
 
 /// <summary>
+/// Represents a single data point for graphing.
+/// </summary>
+public class LogDataPoint
+{
+    public int Index { get; set; }
+    public double Timestamp { get; set; }
+    public double Value { get; set; }
+}
+
+/// <summary>
 /// Represents a graph configuration for log data visualization.
 /// </summary>
 public class LogGraphConfiguration
