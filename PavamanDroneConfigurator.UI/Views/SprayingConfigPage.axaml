@@ -1,0 +1,343 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PavamanDroneConfigurator.UI.ViewModels"
+             x:Class="PavamanDroneConfigurator.UI.Views.SprayingConfigPage"
+             x:DataType="vm:SprayingConfigPageViewModel">
+
+    <UserControl.Styles>
+        <!-- Modern Blue Theme Color System -->
+        <Style Selector="TextBlock.PageTitle">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#29ABE2"/>
+            <Setter Property="LetterSpacing" Value="1"/>
+        </Style>
+        
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#29ABE2"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style Selector="TextBlock.HintText">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        
+        <Style Selector="Border.SectionCard">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+        
+        <Style Selector="Border.InputField">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="#29ABE2"/>
+        </Style>
+        
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        
+        <Style Selector="NumericUpDown">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#29ABE2"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#1E96C8"/>
+        </Style>
+        
+        <Style Selector="Button.Primary:pressed">
+            <Setter Property="Background" Value="#1A7FA8"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#CBD5E1"/>
+        </Style>
+        
+        <Style Selector="Separator.VerticalLine">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Margin" Value="32,0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32" MaxWidth="1400">
+            
+            <!-- Page Header -->
+            <StackPanel Margin="0,0,0,24">
+                <TextBlock Classes="PageTitle" Text="SPRAYING CONFIGURATION"/>
+            </StackPanel>
+
+            <!-- Status Bar -->
+            <Border Background="#F0F9FF" CornerRadius="8" Padding="16" Margin="0,0,0,24" IsVisible="{Binding IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ProgressBar Width="20" Height="20" IsIndeterminate="True"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Main Configuration Section -->
+            <Border Classes="SectionCard">
+                <Grid ColumnDefinitions="*,Auto,*,Auto,*">
+                    
+                    <!-- Enable Spraying -->
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="Enable Spraying"/>
+                        <ComboBox ItemsSource="{Binding EnableSprayingOptions}"
+                                  SelectedItem="{Binding SelectedEnableSpraying}"
+                                  DisplayMemberBinding="{Binding Label}"
+                                  IsEnabled="{Binding IsPageEnabled}"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="1" Classes="VerticalLine"/>
+
+                    <!-- RC Switch -->
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="RC Switch"/>
+                        <NumericUpDown Value="{Binding RcSwitch}"
+                                       Minimum="0"
+                                       Maximum="102"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 0 - Max 102]"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="3" Classes="VerticalLine"/>
+
+                    <!-- BRD PWM Count -->
+                    <StackPanel Grid.Column="4" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="BRD PWM Count"/>
+                        <NumericUpDown Value="{Binding BrdPwmCount}"
+                                       Minimum="0"
+                                       Maximum="8"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 0 - Max 8]"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Servo9 (AUX 1) Section -->
+            <Border Classes="SectionCard">
+                <Grid ColumnDefinitions="*,Auto,*,Auto,*">
+                    
+                    <!-- Servo9 Function -->
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="Servo9 Function[AUX 1]"/>
+                        <NumericUpDown Value="{Binding Servo9Function}"
+                                       Minimum="0"
+                                       Maximum="130"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min0 - Max 130]"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="1" Classes="VerticalLine"/>
+
+                    <!-- Servo9 PWM Min -->
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="PWM Min"/>
+                        <NumericUpDown Value="{Binding Servo9PwmMin}"
+                                       Minimum="500"
+                                       Maximum="2200"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 500 - Max 2200]"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="3" Classes="VerticalLine"/>
+
+                    <!-- Servo9 PWM Max -->
+                    <StackPanel Grid.Column="4" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="PWM Max"/>
+                        <NumericUpDown Value="{Binding Servo9PwmMax}"
+                                       Minimum="800"
+                                       Maximum="2200"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 800 - Max 2200]"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Servo10 (AUX 2) Section -->
+            <Border Classes="SectionCard">
+                <Grid ColumnDefinitions="*,Auto,*,Auto,*">
+                    
+                    <!-- Servo10 Function -->
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="Servo10 Function[AUX 2]"/>
+                        <NumericUpDown Value="{Binding Servo10Function}"
+                                       Minimum="-1"
+                                       Maximum="130"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 0 - Max 130]"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="1" Classes="VerticalLine"/>
+
+                    <!-- Servo10 PWM Min -->
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="PWM Min"/>
+                        <NumericUpDown Value="{Binding Servo10PwmMin}"
+                                       Minimum="500"
+                                       Maximum="2200"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 500 - Max 2200]"/>
+                    </StackPanel>
+
+                    <Separator Grid.Column="3" Classes="VerticalLine"/>
+
+                    <!-- Servo10 PWM Max -->
+                    <StackPanel Grid.Column="4" Spacing="4">
+                        <TextBlock Classes="FieldLabel" Text="PWM Max"/>
+                        <NumericUpDown Value="{Binding Servo10PwmMax}"
+                                       Minimum="800"
+                                       Maximum="2200"
+                                       Increment="1"
+                                       FormatString="F0"
+                                       IsEnabled="{Binding IsPageEnabled}"/>
+                        <TextBlock Classes="HintText" Text="[Min 800 - Max 2200]"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Update Button -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,32">
+                <Button Classes="Primary" 
+                        Command="{Binding UpdateConfigurationCommand}"
+                        IsEnabled="{Binding IsPageEnabled}">
+                    <TextBlock Text="Update"/>
+                </Button>
+            </StackPanel>
+
+            <!-- Calibrate Flow Meter Section -->
+            <Border Classes="SectionCard">
+                <StackPanel Spacing="16">
+                    <TextBlock Classes="SectionTitle" Text="Calibrate Flow Meter"/>
+                    
+                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Column="0" Grid.Row="0" 
+                                   Classes="FieldLabel" 
+                                   Text="Calibrate Flow Meter"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,16,0"/>
+                        
+                        <ComboBox Grid.Column="1" Grid.Row="0"
+                                  ItemsSource="{Binding FlowMeterCalibrationOptions}"
+                                  SelectedItem="{Binding SelectedCalibrationVolume}"
+                                  DisplayMemberBinding="{Binding Label}"
+                                  MaxWidth="200"
+                                  HorizontalAlignment="Left"
+                                  IsEnabled="{Binding IsPageEnabled}"/>
+                        
+                        <Button Grid.Column="2" Grid.Row="0"
+                                Classes="Primary"
+                                Command="{Binding StartFlowMeterCalibrationCommand}"
+                                IsEnabled="{Binding IsPageEnabled}"
+                                IsVisible="{Binding !IsCalibrating}"
+                                Margin="16,0,0,0">
+                            <TextBlock Text="Start"/>
+                        </Button>
+                        
+                        <Button Grid.Column="2" Grid.Row="0"
+                                Classes="Secondary"
+                                Command="{Binding StopFlowMeterCalibrationCommand}"
+                                IsVisible="{Binding IsCalibrating}"
+                                Margin="16,0,0,0">
+                            <TextBlock Text="Stop"/>
+                        </Button>
+                        
+                        <!-- Calibration Status -->
+                        <TextBlock Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1"
+                                   Text="{Binding CalibrationStatus}"
+                                   Foreground="#29ABE2"
+                                   FontSize="13"
+                                   Margin="0,12,0,0"
+                                   IsVisible="{Binding IsCalibrating}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Status Message -->
+            <Border Background="#F0F9FF" CornerRadius="8" Padding="16" Margin="0,0,0,16" 
+                    IsVisible="{Binding !IsBusy}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="" FontSize="16" VerticalAlignment="Center" Foreground="#29ABE2"/>
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#1E293B"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
