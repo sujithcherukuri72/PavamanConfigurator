@@ -12,6 +12,7 @@ namespace PavamanDroneConfigurator.UI.Views
     public partial class LogAnalyzerPage : UserControl
     {
         private LogGraphControl? _graphControl;
+        private LogMapControl? _mapControl;
 
         public LogAnalyzerPage()
         {
@@ -23,6 +24,9 @@ namespace PavamanDroneConfigurator.UI.Views
         {
             // Get reference to graph control
             _graphControl = this.FindControl<LogGraphControl>("GraphControl");
+            
+            // Get reference to map control
+            _mapControl = this.FindControl<LogMapControl>("MapControl");
 
             // Find the parent window and set it on the ViewModel
             if (DataContext is LogAnalyzerPageViewModel viewModel)
@@ -70,6 +74,31 @@ namespace PavamanDroneConfigurator.UI.Views
                 {
                     viewModel.InsertScriptFunction(function);
                 }
+            }
+        }
+
+        private void ZoomToTrack_Click(object? sender, RoutedEventArgs e)
+        {
+            _mapControl?.ZoomToTrack();
+        }
+
+        private void CenterOnStart_Click(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is LogAnalyzerPageViewModel viewModel && viewModel.GpsTrack.Count > 0)
+            {
+                var firstPoint = viewModel.GpsTrack.First();
+                viewModel.MapCenterLat = firstPoint.Latitude;
+                viewModel.MapCenterLng = firstPoint.Longitude;
+            }
+        }
+
+        private void CenterOnEnd_Click(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is LogAnalyzerPageViewModel viewModel && viewModel.GpsTrack.Count > 0)
+            {
+                var lastPoint = viewModel.GpsTrack.Last();
+                viewModel.MapCenterLat = lastPoint.Latitude;
+                viewModel.MapCenterLng = lastPoint.Longitude;
             }
         }
     }

@@ -75,11 +75,12 @@ public partial class App : Application
         services.AddSingleton<ISensorConfigService, SensorConfigService>();
         services.AddSingleton<IParameterMetadataService, ParameterMetadataService>();
         services.AddSingleton<IDroneInfoService, DroneInfoService>();
+        // Log Analyzer Services
         services.AddSingleton<ILogAnalyzerService, LogAnalyzerService>();
         services.AddSingleton<ILogEventDetector, LogEventDetector>();
-        services.AddSingleton<LogQueryEngine>();
-        services.AddSingleton<LogExportService>();
-        services.AddSingleton<DerivedChannelProvider>();
+        services.AddSingleton<ILogQueryEngine, LogQueryEngine>();
+        services.AddSingleton<ILogExportService, LogExportService>();
+        services.AddSingleton<IDerivedChannelProvider, DerivedChannelProvider>();
 
         // ViewModels (Presentation Layer)
         services.AddTransient<MainWindowViewModel>();

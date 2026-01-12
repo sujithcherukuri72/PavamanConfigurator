@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace PavamanDroneConfigurator.Core.Models;
 
@@ -156,7 +157,7 @@ public class LogGraphAxis
 /// <summary>
 /// Represents an available field for selection in the UI.
 /// </summary>
-public class LogFieldInfo
+public class LogFieldInfo : INotifyPropertyChanged
 {
     /// <summary>
     /// Message type name.
@@ -178,15 +179,39 @@ public class LogFieldInfo
     /// </summary>
     public int DataPointCount { get; set; }
     
+    private bool _isSelected;
     /// <summary>
     /// Whether this field is currently selected for graphing.
     /// </summary>
-    public bool IsSelected { get; set; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+            }
+        }
+    }
     
+    private string? _color;
     /// <summary>
     /// Assigned color when selected.
     /// </summary>
-    public string? Color { get; set; }
+    public string? Color
+    {
+        get => _color;
+        set
+        {
+            if (_color != value)
+            {
+                _color = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     /// <summary>
     /// Minimum value in the data series (for legend display).
@@ -202,6 +227,13 @@ public class LogFieldInfo
     /// Mean/average value in the data series (for legend display).
     /// </summary>
     public double MeanValue { get; set; }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }
 
 /// <summary>

@@ -23,6 +23,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private readonly ILogQueryEngine? _queryEngine;
     private readonly ILogEventDetector? _eventDetector;
     private readonly ILogExportService? _exportService;
+    private readonly IArduPilotMetadataLoader? _metadataLoader;
 
     #region Status Properties
 
@@ -238,6 +239,18 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _parameterSearchText = string.Empty;
+    
+    [ObservableProperty]
+    private ObservableCollection<LogParameter> _logParameters = new();
+    
+    [ObservableProperty]
+    private ObservableCollection<LogParameter> _filteredLogParameters = new();
+    
+    [ObservableProperty]
+    private LogParameter? _selectedLogParameter;
+    
+    [ObservableProperty]
+    private bool _hasLogParameters;
 
     #endregion
 
@@ -245,6 +258,9 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private ObservableCollection<GpsPoint> _gpsTrack = new();
+    
+    [ObservableProperty]
+    private ObservableCollection<Controls.GpsTrackPoint> _gpsTrackPoints = new();
 
     [ObservableProperty]
     private GpsPoint? _currentMapPosition;
@@ -323,7 +339,8 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         IConnectionService connectionService,
         ILogQueryEngine? queryEngine = null,
         ILogEventDetector? eventDetector = null,
-        ILogExportService? exportService = null)
+        ILogExportService? exportService = null,
+        IArduPilotMetadataLoader? metadataLoader = null)
     {
         _logger = logger;
         _logAnalyzerService = logAnalyzerService;
@@ -331,6 +348,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         _queryEngine = queryEngine;
         _eventDetector = eventDetector;
         _exportService = exportService;
+        _metadataLoader = metadataLoader;
 
         _downloadFolder = _logAnalyzerService.GetDefaultDownloadFolder();
 
@@ -347,6 +365,12 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         foreach (var func in _logAnalyzerService.GetScriptFunctions())
         {
             ScriptFunctions.Add(func);
+        }
+        
+        // Load metadata if available
+        if (_metadataLoader != null && !_metadataLoader.IsLoaded)
+        {
+            _ = Task.Run(async () => await _metadataLoader.LoadAllMetadataAsync());
         }
     }
 
@@ -432,10 +456,19 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 LoadAvailableFields();
                 
                 // Detect events in background
-                await DetectEventsAsync();
+                if (_eventDetector != null)
+                {
+                    await DetectEventsAsync();
+                }
                 
                 // Load GPS track for map
                 LoadGpsTrack();
+                
+                // Load parameter changes if available
+                LoadParameterChanges();
+                
+                // Load log parameters with metadata
+                await LoadLogParametersAsync();
 
                 StatusMessage = $"Log loaded: {result.MessageCount:N0} messages";
             }
@@ -445,6 +478,117 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 StatusMessage = $"Failed to load log: {result.ErrorMessage}";
             }
         });
+    }
+    
+    private void LoadParameterChanges()
+    {
+        ParameterChanges.Clear();
+        
+        // Query for PARM messages or parameter changes
+        var parmData = _logAnalyzerService.GetMessages("PARM", 0, 1000);
+        
+        // For now, just placeholder - would parse actual PARM messages
+        foreach (var msg in parmData)
+        {
+            // Parse parameter change from message
+            // This would extract Name, OldValue, NewValue, Timestamp
+        }
+    }
+    
+    private async Task LoadLogParametersAsync()
+    {
+        LogParameters.Clear();
+        FilteredLogParameters.Clear();
+        
+        // Get parameters from log
+        var logParams = _logAnalyzerService.GetLogParameters();
+        HasLogParameters = logParams.Count > 0;
+        
+        if (!HasLogParameters)
+        {
+            StatusMessage = "No parameters found in log file";
+            return;
+        }
+
+        // Load metadata if not already loaded
+        if (_metadataLoader != null && !_metadataLoader.IsLoaded)
+        {
+            try
+            {
+                StatusMessage = "Loading parameter metadata...";
+                await _metadataLoader.LoadAllMetadataAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load parameter metadata");
+                StatusMessage = "Parameter metadata unavailable - showing values only";
+            }
+        }
+
+        // Enrich parameters with metadata
+        foreach (var kvp in logParams.OrderBy(p => p.Key))
+        {
+            var param = new LogParameter
+            {
+                Name = kvp.Key,
+                Value = kvp.Value
+            };
+
+            // Try to get metadata
+            if (_metadataLoader != null)
+            {
+                var meta = _metadataLoader.GetMetadata(kvp.Key);
+                if (meta != null)
+                {
+                    param.Description = meta.Description ?? "No description available";
+                    param.Units = meta.Units;
+                    param.Group = meta.Group ?? "General";
+                    param.Default = meta.Range?.Low ?? "Not specified";
+                    
+                    // Set range display
+                    if (meta.Range != null && !string.IsNullOrEmpty(meta.Range.Low) && !string.IsNullOrEmpty(meta.Range.High))
+                    {
+                        param.Range = $"{meta.Range.Low} to {meta.Range.High}";
+                    }
+
+                    // Add value options if available
+                    if (meta.Values != null && meta.Values.Count > 0)
+                    {
+                        foreach (var valKvp in meta.Values.OrderBy(v => v.Key))
+                        {
+                            param.OptionsDisplay.Add($"{valKvp.Key}: {valKvp.Value}");
+                        }
+                    }
+                }
+            }
+
+            LogParameters.Add(param);
+            FilteredLogParameters.Add(param);
+        }
+
+        StatusMessage = $"Loaded {LogParameters.Count} parameters from log";
+    }
+    
+    partial void OnParameterSearchTextChanged(string value)
+    {
+        FilterLogParameters();
+    }
+    
+    private void FilterLogParameters()
+    {
+        FilteredLogParameters.Clear();
+        
+        var filtered = string.IsNullOrWhiteSpace(ParameterSearchText)
+            ? LogParameters
+            : LogParameters.Where(p => 
+                p.Name.Contains(ParameterSearchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Description.Contains(ParameterSearchText, StringComparison.OrdinalIgnoreCase) ||
+                p.Group.Contains(ParameterSearchText, StringComparison.OrdinalIgnoreCase));
+        
+        foreach (var p in filtered)
+        {
+            FilteredLogParameters.Add(p);
+        }
     }
 
     private void UpdateOverview(LogParseResult result)
@@ -641,6 +785,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     private void LoadGpsTrack()
     {
         GpsTrack.Clear();
+        GpsTrackPoints.Clear();
 
         var latData = _logAnalyzerService.GetFieldData("GPS", "Lat");
         var lngData = _logAnalyzerService.GetFieldData("GPS", "Lng");
@@ -660,14 +805,27 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             if (Math.Abs(lat) < 0.001 && Math.Abs(lng) < 0.001)
                 continue;
 
+            var alt = i < altCount ? altData![i].Value : 0;
+            var timestamp = latData[i].Timestamp / 1e6; // Convert to seconds
+
             var point = new GpsPoint
             {
                 Latitude = lat,
                 Longitude = lng,
-                Altitude = i < altCount ? altData![i].Value : 0,
-                Timestamp = latData[i].Timestamp / 1e6 // Convert to seconds
+                Altitude = alt,
+                Timestamp = timestamp
             };
             GpsTrack.Add(point);
+            
+            // Also add to map-specific collection
+            var trackPoint = new Controls.GpsTrackPoint
+            {
+                Latitude = lat,
+                Longitude = lng,
+                Altitude = alt,
+                Timestamp = timestamp
+            };
+            GpsTrackPoints.Add(trackPoint);
         }
 
         if (GpsTrack.Count > 0)
@@ -686,7 +844,11 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task ExportToCsvAsync()
     {
-        if (_parentWindow == null || !IsLogLoaded) return;
+        if (_parentWindow == null || !IsLogLoaded)
+        {
+            StatusMessage = "Please load a log file first";
+            return;
+        }
 
         try
         {
@@ -701,29 +863,38 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 }
             });
 
-            if (file != null && _exportService != null)
+            if (file != null)
             {
                 IsBusy = true;
                 StatusMessage = "Exporting to CSV...";
 
-                var seriesKeys = SelectedGraphFields.Select(f => f.DisplayName).ToList();
-                if (seriesKeys.Count == 0)
+                // If export service is not available, use fallback method
+                if (_exportService != null)
                 {
-                    StatusMessage = "Select series to export first";
-                    return;
-                }
+                    var seriesKeys = SelectedGraphFields.Select(f => f.DisplayName).ToList();
+                    if (seriesKeys.Count == 0)
+                    {
+                        // Export all available fields if none selected
+                        seriesKeys = AvailableFields.Take(10).Select(f => f.DisplayName).ToList();
+                    }
 
-                var progress = new Progress<int>(p => LoadProgress = p);
-                var result = await _exportService.ExportToCsvAsync(
-                    file.Path.LocalPath, seriesKeys, ZoomStartTime, ZoomEndTime, progress);
+                    var progress = new Progress<int>(p => LoadProgress = p);
+                    var result = await _exportService.ExportToCsvAsync(
+                        file.Path.LocalPath, seriesKeys, ZoomStartTime, ZoomEndTime, progress);
 
-                if (result.IsSuccess)
-                {
-                    StatusMessage = $"Exported {result.RecordCount} records to CSV";
+                    if (result.IsSuccess)
+                    {
+                        StatusMessage = $"Exported {result.RecordCount} records to CSV";
+                    }
+                    else
+                    {
+                        StatusMessage = $"Export failed: {result.ErrorMessage}";
+                    }
                 }
                 else
                 {
-                    StatusMessage = $"Export failed: {result.ErrorMessage}";
+                    // Fallback: Manual CSV export
+                    await ExportToCsvManualAsync(file.Path.LocalPath);
                 }
             }
         }
@@ -735,13 +906,87 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+            LoadProgress = 0;
+        }
+    }
+    
+    private async Task ExportToCsvManualAsync(string filePath)
+    {
+        try
+        {
+            using var writer = new System.IO.StreamWriter(filePath);
+            
+            // Write header
+            var fields = SelectedGraphFields.Count > 0 
+                ? SelectedGraphFields 
+                : AvailableFields.Take(10);
+                
+            await writer.WriteLineAsync("Timestamp," + string.Join(",", fields.Select(f => f.DisplayName)));
+            
+            // Get data for each field
+            var fieldData = new Dictionary<string, List<Core.Models.LogDataPoint>>();
+            foreach (var field in fields)
+            {
+                var parts = field.DisplayName.Split('.');
+                if (parts.Length == 2)
+                {
+                    var data = _logAnalyzerService.GetFieldData(parts[0], parts[1]);
+                    if (data != null)
+                    {
+                        fieldData[field.DisplayName] = data;
+                    }
+                }
+            }
+            
+            // Write data rows
+            if (fieldData.Count > 0)
+            {
+                var maxLength = fieldData.Values.Max(d => d.Count);
+                for (int i = 0; i < maxLength; i++)
+                {
+                    var row = new List<string>();
+                    var timestamp = fieldData.Values.First().Count > i 
+                        ? (fieldData.Values.First()[i].Timestamp / 1e6).ToString("F6") 
+                        : "";
+                    row.Add(timestamp);
+                    
+                    foreach (var field in fields)
+                    {
+                        if (fieldData.TryGetValue(field.DisplayName, out var data) && data.Count > i)
+                        {
+                            row.Add(data[i].Value.ToString("F6"));
+                        }
+                        else
+                        {
+                            row.Add("");
+                        }
+                    }
+                    
+                    await writer.WriteLineAsync(string.Join(",", row));
+                    
+                    if (i % 1000 == 0)
+                    {
+                        LoadProgress = (int)((double)i / maxLength * 100);
+                    }
+                }
+            }
+            
+            StatusMessage = $"Exported to {Path.GetFileName(filePath)}";
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Manual CSV export failed: {ex.Message}", ex);
         }
     }
 
     [RelayCommand]
     private async Task ExportToKmlAsync()
     {
-        if (_parentWindow == null || !IsLogLoaded || !HasGpsData) return;
+        if (_parentWindow == null || !IsLogLoaded || !HasGpsData)
+        {
+            StatusMessage = "No GPS data available to export";
+            return;
+        }
 
         try
         {
@@ -756,22 +1001,30 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
                 }
             });
 
-            if (file != null && _exportService != null)
+            if (file != null)
             {
                 IsBusy = true;
                 StatusMessage = "Exporting to KML...";
 
-                var progress = new Progress<int>(p => LoadProgress = p);
-                var result = await _exportService.ExportToKmlAsync(
-                    file.Path.LocalPath, true, progress);
-
-                if (result.IsSuccess)
+                if (_exportService != null)
                 {
-                    StatusMessage = $"Exported GPS track to KML ({result.RecordCount} points)";
+                    var progress = new Progress<int>(p => LoadProgress = p);
+                    var result = await _exportService.ExportToKmlAsync(
+                        file.Path.LocalPath, true, progress);
+
+                    if (result.IsSuccess)
+                    {
+                        StatusMessage = $"Exported GPS track to KML ({result.RecordCount} points)";
+                    }
+                    else
+                    {
+                        StatusMessage = $"Export failed: {result.ErrorMessage}";
+                    }
                 }
                 else
                 {
-                    StatusMessage = $"Export failed: {result.ErrorMessage}";
+                    // Fallback: Manual KML export
+                    await ExportToKmlManualAsync(file.Path.LocalPath);
                 }
             }
         }
@@ -783,6 +1036,69 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+            LoadProgress = 0;
+        }
+    }
+    
+    private async Task ExportToKmlManualAsync(string filePath)
+    {
+        try
+        {
+            if (GpsTrack.Count == 0)
+            {
+                throw new Exception("No GPS data to export");
+            }
+            
+            using var writer = new System.IO.StreamWriter(filePath);
+            
+            // Write KML header
+            await writer.WriteLineAsync("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            await writer.WriteLineAsync("<kml xmlns=\"http://www.opengis.net/kml/2.2\">");
+            await writer.WriteLineAsync("  <Document>");
+            await writer.WriteLineAsync($"    <name>Flight Track - {LogFileName}</name>");
+            await writer.WriteLineAsync("    <description>Exported from Pavaman Drone Configurator</description>");
+            
+            // Style for the track
+            await writer.WriteLineAsync("    <Style id=\"flightPath\">");
+            await writer.WriteLineAsync("      <LineStyle>");
+            await writer.WriteLineAsync("        <color>ff0000ff</color>");
+            await writer.WriteLineAsync("        <width>2</width>");
+            await writer.WriteLineAsync("      </LineStyle>");
+            await writer.WriteLineAsync("    </Style>");
+            
+            // Write the track
+            await writer.WriteLineAsync("    <Placemark>");
+            await writer.WriteLineAsync("      <name>Flight Path</name>");
+            await writer.WriteLineAsync("      <styleUrl>#flightPath</styleUrl>");
+            await writer.WriteLineAsync("      <LineString>");
+            await writer.WriteLineAsync("        <extrude>1</extrude>");
+            await writer.WriteLineAsync("        <tessellate>1</tessellate>");
+            await writer.WriteLineAsync("        <altitudeMode>absolute</altitudeMode>");
+            await writer.WriteLineAsync("        <coordinates>");
+            
+            // Write coordinates
+            for (int i = 0; i < GpsTrack.Count; i++)
+            {
+                var point = GpsTrack[i];
+                await writer.WriteLineAsync($"          {point.Longitude:F8},{point.Latitude:F8},{point.Altitude:F2}");
+                
+                if (i % 100 == 0)
+                {
+                    LoadProgress = (int)((double)i / GpsTrack.Count * 100);
+                }
+            }
+            
+            await writer.WriteLineAsync("        </coordinates>");
+            await writer.WriteLineAsync("      </LineString>");
+            await writer.WriteLineAsync("    </Placemark>");
+            await writer.WriteLineAsync("  </Document>");
+            await writer.WriteLineAsync("</kml>");
+            
+            StatusMessage = $"Exported {GpsTrack.Count} GPS points to {Path.GetFileName(filePath)}";
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Manual KML export failed: {ex.Message}", ex);
         }
     }
 
@@ -1115,6 +1431,7 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
             field.IsSelected = true;
             field.Color = GraphColors.GetColor(SelectedGraphFields.Count);
             SelectedGraphFields.Add(field);
+            
             UpdateGraph();
         }
     }
@@ -1124,7 +1441,16 @@ public partial class LogAnalyzerPageViewModel : ViewModelBase
     {
         if (field == null) return;
         field.IsSelected = false;
+        field.Color = null;
+        
         SelectedGraphFields.Remove(field);
+        
+        // Reassign colors to remaining fields
+        for (int i = 0; i < SelectedGraphFields.Count; i++)
+        {
+            SelectedGraphFields[i].Color = GraphColors.GetColor(i);
+        }
+        
         UpdateGraph();
     }
 
@@ -1390,6 +1716,24 @@ public class ParameterChange
     public double NewValue { get; set; }
     public double Timestamp { get; set; }
     public string TimestampDisplay => TimeSpan.FromSeconds(Timestamp).ToString(@"hh\:mm\:ss");
+}
+
+/// <summary>
+/// Parameter display record for log file parameters.
+/// Shows parameter value from log with metadata (description, options, etc.)
+/// </summary>
+public class LogParameter
+{
+    public string Name { get; set; } = string.Empty;
+    public float Value { get; set; }
+    public string ValueDisplay => Value.ToString("G");
+    public string Description { get; set; } = "No description available";
+    public string? Units { get; set; }
+    public string Range { get; set; } = "Not specified";
+    public string? Default { get; set; }
+    public string Group { get; set; } = "General";
+    public ObservableCollection<string> OptionsDisplay { get; set; } = new();
+    public bool HasOptions => OptionsDisplay.Count > 0;
 }
 
 /// <summary>
