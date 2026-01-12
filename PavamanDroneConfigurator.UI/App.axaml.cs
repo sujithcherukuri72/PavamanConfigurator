@@ -97,6 +97,7 @@ public partial class App : Application
         services.AddTransient<ParameterMetadataViewModel>();
         services.AddTransient<LogAnalyzerPageViewModel>();
         services.AddTransient<ResetParametersPageViewModel>();
+        services.AddTransient<SprayingConfigPageViewModel>();
 
         Services = services.BuildServiceProvider();
     }

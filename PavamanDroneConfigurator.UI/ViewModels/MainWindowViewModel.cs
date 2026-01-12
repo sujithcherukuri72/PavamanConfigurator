@@ -46,6 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public SensorsCalibrationPageViewModel SensorsCalibrationPage { get; }
     public LogAnalyzerPageViewModel LogAnalyzerPage { get; }
     public ResetParametersPageViewModel ResetParametersPage { get; }
+    public SprayingConfigPageViewModel SprayingConfigPage { get; }
 
     private readonly IParameterService _parameterService;
     private readonly IConnectionService _connectionService;
@@ -68,6 +69,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SensorsCalibrationPageViewModel sensorsCalibrationPage,
         LogAnalyzerPageViewModel logAnalyzerPage,
         ResetParametersPageViewModel resetParametersPage,
+        SprayingConfigPageViewModel sprayingConfigPage,
         IParameterService parameterService,
         IConnectionService connectionService)
     {
@@ -86,6 +88,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SensorsCalibrationPage = sensorsCalibrationPage;
         LogAnalyzerPage = logAnalyzerPage;
         ResetParametersPage = resetParametersPage;
+        SprayingConfigPage = sprayingConfigPage;
         _parameterService = parameterService;
         _connectionService = connectionService;
 
