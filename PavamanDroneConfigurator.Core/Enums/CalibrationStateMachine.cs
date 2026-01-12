@@ -21,6 +21,9 @@ public enum CalibrationStateMachine
     /// <summary>User confirmed position, waiting for FC to sample</summary>
     WaitingForSampling,
     
+    /// <summary>UI is validating position using IMU data</summary>
+    ValidatingPosition,
+    
     /// <summary>FC is actively sampling sensor data</summary>
     Sampling,
     

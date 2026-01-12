@@ -56,6 +56,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     public event EventHandler<StatusTextEventArgs>? StatusTextReceived;
     public event EventHandler<RcChannelsEventArgs>? RcChannelsReceived;
     public event EventHandler<CommandAckEventArgs>? CommandAckReceived;
+    public event EventHandler<RawImuEventArgs>? RawImuReceived;
 
     public ConnectionService(ILogger<ConnectionService> logger)
     {
@@ -388,6 +389,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _mavlink.StatusTextReceived += OnMavlinkStatusText;
         _mavlink.RcChannelsReceived += OnMavlinkRcChannels;
         _mavlink.CommandAckReceived += OnMavlinkCommandAck;
+        _mavlink.RawImuReceived += OnMavlinkRawImu;
         _mavlink.Initialize(_inputStream, _outputStream);
 
         _lastDataReceivedTime = DateTime.UtcNow;
@@ -466,6 +468,25 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         });
     }
 
+    private void OnMavlinkRawImu(object? sender, RawImuData e)
+    {
+        _lastDataReceivedTime = DateTime.UtcNow;
+        var accel = e.GetAcceleration();
+        var gyro = e.GetGyro();
+        
+        RawImuReceived?.Invoke(this, new RawImuEventArgs
+        {
+            AccelX = accel.X,
+            AccelY = accel.Y,
+            AccelZ = accel.Z,
+            GyroX = gyro.X,
+            GyroY = gyro.Y,
+            GyroZ = gyro.Z,
+            TimeUsec = e.TimeUsec,
+            Temperature = e.GetTemperature()
+        });
+    }
+
     private void OnBluetoothHeartbeat(object? sender, (byte SystemId, byte ComponentId) e)
     {
         _lastDataReceivedTime = DateTime.UtcNow;
@@ -522,6 +543,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 _mavlink.StatusTextReceived -= OnMavlinkStatusText;
                 _mavlink.RcChannelsReceived -= OnMavlinkRcChannels;
                 _mavlink.CommandAckReceived -= OnMavlinkCommandAck;
+                _mavlink.RawImuReceived -= OnMavlinkRawImu;
                 _mavlink.Dispose();
                 _mavlink = null;
             }

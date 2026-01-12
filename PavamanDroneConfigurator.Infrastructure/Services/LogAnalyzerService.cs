@@ -17,6 +17,7 @@ public sealed class LogAnalyzerService : ILogAnalyzerService, IDisposable
 {
     private readonly ILogger<LogAnalyzerService> _logger;
     private readonly IConnectionService _connectionService;
+    private readonly ILogEventDetector? _eventDetector;
     
     private MavFtpClient? _ftpClient;
     private CancellationTokenSource? _downloadCts;
@@ -53,10 +54,12 @@ public sealed class LogAnalyzerService : ILogAnalyzerService, IDisposable
 
     public LogAnalyzerService(
         ILogger<LogAnalyzerService> logger,
-        IConnectionService connectionService)
+        IConnectionService connectionService,
+        ILogEventDetector? eventDetector = null)
     {
         _logger = logger;
         _connectionService = connectionService;
+        _eventDetector = eventDetector;
         
         _connectionService.ConnectionStateChanged += OnConnectionStateChanged;
     }
@@ -398,6 +401,12 @@ public sealed class LogAnalyzerService : ILogAnalyzerService, IDisposable
             result.Duration = _currentLog.Duration;
             result.Parameters = _currentLog.Parameters;
 
+            // Set log data for event detector
+            if (_eventDetector is LogEventDetector detector)
+            {
+                detector.SetLogData(_parser, _currentLog);
+            }
+
             // Build message type groups
             foreach (var format in _currentLog.Formats)
             {
@@ -676,6 +685,14 @@ public sealed class LogAnalyzerService : ILogAnalyzerService, IDisposable
         stats.StandardDeviation = Math.Sqrt(sumSquares / values.Count);
 
         return stats;
+    }
+    
+    public List<LogDataPoint>? GetFieldData(string messageType, string fieldName)
+    {
+        if (_parser == null)
+            return null;
+            
+        return _parser.GetDataSeries(messageType, fieldName);
     }
 
     #endregion

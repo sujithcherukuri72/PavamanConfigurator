@@ -249,6 +249,21 @@ public class AccelPositionResult
     /// FC message when position was processed
     /// </summary>
     public string? FcMessage { get; set; }
+    
+    /// <summary>
+    /// Actual accelerometer X reading (m/s²) during validation
+    /// </summary>
+    public double ActualAccelX { get; set; }
+    
+    /// <summary>
+    /// Actual accelerometer Y reading (m/s²) during validation
+    /// </summary>
+    public double ActualAccelY { get; set; }
+    
+    /// <summary>
+    /// Actual accelerometer Z reading (m/s²) during validation
+    /// </summary>
+    public double ActualAccelZ { get; set; }
 }
 
 /// <summary>

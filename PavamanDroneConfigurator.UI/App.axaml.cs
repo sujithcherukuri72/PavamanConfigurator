@@ -50,6 +50,10 @@ public partial class App : Application
         services.AddSingleton<CalibrationPreConditionChecker>();
         services.AddSingleton<CalibrationAbortMonitor>();
         services.AddSingleton<CalibrationValidationHelper>();
+        services.AddSingleton<AccelPositionValidator>();
+        services.AddSingleton<AccelStatusTextParser>();
+        services.AddSingleton<AccelImuValidator>();
+        services.AddSingleton<AccelerometerCalibrationService>();
 
         // Repositories (Data Layer)
         services.AddSingleton<IParameterMetadataRepository, ParameterMetadataRepository>();
@@ -72,6 +76,10 @@ public partial class App : Application
         services.AddSingleton<IParameterMetadataService, ParameterMetadataService>();
         services.AddSingleton<IDroneInfoService, DroneInfoService>();
         services.AddSingleton<ILogAnalyzerService, LogAnalyzerService>();
+        services.AddSingleton<ILogEventDetector, LogEventDetector>();
+        services.AddSingleton<LogQueryEngine>();
+        services.AddSingleton<LogExportService>();
+        services.AddSingleton<DerivedChannelProvider>();
 
         // ViewModels (Presentation Layer)
         services.AddTransient<MainWindowViewModel>();

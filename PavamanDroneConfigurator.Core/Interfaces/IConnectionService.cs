@@ -29,6 +29,7 @@ public interface IConnectionService
     event EventHandler<StatusTextEventArgs>? StatusTextReceived;
     event EventHandler<RcChannelsEventArgs>? RcChannelsReceived;
     event EventHandler<CommandAckEventArgs>? CommandAckReceived;
+    event EventHandler<RawImuEventArgs>? RawImuReceived;
     
     // MAVLink send methods for ParameterService to call
     void SendParamRequestList();
@@ -123,4 +124,17 @@ public class CommandAckEventArgs : EventArgs
     public ushort Command { get; set; }
     public byte Result { get; set; }
     public bool IsSuccess => Result == 0; // MAV_RESULT_ACCEPTED
+}
+
+// Event args for RAW_IMU messages
+public class RawImuEventArgs : EventArgs
+{
+    public double AccelX { get; set; } // m/s²
+    public double AccelY { get; set; } // m/s²
+    public double AccelZ { get; set; } // m/s²
+    public double GyroX { get; set; }  // rad/s
+    public double GyroY { get; set; }  // rad/s
+    public double GyroZ { get; set; }  // rad/s
+    public ulong TimeUsec { get; set; }
+    public double Temperature { get; set; } // °C
 }

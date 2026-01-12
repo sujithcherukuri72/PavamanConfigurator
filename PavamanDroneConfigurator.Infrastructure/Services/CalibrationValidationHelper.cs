@@ -84,13 +84,13 @@ public class CalibrationValidationHelper
     /// Validates a single accelerometer position during calibration.
     /// Checks gravity magnitude is approximately 1G.
     /// </summary>
-    public PositionValidationResult ValidateAccelPosition(
+    public AccelPositionDiagnostic ValidateAccelPosition(
         int position, 
         float accelX, 
         float accelY, 
         float accelZ)
     {
-        var result = new PositionValidationResult
+        var result = new AccelPositionDiagnostic
         {
             Position = position,
             AccelX = accelX,
@@ -119,7 +119,7 @@ public class CalibrationValidationHelper
         return result;
     }
 
-    private void ValidatePositionOrientation(PositionValidationResult result, int position, 
+    private void ValidatePositionOrientation(AccelPositionDiagnostic result, int position, 
         float x, float y, float z)
     {
         // Expected dominant axis for each position:
@@ -347,7 +347,7 @@ public class AccelCalibrationDiagnostic : CalibrationDiagnosticBase
 /// <summary>
 /// Single position validation result during accel calibration.
 /// </summary>
-public class PositionValidationResult : CalibrationDiagnosticBase
+public class AccelPositionDiagnostic : CalibrationDiagnosticBase
 {
     public int Position { get; set; }
     public float AccelX { get; set; }
